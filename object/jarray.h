@@ -20,8 +20,6 @@ class jarray
 {
 private:
     jvm &m_jvm;
-    recursive_lock m_lock;
-    std::unordered_map<std::string, jclass*> m_classes;
 
     jref new_type_array(const char *type, int length, int ele_size);
 
@@ -30,14 +28,12 @@ private:
     void set_array_region(jref array, jsize start, jint len, const void *buff);
 
 public:
-    explicit jarray(jvm &vm) noexcept
-            : m_jvm(vm)
+    explicit jarray(jvm &vm) noexcept :
+        m_jvm(vm)
     {
     }
     jarray(const jarray&) = delete;
     jarray& operator=(const jarray&) = delete;
-
-    jclass *load_array_class(const char *name);
 
     jsize get_array_length(jref array);
 

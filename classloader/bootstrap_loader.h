@@ -95,6 +95,14 @@ private:
      */
     jref new_class_object(jclass *klass);
 
+    /**
+     * 加载数组类型。jvm 要求数组的类加载器和其包裹类型必须是同一个类加载器，
+     * 因此数组类型也必须交给 classloader 处理(隔离)，而不能交给全局的 jarray。
+     */
+     jclass *load_array_type(const std::string &s);
+
+     jclass *create_primitive_type(const char *name);
+
 public:
     explicit bootstrap_loader(jvm& mem) noexcept;
 

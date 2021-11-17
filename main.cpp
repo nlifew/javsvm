@@ -17,15 +17,19 @@ int main() {
 
     printf("start\n");
 
-    auto &array = jvm::get().array;
-    jclass *klass = array.load_array_class("[[[[[[[[I");
+    jvm &vm = jvm::get();
+    jclass *klass = vm.bootstrap_loader.load_class("[[[[[[[[I");
 
-    printf("--------------------------result--------------------------\n");
+    printf("--------------------------first--------------------------\n");
     for (jclass *cls = klass; cls != nullptr; cls = cls->component_type) {
         printf("'%s'\n", cls->name);
     }
 
-//    jclass *cls = jvm::get().class_loader.load_class("Main2");
+    printf("--------------------------second--------------------------\n");
+    jclass *main = vm.bootstrap_loader.load_class("Main");
+    vm.array.new_object_array(main, 0);
+
+//    jclass *cls = jvm::get().bootstrap_loader.load_class("Main2");
 //
 //    printf("--------------------------fields table--------------------------\n");
 //    for (int i = 0; i < cls->field_table_size; i ++) {

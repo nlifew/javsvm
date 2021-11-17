@@ -9,7 +9,8 @@
 #include "../utils/log.h"
 #include "../class/jclass_file.h"
 
-#include <shared_mutex>
+#include <tuple>
+#include <unordered_map>
 
 using namespace javsvm;
 
@@ -69,7 +70,7 @@ static jclass* create_primitive_type(const char *type, jvm &vm)
 {
     LOGI("create primitive type '%s'\n", type);
 
-    auto &holder = get_class_holder(vm.class_loader);
+    auto &holder = get_class_holder(vm.bootstrap_loader);
 
     auto *klass = vm.method_area.calloc_type<jclass>();
     klass->name = type;
@@ -81,98 +82,6 @@ static jclass* create_primitive_type(const char *type, jvm &vm)
     return klass;
 }
 
-jclass *jarray::load_array_class(const char *type) {
-    LOGI("loading array class '%s'\n", type);
-
-    std::string type_s(type);
-    {
-        std::shared_lock rd_lock(m_lock);
-        auto it = m_classes.find(type_s);
-        if (it != m_classes.end()) {
-            LOGI("array class '%s' found in cache, return\n", type);
-            return it->second;
-        }
-    }
-
-    std::unique_lock wr_lock(m_lock);
-    {
-        auto it = m_classes.find(type_s);
-        if (it != m_classes.end()) {
-            LOGI("array class '%s' found when double check, return\n", type);
-            return it->second;
-        }
-    }
-
-    LOGI("start loading array type '%s'\n", type);
-
-    // 数组要包裹的类型
-    jclass *component_type = nullptr;
-
-#define FIND_OR_CREATE_PRIMITIVE_TYPE(NAME) \
-    auto it = m_classes.find(NAME);         \
-    if (it == m_classes.end()) {            \
-        component_type = create_primitive_type(NAME, m_jvm); \
-        m_classes[NAME] = component_type;   \
-    }                                       \
-    else {                                  \
-        component_type = it->second;        \
-    }
-
-    // 创建最内层的包裹类
-    const int index = (int) type_s.find_last_of('[') + 1; // type_s.find_last_not_of('[');
-
-    switch (type[index]) {
-        case 'Z': { FIND_OR_CREATE_PRIMITIVE_TYPE("boolean")    break; }
-        case 'B': { FIND_OR_CREATE_PRIMITIVE_TYPE("type")       break; }
-        case 'C': { FIND_OR_CREATE_PRIMITIVE_TYPE("char")       break; }
-        case 'S': { FIND_OR_CREATE_PRIMITIVE_TYPE("short")      break; }
-        case 'I': { FIND_OR_CREATE_PRIMITIVE_TYPE("int")        break; }
-        case 'J': { FIND_OR_CREATE_PRIMITIVE_TYPE("long")       break; }
-        case 'F': { FIND_OR_CREATE_PRIMITIVE_TYPE("float")      break; }
-        case 'D': { FIND_OR_CREATE_PRIMITIVE_TYPE("double")     break; }
-        default: {
-            component_type = m_jvm.class_loader.load_class(type + index);
-            break;
-        }
-    }
-#undef FIND_OR_CREATE_PRIMITIVE_TYPE
-
-    if (component_type == nullptr) {
-        LOGE("failed to create component_type '%s' of array '%s'\n", type + index, type);
-        exit(1);
-    }
-    LOGI("the component type of array '%s' is '%s'\n", type, component_type->name);
-
-    auto &holder = get_class_holder(m_jvm.class_loader);
-
-    // 从最内层开始遍历，逐渐生成每个数组类
-    for (int i = index - 1; i >= 0; --i) {
-        LOGI("[%d/%d]: create class '%s' of array '%s'\n", i + 1, index, type + i, type);
-        auto *klass = create_primitive_type(type + i, m_jvm);
-        klass->super_class = holder.java_lang_Object;
-        klass->component_type = component_type;
-
-        // 数组类型要实现 java.io.Serializable 和 java.lang.Cloneable 接口
-        // 但不需要真正创建 jmethod
-        klass->interface_num = 2;
-        klass->interfaces = m_jvm.method_area.calloc_type<jclass*>(2);
-        klass->interfaces[0] = holder.java_io_Serializable;
-        klass->interfaces[1] = holder.java_lang_Cloneable;
-
-        // 创建继承树
-        klass->parent_tree_size = 3;
-        klass->parent_tree = m_jvm.method_area.calloc_type<jclass*>(3);
-        klass->parent_tree[0] = holder.java_lang_Object;
-        klass->parent_tree[1] = holder.java_io_Serializable;
-        klass->parent_tree[2] = holder.java_lang_Cloneable;
-
-        m_classes[type + i] = klass;
-        component_type = klass;
-    }
-    LOGI("load array class '%s' finish, result is '%s'\n", type, component_type->name);
-    return component_type;
-}
-
 jref jarray::new_type_array(const char *type, int length, int ele_size)
 {
     if (length < 0) {
@@ -181,14 +90,20 @@ jref jarray::new_type_array(const char *type, int length, int ele_size)
         exit(1);
     }
 
-    jclass *klass = load_array_class(type);
+    // 数组类的类加载器和数组所包裹的类的加载器必须相同。对于基本数据类型，
+    // 其类加载器就是系统加载器，因此我们直接使用系统的加载器
+    jclass *klass = m_jvm.bootstrap_loader.load_class(type);
+    if (klass == nullptr) {
+        LOGE("obtain primitive type '%s' failed, abort\n", type);
+        exit(1);
+    }
 
     jref ref = m_jvm.heap.malloc_bytes(length * ele_size + 2 * (int) sizeof(jint));
     jobject_ptr obj = m_jvm.heap.lock(ref);
 
     obj->klass = klass;
-    ((jsize *)(obj->values))[0] = length;
-    ((jsize *)(obj->values))[1] = ele_size;
+    ((jint *)(obj->values))[0] = length;
+    ((jint *)(obj->values))[1] = ele_size;
     return ref;
 }
 
@@ -202,11 +117,61 @@ jref jarray::new_object_array(jclass *klass, int length)
         LOGE("null pointer exception\n");
         exit(1);
     }
+    if (length < 0) {
+        // todo: 抛出到 java 层
+        LOGE("the length of array '%s' is negative: %d\n", klass->name, length);
+        exit(1);
+    }
+    std::string name_s(klass->name);
 
-    std::string s;
-    s.append("[").append(klass->name);
+    // 判断传进来的是不是基本类型，从而确定 ele_size
+    static std::unordered_map<std::string, std::tuple<int, const char*>> primitive_type {
+            { "boolean",{ 1, "[Z" }},
+            { "byte",   { 1, "[B" }},
+            { "char",   { 2, "[C" }},
+            { "short",  { 2, "[S" }},
+            { "int",    { 4, "[I" }},
+            { "float",  { 4, "[F" }},
+            { "long",   { 8, "[J" }},
+            { "double", { 8, "[D" }},
+    };
 
-    return new_type_array(s.c_str(), length, sizeof(jref));
+    int ele_size = (int) sizeof(jref);
+    {
+        const auto &it = primitive_type.find(name_s);
+        if (it != primitive_type.end()) {
+            ele_size = std::get<0>(it->second);
+            name_s = std::get<1>(it->second);
+        }
+        else if (name_s[0] == '[') {
+            name_s.insert(0, "[");
+        }
+        else {
+            name_s.insert(0, "[L").append(";");
+        }
+    }
+
+    jclass *array = nullptr;
+
+    // 对于给定的类型 klass，其数组的类加载器必须和 klass 相同
+    if (klass->loader == nullptr) {
+        array = m_jvm.bootstrap_loader.load_class(name_s.c_str());
+    }
+    else {
+        // todo: 从自定义类加载器中获取 class_loader 实例
+    }
+    if (array == nullptr) {
+        LOGE("failed to create array type of '%s', abort\n", klass->name);
+        exit(1);
+    }
+
+    jref ref = m_jvm.heap.malloc_bytes(length * ele_size + 2 * (int) sizeof(jint));
+    jobject_ptr obj = m_jvm.heap.lock(ref);
+
+    obj->klass = klass;
+    ((jint *)(obj->values))[0] = length;
+    ((jint *)(obj->values))[1] = ele_size;
+    return ref;
 }
 
 void jarray::get_array_region(jref array, jsize start, jint len, void *buff)

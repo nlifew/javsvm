@@ -16,13 +16,13 @@ namespace javsvm
 class jvm
 {
 private:
-    jvm() noexcept: class_loader(*this), array(*this)
+    jvm() noexcept: bootstrap_loader(*this), array(*this)
     {
     }
 public:
-    jheap heap;                       /* 堆 */
-    jmethod_area method_area;         /* 方法区 */
-    bootstrap_loader class_loader;    /* 启动类加载器 */
+    jheap heap;                         /* 堆 */
+    jmethod_area method_area;           /* 方法区 */
+    bootstrap_loader bootstrap_loader;  /* 启动类加载器 */
     jarray array;
 
 //    dll_loader m_dll_loader;            /* 动态库加载类 */

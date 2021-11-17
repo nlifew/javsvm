@@ -126,7 +126,7 @@ bool jclass::is_instance(jref ref) noexcept
 
 //jclass* jclass::find_class(const char *name)
 //{
-//    return jvm::get().class_loader().load_class(name);
+//    return jvm::get().bootstrap_loader().load_class(name);
 //}
 
 /*
