@@ -1,0 +1,103 @@
+
+
+#ifndef JAVSVM_JARRAY_H
+#define JAVSVM_JARRAY_H
+
+#include "../utils/global.h"
+#include "../concurrent/recursive_lock.h"
+
+#include <unordered_map>
+#include <string>
+
+namespace javsvm
+{
+
+class jobject;
+struct jclass;
+class jvm;
+
+class jarray
+{
+private:
+    jvm &m_jvm;
+    recursive_lock m_lock;
+    std::unordered_map<std::string, jclass*> m_classes;
+
+    jref new_type_array(const char *type, int length, int ele_size);
+
+    void get_array_region(jref array, jsize start, jint len, void *buff);
+
+    void set_array_region(jref array, jsize start, jint len, const void *buff);
+
+public:
+    explicit jarray(jvm &vm) noexcept
+            : m_jvm(vm)
+    {
+    }
+    jarray(const jarray&) = delete;
+    jarray& operator=(const jarray&) = delete;
+
+    jclass *load_array_class(const char *name);
+
+    jsize get_array_length(jref array);
+
+    jref new_bool_array(int length) { return new_type_array("[Z", length, sizeof(jboolean)); }
+
+    jref new_byte_array(int length) { return new_type_array("[B", length, sizeof(jbyte)); }
+
+    jref new_char_array(int length) { return new_type_array("[C", length, sizeof(jchar)); }
+
+    jref new_short_array(int length) { return new_type_array("[S", length, sizeof(jshort)); }
+
+    jref new_int_array(int length) { return new_type_array("[I", length, sizeof(jint)); }
+
+    jref new_float_array(int length) { return new_type_array("[F", length, sizeof(jfloat)); }
+
+    jref new_long_array(int length) { return new_type_array("[J", length, sizeof(jlong)); }
+
+    jref new_double_array(int length) { return new_type_array("[D", length, sizeof(jdouble)); }
+
+    jref new_object_array(jclass *klass, int length);
+
+    void get_bool_array_region(jref array, jsize start, jsize l, jboolean *buf) { get_array_region(array, start, l, buf); }
+
+    void get_byte_array_region(jref array, jsize start, jsize l, jbyte *buf) { get_array_region(array, start, l, buf); }
+
+    void get_char_array_region(jref array, jsize start, jsize l, jchar *buf) { get_array_region(array, start, l, buf); }
+
+    void get_short_array_region(jref array, jsize start, jsize l, jshort *buf) { get_array_region(array, start, l, buf); }
+
+    void get_int_array_region(jref array, jsize start, jsize l, jint *buf) { get_array_region(array, start, l, buf); }
+
+    void get_float_array_region(jref array, jsize start, jsize l, jfloat *buf) { get_array_region(array, start, l, buf); }
+
+    void get_long_array_region(jref array, jsize start, jsize l, jlong *buf) { get_array_region(array, start, l, buf); }
+
+    void get_double_array_region(jref array, jsize start, jsize l, jdouble *buf) { get_array_region(array, start, l, buf); }
+
+    void get_object_array_region(jref array, jsize start, jsize l, jref *buf) { get_array_region(array, start, l, buf); }
+
+
+    void set_bool_array_region(jref array, jsize start, jsize len, jboolean *buf) { set_array_region(array, start, len, buf); }
+
+    void set_byte_array_region(jref array, jsize start, jsize len, jbyte *buf) { set_array_region(array, start, len, buf); }
+
+    void set_char_array_region(jref array, jsize start, jsize len, jchar *buf) { set_array_region(array, start, len, buf); }
+
+    void set_short_array_region(jref array, jsize start, jsize len, jshort *buf) { set_array_region(array, start, len, buf); }
+
+    void set_int_array_region(jref array, jsize start, jsize len, jint *buf) { set_array_region(array, start, len, buf); }
+
+    void set_float_array_region(jref array, jsize start, jsize len, jfloat *buf) { set_array_region(array, start, len, buf); }
+
+    void set_long_array_region(jref array, jsize start, jsize len, jlong *buf) { set_array_region(array, start, len, buf); }
+
+    void set_double_array_region(jref array, jsize start, jsize len, jdouble *buf) { set_array_region(array, start, len, buf); }
+
+    void set_object_array_region(jref array, jsize start, jsize len, jref *buf) { set_array_region(array, start, len, buf); }
+};
+
+} // namespace javsvm
+
+
+#endif 

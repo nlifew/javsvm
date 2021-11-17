@@ -1,0 +1,22 @@
+
+#ifndef JAVSVM_NEW
+#define JAVSVM_NEW
+
+#include <new>
+
+/* nothing, just make vscode happy */
+
+namespace std 
+{
+
+template <typename T, typename ...Args>
+static inline T* placement_new(void *buff, Args&&... args)
+{
+    return ::new (buff) T(std::forward<Args>(args)...);
+}
+
+
+};
+
+
+#endif
