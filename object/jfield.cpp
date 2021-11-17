@@ -47,6 +47,7 @@ static void calculate_field_size(const char *sig, int *p_mem_size, int *p_slot_n
         case 'L':       /* object */
             mem_size = 8;
             slot_num = 1;
+            break;
         default:
             LOGE("unknown field sig : %s\n", sig);
     }
