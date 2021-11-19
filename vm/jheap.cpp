@@ -6,6 +6,7 @@
 #include "../object/jobject.h"
 
 #include <cstdlib>
+#include <new>
 
 using namespace javsvm;
 
@@ -29,7 +30,8 @@ bool jheap::is_nullptr(jref ref)
 
 jref jheap::malloc_bytes(int bytes)
 {
-    auto *obj = (jobject*) malloc(bytes * sizeof(jobject));
-    memset(obj, 0, bytes * sizeof(jobject));
-    return (jref) obj;
+    void *ptr = malloc(bytes + sizeof(jobject));
+    memset(ptr, 0, bytes + sizeof(jobject));
+    new (ptr) jobject;
+    return (jref) ptr;
 }
