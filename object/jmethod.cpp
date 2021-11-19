@@ -66,6 +66,8 @@ static void calculate_slot_num(jmethod *method)
                 if (sig[i] == 'L') i = (int) (strchr(sig + i + 1, ';') - sig);
                 args_slot += 1;
                 break;
+            default:
+                LOGE("unknown jmethod sig: '%s'\n", sig);
         }
     }
     // 非静态函数的第一个参数是 this，要占一个变量槽

@@ -5,14 +5,13 @@
 
 #include <mutex>
 #include <queue>
-#include <shared_mutex>
 
 namespace javsvm
 {
 
 template <
     typename T,
-    typename Lock = std::shared_mutex
+    typename Lock = std::mutex
 >
 class object_pool
 {
@@ -22,50 +21,59 @@ public:
 
 private:
     Lock m_lock;
-    std::queue<T*> m_queue;
-    const size_t m_capacity;
+    T** m_array;
+    volatile int m_size = 0;
+    const int m_capacity;
     const constructor_t m_constructor;
     const destructor_t m_destructor;
-
 public:
 
-    object_pool(int capacity = 8, 
-                    constructor_t constructor = []() -> T* { return new T; }, 
-                    destructor_t destructor = [](T *ptr) { delete ptr; }) :
+    explicit object_pool(
+            int capacity = 8,
+            constructor_t constructor = []() -> T* { return new T(); },
+            destructor_t destructor = [](T *ptr) { delete ptr; }
+            ) :
+        m_array(new T*[capacity]),
         m_capacity(capacity), 
         m_constructor(constructor), 
         m_destructor(destructor)
     {
     }
 
-    ~object_pool() = default;
+    ~object_pool()
+    {
+        while (m_size) {
+            m_destructor(m_array[--m_size]);
+        }
+        delete[] m_array;
+        m_size = 0;
+        m_array = nullptr;
+    }
 
     object_pool(const object_pool<T> &) = delete;
     object_pool<T>& operator=(const object_pool<T>&) = delete;
 
     T* obtain()
     {
-        std::lock_guard<Lock> lock(m_lock);
-
-
-        if (! m_queue.empty()) {
-            return m_queue.front();
+        {
+            std::lock_guard<Lock> lock(m_lock);
+            if (m_size > 0) {
+                return m_array[-- m_size];
+            }
         }
 
-        lock.unlock();
         return m_constructor();
     }
 
     void recycle(T *ptr)
     {
-        std::lock_guard<Lock> lock(m_lock);
-
-        if (m_queue.size() < m_capacity) {
-            m_queue.push(ptr);
-            return;
+        {
+            std::lock_guard<Lock> lock(m_lock);
+            if (m_size < m_capacity) {
+                m_array[m_size ++] = ptr;
+                return;
+            }
         }
-
-        lock.unlock();
         m_destructor(ptr);
     }
 };

@@ -6,5 +6,6 @@ add_library(
         jmethod_area.cpp
         jstack.cpp
         jheap.cpp
+        jenv.cpp
         jvm.cpp
 )

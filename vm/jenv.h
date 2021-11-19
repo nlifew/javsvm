@@ -16,10 +16,9 @@ class jenv
 private:
     jstack m_stack;
     jvm& m_jvm;
+    int m_thread_id;
 
-    explicit jenv(jvm& vm) noexcept: m_jvm(vm)
-    {
-    }
+    explicit jenv(jvm& vm) noexcept;
 
     friend class jvm;
 public:
@@ -28,6 +27,8 @@ public:
     jenv &operator=(const jenv &) = delete;
 
     jvm& vm() { return m_jvm; }
+
+    int thread_id() const { return m_thread_id; }
 
     jstack& stack() { return m_stack; }
 };

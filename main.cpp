@@ -4,12 +4,32 @@
 #include <unistd.h>
 
 #include "vm/jvm.h"
+#include "object/jobject.h"
 #include "object/jclass.h"
 #include "object/jfield.h"
 #include "object/jmethod.h"
 #include "object/jarray.h"
 
+
+#include <thread>
+
 using namespace javsvm;
+
+jobject *_obj = nullptr;
+
+int _count = 0;
+
+static void func()
+{
+    jvm::get().attach();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    _obj->lock();
+    for (int i = 0; i < 1000; i ++) {
+        _count ++;
+    }
+    _obj->unlock();
+    jvm::get().detach();
+}
 
 int main() {
     chdir("..");
@@ -18,56 +38,30 @@ int main() {
     printf("start\n");
 
     jvm &vm = jvm::get();
-    jclass *klass = vm.bootstrap_loader.load_class("[[[[[[[[I");
+    jenv &env = vm.attach();
 
-    printf("--------------------------first--------------------------\n");
-    for (jclass *cls = klass; cls != nullptr; cls = cls->component_type) {
-        printf("'%s'\n", cls->name);
+    // 加载类
+    jclass *Main = vm.bootstrap_loader.load_class("Main");
+
+    printf("--------------------------load finish--------------------------\n");
+    jref ref = Main->new_instance();
+    auto obj = vm.heap.lock(ref);
+    _obj = obj.get();
+
+    std::thread *array[12];
+
+    for (auto &i : array) {
+        i = new std::thread(func);
     }
 
-    printf("--------------------------second--------------------------\n");
-    jclass *main = vm.bootstrap_loader.load_class("Main");
-    vm.array.new_object_array(main, 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-//    jclass *cls = jvm::get().bootstrap_loader.load_class("Main2");
-//
-//    printf("--------------------------fields table--------------------------\n");
-//    for (int i = 0; i < cls->field_table_size; i ++) {
-//        printf("[%d]/[%d]: %s\n", i, cls->field_table_size, cls->field_tables[i].name);
-//    }
-//
-//    printf("--------------------------methods table--------------------------\n");
-//    for (int i = 0; i < cls->method_table_size; i ++) {
-//        printf("[%d]/[%d]: %s(%s)\n", i, cls->method_table_size, cls->method_tables[i].name, cls->method_tables[i].sig);
-//    }
-//
-//    printf("--------------------------virtual fields table--------------------------\n");
-//    for (int i = 0; i < cls->vtable_size; i ++) {
-//        printf("[%d]/[%d]: %s(%s)\n", i, cls->vtable_size, cls->vtable[i]->name, cls->vtable[i]->sig);
-//    }
-//
-//    printf("--------------------------try to create array--------------------------\n");
-//    jarray &jarray = jvm::get().array;
-//
-//    jref intArray = jarray.new_int_array(12);
-//    printf("the length of int array is %d\n", jarray.get_array_length(intArray));
-//
-//    char buff[16 * 8] = { 0 };
-//    jarray.get_int_array_region(intArray, 0, 12, (jint*) buff);
-//    for (int i = 0; i < 12; i ++) {
-//        printf("[%d/%d] -> [%d]\n", i + 1, 12, ((jint*) buff)[i]);
-//        ((jint*) buff)[i] = i;
-//    }
-//    jarray.set_int_array_region(intArray, 0, 12, (jint*) buff);
-//    memset(buff, 0, sizeof(buff));
-//
-//    jarray.get_int_array_region(intArray, 0, 12, (jint*) buff);
-//    for (int i = 0; i < 12; i ++) {
-//        printf("[%d/%d] -> [%d]\n", i + 1, 12, ((jint*) buff)[i]);
-//        ((jint*) buff)[i] = i;
-//    }
-//
-//
+    for (auto &i : array) {
+        i->join();
+        delete i;
+    }
+
+    printf("%d\n", _count);
 
     return 0;
 }

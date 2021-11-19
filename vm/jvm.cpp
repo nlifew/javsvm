@@ -28,7 +28,7 @@ static std::unordered_map<const jvm*, jenv*>& thread_local_map()
 jenv& jvm::env()
 {
     auto &map = thread_local_map();
-    auto it = map.find(this);
+    const auto &it = map.find(this);
     if (it == map.end()) {
         LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
         exit(1);

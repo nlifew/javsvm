@@ -61,7 +61,15 @@ struct jclass
 
 
     // todo
-    jref new_instance() { return nullptr; }
+    jref new_instance()
+    {
+        auto &heap = jvm::get().heap;
+        jref ref = heap.malloc_bytes(object_size);
+        auto ptr = heap.lock(ref);
+        ptr->klass = this;
+
+        return ref;
+    }
 
     jref new_instance(jmethod *m, ...)
     {
