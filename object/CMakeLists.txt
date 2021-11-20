@@ -8,6 +8,6 @@ add_library(
         jobject.cpp
         jclass.cpp
         jlock.cpp
-#        jstring.cpp
+        jstring.cpp
         jarray.cpp
 )

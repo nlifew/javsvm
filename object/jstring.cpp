@@ -6,118 +6,90 @@
 #include "jclass.h"
 #include "jmethod.h"
 #include "jfield.h"
-#include "vm/jvm.h"
-#include "utils/log.h"
-#include "utils/string_utils.h"
+#include "../utils/strings.h"
 
 using namespace javsvm;
 
 
-static std::wstring str2wstr(const char *str)
+
+static jfield *java_lang_String_value = nullptr;
+static jclass *java_lang_String = nullptr;
+static jmethod *java_lang_String_init = nullptr;
+
+
+bool bind_java_class()
 {
-    std::wstring wstr;
-    wchar_t *buff = string_utils::towstring(str);
-    if (buff != nullptr) {
-        wstr.append(buff);
-        delete[] buff;
-    }
+    // 直接使用 bootstrap_loader 加载
+    bootstrap_loader &loader = jvm::get().bootstrap_loader;
 
-    return wstr;
-}
-
-
-bool jstring::bind_java_class()
-{
-    if (java_lang_String != nullptr) {
-        return true;
-    }
-
-    java_lang_String = jclass::find_class("java/lang/String");
-    if (java_lang_String == nullptr) {
+    if (java_lang_String == nullptr && (java_lang_String = loader.load_class("java/lang/String")) == nullptr) {
         return false;
     }
-    
-    java_lang_String_init = java_lang_String->get_method("<init>", "([C)V");
-    if (java_lang_String_init == nullptr) {
+    if (java_lang_String_init == nullptr && (java_lang_String_init = java_lang_String->get_method("<init>", "([BII)V")) == nullptr) {
         return false;
     }
-
-    java_lang_String_value = java_lang_String->get_field("value", "[C");
-    if (java_lang_String_value == nullptr) {
+    if (java_lang_String_value == nullptr && (java_lang_String_value = java_lang_String->get_field("value", "[C")) == nullptr) {
         return false;
     }
-
     return true;
 }
 
 
-jref jstring::new_string(const std::wstring& wstr)
+jref jstring::new_string(const char* str)
 {
     if (! bind_java_class()) {
         LOGE("java_lang_String hasn't been init\n");
-        return nullptr;
+        exit(1);
     }
 
-    int len = wstr.length();
+    // todo: 使用 String(char[]) 或许效率更高 ?
 
-    jref char_array = jarray::new_char_array(len);
-    jarray::set_char_array_region(char_array, 0, len, (jchar*) wstr.c_str());
+    auto bytes_len = (int) strlen(str);
+    jref bytes_array = m_jvm.array.new_byte_array(bytes_len);
+    m_jvm.array.set_byte_array_region(bytes_array, 0, bytes_len, (jbyte*) str);
 
-    jref obj = java_lang_String->new_instance(java_lang_String_init, char_array);
-
+    jref obj = java_lang_String->new_instance(java_lang_String_init, bytes_array, 0, bytes_len);
     return obj;
 }
 
 
-jref jstring::new_string(const char *str)
+jref jstring::find(const char *str) const
 {
-    std::wstring wstr = str2wstr(str);
-    return new_string(wstr);
+    std::string s(str);
+    jref *ref = const_cast<jref*>(m_cache.get(s));
+    return ref == nullptr ? nullptr : *ref;
 }
-
 
 jref jstring::find_or_new(const char *str)
 {
-    std::wstring wstr = str2wstr(str);
-
-    return m_cache.put_if_absent(wstr, [this, wstr]() -> jref {
-        return new_string(wstr);
+    return m_cache.put_if_absent(str, [this, str]() -> jref {
+        return new_string(str);
     });
 }
 
 
 
-std::wstring jstring::get_string(jref ref)
-{
-    std::wstring wstr;
-
-    if (! bind_java_class()) {
-        LOGE("java_lang_String hasn't be init yet\n");
-        return wstr;
-    }
-
-    jvalue v = java_lang_String_value->get(ref);
-    int len = jarray::get_array_length(v.l);
-
-    jchar *buff = new jchar[len];
-    std::unique_ptr<jchar, void (*)(jchar *)> buff_guard(buff, [](jchar *p) { delete[] p; });
-
-    jarray::get_char_array_region(v.l, 0, len, buff);
-    wstr.append((wchar_t *)buff);
-
-    return wstr;
-}
-
 
 jref jstring::intern(jref str)
 {
-    // if (jobject::is_null(str)) {
-        // return nullptr;
-    // }
+    if (! bind_java_class()) {
+        LOGE("intern: java_lang_String hasn't been init\n");
+        exit(1);
+    }
+    jref char_array = java_lang_String_value->get(str).l;
+    int char_array_len = m_jvm.array.get_array_length(char_array);
 
-    std::wstring wstr = get_string(str);
+    auto *buff = new jchar[char_array_len];
+    std::unique_ptr<jchar, void(*)(const jchar*)> buff_guard(
+            buff, [](const jchar *ptr) { delete[] ptr; });
 
-    return m_cache.put_if_absent(wstr, [str]() -> jref {
+    m_jvm.array.get_char_array_region(char_array, 0, char_array_len, buff);
+
+    auto *utf_buff = strings::tostring((wchar_t *) buff);
+    std::unique_ptr<char, void(*)(const char*)> utf_buff_guard(
+            utf_buff, [](const char *ptr) { delete[] ptr; });
+
+    return m_cache.put_if_absent(utf_buff, [str]() -> jref {
         return str;
     });
 }

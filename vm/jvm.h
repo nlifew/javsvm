@@ -8,7 +8,7 @@
 #include "jmethod_area.h"
 #include "../classloader/bootstrap_loader.h"
 #include "../object/jarray.h"
-//#include "../object/jstring.h"
+#include "../object/jstring.h"
 
 namespace javsvm
 {
@@ -16,7 +16,10 @@ namespace javsvm
 class jvm
 {
 private:
-    jvm() noexcept: bootstrap_loader(*this), array(*this)
+    jvm() noexcept:
+        bootstrap_loader(*this),
+        array(*this),
+        string_pool(*this)
     {
     }
 public:
@@ -25,8 +28,8 @@ public:
     bootstrap_loader bootstrap_loader;  /* 启动类加载器 */
     jarray array;
 
-//    dll_loader m_dll_loader;            /* 动态库加载类 */
-//    jstring m_string_pool;              /* 字符串池 */
+//    dll_loader m_dll_loader;          /* 动态库加载类 */
+    jstring string_pool;                /* 字符串池 */
 
     ~jvm() = default;
     jvm(const jvm&) = delete;

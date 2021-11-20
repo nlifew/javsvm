@@ -74,21 +74,21 @@ public:
     void get_object_array_region(jref array, jsize start, jsize l, jref *buf) { get_array_region(array, start, l, buf); }
 
 
-    void set_bool_array_region(jref array, jsize start, jsize len, jboolean *buf) { set_array_region(array, start, len, buf); }
+    void set_bool_array_region(jref array, jsize start, jsize len, const jboolean *buf) { set_array_region(array, start, len, buf); }
 
-    void set_byte_array_region(jref array, jsize start, jsize len, jbyte *buf) { set_array_region(array, start, len, buf); }
+    void set_byte_array_region(jref array, jsize start, jsize len, const jbyte *buf) { set_array_region(array, start, len, buf); }
 
-    void set_char_array_region(jref array, jsize start, jsize len, jchar *buf) { set_array_region(array, start, len, buf); }
+    void set_char_array_region(jref array, jsize start, jsize len, const jchar *buf) { set_array_region(array, start, len, buf); }
 
-    void set_short_array_region(jref array, jsize start, jsize len, jshort *buf) { set_array_region(array, start, len, buf); }
+    void set_short_array_region(jref array, jsize start, jsize len, const jshort *buf) { set_array_region(array, start, len, buf); }
 
-    void set_int_array_region(jref array, jsize start, jsize len, jint *buf) { set_array_region(array, start, len, buf); }
+    void set_int_array_region(jref array, jsize start, jsize len, const jint *buf) { set_array_region(array, start, len, buf); }
 
-    void set_float_array_region(jref array, jsize start, jsize len, jfloat *buf) { set_array_region(array, start, len, buf); }
+    void set_float_array_region(jref array, jsize start, jsize len, const jfloat *buf) { set_array_region(array, start, len, buf); }
 
-    void set_long_array_region(jref array, jsize start, jsize len, jlong *buf) { set_array_region(array, start, len, buf); }
+    void set_long_array_region(jref array, jsize start, jsize len, const jlong *buf) { set_array_region(array, start, len, buf); }
 
-    void set_double_array_region(jref array, jsize start, jsize len, jdouble *buf) { set_array_region(array, start, len, buf); }
+    void set_double_array_region(jref array, jsize start, jsize len, const jdouble *buf) { set_array_region(array, start, len, buf); }
 
     void set_object_array_region(jref array, jsize start, jsize len, jref *buf) { set_array_region(array, start, len, buf); }
 };

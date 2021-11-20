@@ -53,54 +53,61 @@ private:
             return *this;
         }
 */
-        const Value* get(const Key &key) 
+        const Value* get(const Key &key) noexcept
         {
-            std::shared_lock<Lock> lck(m_lock);
-
+            std::shared_lock lck(m_lock);
             const auto& it = m_bucket.find(key);
             return it == m_bucket.end() ? nullptr : &(it->second);
         }
+
+        bool contains(const Key &key) const noexcept
+        {
+            std::shared_lock<Lock> lck(m_lock);
+            return m_bucket.find(key) == m_bucket.end();
+        }
         
-        bool empty() 
+        [[nodiscard]]
+        bool empty() const noexcept
         {
             std::shared_lock<Lock> lck(m_lock);
             return m_bucket.empty();
         }
 
-        int size() 
+        [[nodiscard]]
+        int size() const noexcept
         {
             std::shared_lock<Lock> lck(m_lock);
             return m_bucket.size();
         }
 
-        void put(const Key &key, const Value &value) 
+        Value& put(const Key &key, const Value &value) noexcept
         {
             std::unique_lock<Lock> lck(m_lock);
-            m_bucket[key] = value;
+            return m_bucket[key] = value;
         }
 
-        void remove(const Key &key)
+        void remove(const Key &key) noexcept
         {
             std::unique_lock<Lock> lck(m_lock);
             m_bucket.erase(key);
         }
         
-        void clear() 
+        void clear() noexcept
         {
             std::unique_lock<Lock> lck(m_lock);
             m_bucket.clear();
         }
 
         template <typename Func>
-        Value& put_if_absent(const Key& key, Func func)
+        Value& put_if_absent(const Key& key, Func func) noexcept
         {
-            do {
+            {
                 std::shared_lock<Lock> lck(m_lock);
                 const auto& it = m_bucket.find(key);
                 if (it != m_bucket.end()) {
                     return it->second;
                 }
-            } while (0);
+            }
             
             std::unique_lock<Lock> lck(m_lock);
             const auto& it = m_bucket.find(key);
@@ -118,7 +125,7 @@ private:
 
     segment *m_segment;
 
-    segment& segment_of(const Key &key) const 
+    segment& segment_of(const Key &key) const noexcept
     {
         size_t hash = Hash().operator()(key);
         hash ^= (hash >> 32);
@@ -126,7 +133,7 @@ private:
         return m_segment[hash & (m_segment_count - 1)];
     }
 
-    static int segment_size_for(int c)
+    static int segment_size_for(int c) noexcept
     {
         unsigned n = c - 1;
         n |= n >> 1;
@@ -135,7 +142,7 @@ private:
         n |= n >> 8;
         n |= n >> 16;
         n ++;
-        return n <= 0 ? 1 : n;
+        return n <= 0 ? 1 : (int) n;
     }
 
 public:
@@ -157,38 +164,40 @@ public:
         delete[] m_segment;
     }
 
-    void put(const Key& key, const Value& value) 
+    Value& put(const Key& key, const Value& value) noexcept
     {
         auto& segment = segment_of(key);
-        segment.put(key, value);
+        return segment.put(key, value);
     }
 
-    const Value* get(const Key& key) const 
+    const Value* get(const Key& key) const noexcept
     {
         auto& segment = segment_of(key);
         return segment.get(key);
     }
 
-    void remove(const Key& key)
+    void remove(const Key& key) noexcept
     {
         auto& segment = segment_of(key);
         segment.remove(key);
     }
 
-    bool contains_key(const Key& key) const 
+    bool contains_key(const Key& key) const noexcept
     {
-        return get(key) != nullptr;
+        auto& segment = segment_of(key);
+        return segment.contains_key(key);
     }
 
     
     template <typename Func>
-    Value& put_if_absent(const Key& key, Func func)
+    Value& put_if_absent(const Key& key, Func func) noexcept
     {
         auto& segment = segment_of(key);
         return segment.put_if_absent(key, func);
     }
 
-    bool empty() 
+    [[nodiscard]]
+    bool empty() const noexcept
     {
         for (int i = 0; i < m_segment_count; i ++) {
             if (! m_segment[i].empty()) return false;
@@ -196,7 +205,8 @@ public:
         return true;
     }
 
-    int size() 
+    [[nodiscard]]
+    int size() const noexcept
     {
         int _size = 0;
         for (int i = 0; i < m_segment_count; i ++) {
@@ -205,7 +215,7 @@ public:
         return _size;
     }
 
-    void clear() 
+    void clear() noexcept
     {
         for (int i = 0; i < m_segment_count; i ++) {
             m_segment[i].clear();
