@@ -5,6 +5,7 @@
 
 #include "vm/jvm.h"
 #include "object/jobject.h"
+#include "object/jlock.h"
 #include "object/jclass.h"
 #include "object/jfield.h"
 #include "object/jmethod.h"
@@ -12,22 +13,49 @@
 
 
 #include <thread>
+#include <queue>
 
 using namespace javsvm;
 
-jobject *_obj = nullptr;
+jlock *m_lock = nullptr;
+volatile bool m_end = false;
 
-int _count = 0;
+std::queue<int> m_queue;
 
+// the producer
 static void func()
 {
     jvm::get().attach();
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    _obj->lock();
-    for (int i = 0; i < 1000; i ++) {
-        _count ++;
+
+    for (int i = 0; i < 4; i ++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        LOGI("product %d\n", i);
+
+        m_lock->lock();
+        m_queue.push(i);
+        if (m_queue.size() == 1) {
+            m_lock->notify_all();
+        }
+        m_end = i == 3;
+        m_lock->unlock();
     }
-    _obj->unlock();
+
+    jvm::get().detach();
+}
+
+static void func2()
+{
+    jvm::get().attach();
+
+    LOGI("线程 q 尝试获取锁\n");
+    m_lock->lock();
+
+    LOGI("线程 q 拿到锁了，尝试释放掉\n");
+
+    m_lock->unlock();
+    LOGI("线程 q 已释放锁，结束\n");
+
     jvm::get().detach();
 }
 
@@ -40,28 +68,41 @@ int main() {
     jvm &vm = jvm::get();
     jenv &env = vm.attach();
 
-    // 加载类
-    jclass *Main = vm.bootstrap_loader.load_class("Main");
+    jlock lock;
+    m_lock = &lock;
 
-    printf("--------------------------load finish--------------------------\n");
-    jref ref = Main->new_instance();
-    auto obj = vm.heap.lock(ref);
-    _obj = obj.get();
+    std::thread t(func);
 
-    std::thread *array[12];
+    printf("the depth of jlock is %d\n", lock.depth());
+    lock.lock();
+    printf("the depth of jlock is %d\n", lock.depth());
+    lock.lock();
 
-    for (auto &i : array) {
-        i = new std::thread(func);
+    // the consumer
+    while (! m_end) {
+        while (m_queue.empty()) {
+            lock.wait();
+        }
+        int val = m_queue.front();
+        m_queue.pop();
+        LOGI("consume %d\n", val);
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    printf("the depth of jlock is %d\n", lock.depth());
+    lock.unlock();
 
-    for (auto &i : array) {
-        i->join();
-        delete i;
-    }
+    // 开另外一个线程，看看能不能获取到锁
+    std::thread q(func2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 
-    printf("%d\n", _count);
+    printf("the depth of jlock is %d\n", lock.depth());
+    lock.unlock();
 
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    printf("the depth of jlock is %d\n", lock.depth());
+
+    t.join();
+    q.join();
     return 0;
 }

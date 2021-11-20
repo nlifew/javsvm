@@ -16,7 +16,10 @@ private:
     std::condition_variable m_cond;
     volatile int m_owner_thread_id = -1;
     volatile int m_recursive_count = 0;
+
 public:
+    int depth() const noexcept { return (m_recursive_count); }
+
     jlock() = default;
     ~jlock() = default;
     jlock(const jlock&) = delete;
@@ -26,7 +29,7 @@ public:
 
     void unlock();
 
-    void wait(long time);
+    void wait(long time = 0);
 
     void notify();
 
