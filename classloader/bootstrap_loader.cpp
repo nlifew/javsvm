@@ -7,7 +7,7 @@
 #include "../object/jmethod.h"
 #include "../object/jfield.h"
 #include "../vm/jvm.h"
-#include "../utils/array_utils.h"
+#include "../utils/arrays.h"
 
 #include <sys/stat.h>
 #include <vector>
@@ -373,7 +373,7 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
              int (*cmp)(jmethod* const*, jmethod* const*) = [](jmethod* const *p, jmethod* const *q) -> int {
                 return jmethod::compare_to(*p, *q);
             };
-            index = array_utils::binary_search<jmethod*>(it, &table[0], super_class->vtable_size, cmp);
+            index = arrays::binary_search<jmethod*>(it, &table[0], super_class->vtable_size, cmp);
         }
         if (index == -1) {
             // 新增的虚函数，添加到父虚函数表的后面

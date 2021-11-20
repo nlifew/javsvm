@@ -9,7 +9,7 @@
 
 namespace javsvm
 {
-struct array_utils
+struct arrays
 {
     template<typename T>
     static int binary_search(const T& key, const T* from, int size, int (*cmp)(const T*, const T*))

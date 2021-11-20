@@ -6,7 +6,7 @@
 #define _UTILS_INPUT_STREAM_H
 
 
-#include "../utils/number_utils.h"
+#include "../utils/numbers.h"
 #include "../utils/log.h"
 
 namespace javsvm
@@ -40,7 +40,7 @@ public:
     input_stream& operator>>(T& t)
     {
         read_bytes(&t, sizeof(T));
-        if (m_reverse) t = number_utils::reverse_endian(t);
+        if (m_reverse) t = numbers::reverse_endian(t);
         return *this;
     }
 };
