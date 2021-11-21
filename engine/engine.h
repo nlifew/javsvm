@@ -3,7 +3,7 @@
 #ifndef JAVSVM_ENGINE_H
 #define JAVSVM_ENGINE_H
 
-#include "utils/global.h"
+#include "../vm/jstack.h"
 
 namespace javsvm
 {
@@ -13,7 +13,7 @@ struct jargs
     slot_t *m_args;
     slot_t *m_orig;
 
-    jargs(slot_t *args) : m_args(args), m_orig(args)
+    explicit jargs(slot_t *args) : m_args(args), m_orig(args)
     {
     }
 
@@ -54,6 +54,6 @@ void throw_exp(const char *class_name, const void *msg);
 
 
 
-};
+} // namespace javsvm
 
 #endif 

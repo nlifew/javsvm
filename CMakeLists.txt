@@ -23,6 +23,8 @@ add_subdirectory(concurrent)
 add_subdirectory(object)
 add_subdirectory(vm)
 add_subdirectory(classloader)
+add_subdirectory(engine)
+add_subdirectory(utils)
 
 add_executable(
         main
@@ -37,4 +39,5 @@ target_link_libraries(
         vm
         concurrent
         class
+        utils
 )

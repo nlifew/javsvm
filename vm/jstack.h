@@ -17,9 +17,8 @@ using slot_t = std::uint64_t;
 /**
  * 栈帧
  */ 
-class jframe
+struct jstack_frame
 {
-    friend class jstack;
     /**
      * 局部变量表
      */ 
@@ -41,13 +40,13 @@ class jframe
     /**
      * 链表结构，指向下一个栈帧
      */ 
-    jframe *next = nullptr;
+    jstack_frame *next = nullptr;
 
 
     /**
      * 指针计数器 pointer counter
      */ 
-    u4 pc = 0;
+    int pc = 0;
 
 
     /**
@@ -55,19 +54,19 @@ class jframe
      */ 
     int bytes = 0;
 
-    jframe() = delete;
-    ~jframe() = delete;
-    jframe(const jframe &) = delete;
-    jframe &operator=(const jframe&) = delete;
+    jstack_frame() = default;
+    ~jstack_frame() = default;
+    jstack_frame(const jstack_frame &) = delete;
+    jstack_frame &operator=(const jstack_frame&) = delete;
 };
 
 class jstack
 {
 private:
-    static const int DEFAULT_STACK_SIZE = 32 * 1024;  /* aka 32k */
+    static const int DEFAULT_STACK_SIZE = 64 * 1024;  /* aka 64k */
     
 private:
-    jframe *m_top = nullptr;
+    jstack_frame *m_top = nullptr;
 
     int m_offset = 0;
     int m_capacity = 0;
@@ -81,7 +80,9 @@ private:
     T* calloc_type(int n = 1)
     {
         auto ptr = (T *)malloc_bytes(n * sizeof(T));
-        memset(ptr, 0, sizeof(T) * n);
+        for (int i = 0; i < n; i ++) {
+            new (ptr + i) T();
+        }
         return ptr;
     }
 
@@ -94,11 +95,11 @@ public:
 
     ~jstack();
 
-    jframe *top() { return m_top; }
+    jstack_frame *top() { return m_top; }
 
     void pop();
 
-    jframe& push(jmethod *m);
+    jstack_frame& push(jmethod *m);
 
 };
 }

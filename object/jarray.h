@@ -22,7 +22,7 @@ private:
     jvm &m_jvm;
 
     jref new_type_array(const char *type, int length, int ele_size);
-
+public:
     void get_array_region(jref array, jsize start, jint len, void *buff);
 
     void set_array_region(jref array, jsize start, jint len, const void *buff);

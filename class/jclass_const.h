@@ -27,8 +27,10 @@ private:
 public:
     int read_from(input_stream& r, int length);
 
+    [[nodiscard]]
     int size() const noexcept { return m_size; }
 
+    [[nodiscard]]
     jclass_const* child_at(int index) const noexcept { return m_pools[index]; }
 
     jclass_const_pool() = default;

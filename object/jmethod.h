@@ -10,7 +10,7 @@ namespace javsvm
 {
 
 struct jclass;
-struct args_wrapper;
+struct jargs;
 
 struct jmethod
 {
@@ -87,15 +87,15 @@ struct jmethod
 
     // jvalue invoke(operand_t *args) { return invoke(this, args, is_virtual); }
 
-    jvalue invoke_static(args_wrapper &args);
+    jvalue invoke_static(jargs &args);
 
-    jvalue invoke_special(jref ref, args_wrapper &args);
+    jvalue invoke_special(jref ref, jargs &args);
 
-    jvalue invoke_virtual(jref ref, args_wrapper &args);
+    jvalue invoke_virtual(jref ref, jargs &args);
 
-    jvalue invoke_interface(jref ref, args_wrapper &args);
+    jvalue invoke_interface(jref ref, jargs &args);
 
-    static args_wrapper make(va_list args);
+    static jargs make(va_list args);
 };
 
 } // namespace javsvm

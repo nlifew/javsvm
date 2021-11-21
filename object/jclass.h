@@ -15,7 +15,8 @@ struct jmethod;
 
 struct jclass
 {
-//    static jclass *find_class(const char *name);
+    // 使用调用者的类加载器加载新的类
+    static jclass *find_class(const char *name);
 
     const char *name = nullptr;
     u4 access_flag = 0;

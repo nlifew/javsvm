@@ -47,7 +47,7 @@ void jstack::pop()
     if (m_top == nullptr) {
         return;
     }
-    jframe *frame = m_top;
+    jstack_frame *frame = m_top;
     m_top = frame->next;
     frame->next = nullptr;
     // frame->in_use = false;
@@ -55,10 +55,10 @@ void jstack::pop()
     recycle_bytes(frame->bytes);
 }
 
-jframe& jstack::push(jmethod *m)
+jstack_frame& jstack::push(jmethod *m)
 {
     int pos = m_offset;
-    auto frame = calloc_type<jframe>();
+    auto frame = calloc_type<jstack_frame>();
 
     jclass_attr_code *code = m->entrance.code_func;
 

@@ -53,7 +53,7 @@ template <typename T>
 static int _slotof() { return (((sizeof(T) - 1) | 3) + 1) >> 2; }
 
 template <>
-int _slotof<jref>() { return 1; }
+ int _slotof<jref>() { return 1; }
 
 template <>
 int _slotof<void>() { return 0; }

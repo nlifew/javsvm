@@ -19,15 +19,17 @@ struct numbers
     };
 
     struct Float {
-//        static constexpr float POSITIVE_INFINITY = 1.0f / 0.0f;     // *(float*) &(0x7f800000)
-//        static constexpr float NEGATIVE_INFINITY = -1.0f / 0.0f;    // *(float*) &(0xff800000)
-//        static constexpr float NaN = 0.0f / 0.0f;                   // *(float*) &(0x7fc00000)
+    public:
+        static /*constexpr*/ float POSITIVE_INFINITY; // = 1.0f / 0.0f;     // *(float*) &(0x7f800000)
+        static /*constexpr*/ float NEGATIVE_INFINITY; // = -1.0f / 0.0f;    // *(float*) &(0xff800000)
+        static /*constexpr*/ float NaN; //= 0.0f / 0.0f;                   // *(float*) &(0x7fc00000)
     };
 
     struct Double {
-//        static constexpr double POSITIVE_INFINITY = 1.0 / 0.0;      // 0x7ff00000_00000000L
-//        static constexpr double NEGATIVE_INFINITY = -1.0 / 0.0;     // 0xfff00000_00000000L
-//        static constexpr double NaN = ((double) 0.0) / 0.0;         // 0x7ff80000_00000000L
+    public:
+        static /*constexpr*/ double POSITIVE_INFINITY; // = 1.0 / 0.0;      // 0x7ff00000_00000000L
+        static /*constexpr*/ double NEGATIVE_INFINITY; // = -1.0 / 0.0;     // 0xfff00000_00000000L
+        static /*constexpr*/ double NaN; // = ((double) 0.0) / 0.0;         // 0x7ff80000_00000000L
     };
 
     template <typename T> static 
@@ -92,7 +94,6 @@ struct numbers
     //     }
     //     return cpy;
     // }
-
 };
 };
 #endif
