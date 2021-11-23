@@ -35,6 +35,7 @@ add_executable(
 target_link_libraries(
         main
         classloader
+        engine
         object
         vm
         concurrent

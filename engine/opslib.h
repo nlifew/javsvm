@@ -8,6 +8,8 @@
 #include "../utils/numbers.h"
 #include "../class/jclass_file.h"
 
+#include <cmath>
+
 using namespace javsvm;
 
 
@@ -22,40 +24,15 @@ static T pop_param(jstack_frame &frame)
 template <typename T>
 static void push_param(jstack_frame &frame, const T &t)
 {
+    *frame.operand_stack = 0;
     *(T *) (frame.operand_stack) = t;
     frame.operand_stack += slotof(T);
 }
 
 
-/**
- * 函数模板，用来从操作数栈中获取指定的参数并回调
- * 假如现在的操作数栈从栈底到栈顶为 [3, 2, 1]
- * 当传入 int (*func)(float a, int b) 时，执行的逻辑为 func(float(2), int(1));
- * 
- * 传入函数的最后一个参数一定是操作数栈的栈顶
- * 需要注意的是，这一点并没有完全实现，因为不同编译器的参数计算顺序是不一定的
- * 等待进一步实现
- */
-
-//#if ! __GLIBCXX__
-//#error only for gcc
-//#endif
-
-//template <typename ResultT, typename...ArgsT>
-//void invoke(ResultT(*func)(ArgsT...), jstack_frame &args)
-//{
-//    ResultT result = func(pop_param<ArgsT>(frame)...);
-//    push_param(frame, result);
-//}
-//
-//template <typename...ArgsT>
-//void invoke(void (*func)(ArgsT...), jstack_frame &args)
-//{
-//    func(pop_param<ArgsT>(frame)...);
-//}
 
 template <typename T>
-void getT(jstack_frame &frame)
+static void getT(jstack_frame &frame)
 {
     int idx = pop_param<int>(frame);
     jref ref = pop_param<jref>(frame);
@@ -67,7 +44,7 @@ void getT(jstack_frame &frame)
 }
 
 template <typename T>
-void setT(jstack_frame &frame)
+static void setT(jstack_frame &frame)
 {
     T val = pop_param<T>(frame);
     int idx = pop_param<int>(frame);
@@ -77,15 +54,16 @@ void setT(jstack_frame &frame)
 }
 
 template <typename T>
-void addT(jstack_frame &frame)
+static void addT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
     push_param(frame, p + q);
+    frame.pc += 1;
 }
 
 template <typename T>
-void subT(jstack_frame &frame)
+static void subT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -93,7 +71,7 @@ void subT(jstack_frame &frame)
 }
 
 template <typename T>
-void mulT(jstack_frame &frame)
+static void mulT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -101,7 +79,7 @@ void mulT(jstack_frame &frame)
 }
 
 template <typename T>
-void divT(jstack_frame &frame)
+static void divT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -109,22 +87,38 @@ void divT(jstack_frame &frame)
 }
 
 template <typename T>
-void remT(jstack_frame &frame)
+static void remT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
     push_param(frame, q % p); // NOT (p % q)
 }
 
-template <typename T>
-void negT(jstack_frame &frame)
+
+template <>
+void remT<jfloat>(jstack_frame &frame)
 {
-    T val = pop_param<T>(frame);
-    push_param<T>(- val);
+    auto q = pop_param<jfloat>(frame);
+    auto p = pop_param<jfloat>(frame);
+    push_param<jfloat>(frame, fmod(p, q));
+}
+template <>
+void remT<jdouble>(jstack_frame &frame)
+{
+    auto q = pop_param<jdouble>(frame);
+    auto p = pop_param<jdouble>(frame);
+    push_param<jdouble>(frame, fmod(p, q));
 }
 
 template <typename T>
-void shlT(jstack_frame &frame)
+static void negT(jstack_frame &frame)
+{
+    T val = pop_param<T>(frame);
+    push_param<T>(frame, - val);
+}
+
+template <typename T>
+static void shlT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -132,7 +126,7 @@ void shlT(jstack_frame &frame)
 }
 
 template <typename T>
-void shrT(jstack_frame &frame)
+static void shrT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -140,7 +134,7 @@ void shrT(jstack_frame &frame)
 }
 
 template <typename SignedT, typename UnsignedT>
-void ushrT(jstack_frame &frame)
+static void ushrT(jstack_frame &frame)
 {
     SignedT p = pop_param<SignedT>(frame);
     SignedT q = pop_param<SignedT>(frame);
@@ -150,7 +144,7 @@ void ushrT(jstack_frame &frame)
 
 
 template <typename T>
-void andT(jstack_frame &frame)
+static void andT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -158,7 +152,7 @@ void andT(jstack_frame &frame)
 }
 
 template <typename T>
-void orT(jstack_frame &frame)
+static void orT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
@@ -166,22 +160,23 @@ void orT(jstack_frame &frame)
 }
 
 template <typename T>
-void xorT(jstack_frame &frame)
+static void xorT(jstack_frame &frame)
 {
     T p = pop_param<T>(frame);
     T q = pop_param<T>(frame);
     push_param(frame, q ^ p);
 }
 
-template <typename T>
-T incT(jstack_frame &frame)
+static void inc(jstack_frame &frame, jclass_attr_code &code)
 {
-    T val = pop_param<T>(frame);
-    push_param(frame, val + 1);
+    u1 idx = code.code[frame.pc + 1];
+    char inc = (char) code.code[frame.pc + 2];
+    frame.variable_table[idx] += inc;
+    frame.pc += 3;
 }
 
 template <typename TypeIn, typename TypeOut>
-void i2T(jstack_frame &frame)
+static void i2T(jstack_frame &frame)
 {
     TypeIn val = pop_param<TypeIn>(frame);
     push_param<TypeOut>(frame, (TypeOut) val);
@@ -189,7 +184,7 @@ void i2T(jstack_frame &frame)
 
 
 template <typename Type, typename TypeW, jint ErrVal>
-void cmpT(jstack_frame &frame)
+static void cmpT(jstack_frame &frame)
 {
     Type b = pop_param<Type>(frame);
     Type a = pop_param<Type>(frame);
@@ -201,7 +196,7 @@ void cmpT(jstack_frame &frame)
 }
 
 template <typename T>
-void cmpT(jstack_frame &frame)
+static void cmpT(jstack_frame &frame)
 {
     T b = pop_param<T>(frame);
     T a = pop_param<T>(frame);
@@ -210,36 +205,42 @@ void cmpT(jstack_frame &frame)
 
 
 template <typename Type, typename Comparator>
-void ifT(jstack_frame &frame, jclass_attr_code &code)
+static void ifT(jstack_frame &frame, jclass_attr_code &code)
 {
     Type val = pop_param<Type>(frame);
 
     if (Comparator().operator()(val, 0)) {
-        int pc = code.code[frame.pc ++] << 8;
-        pc |= code.code[frame.pc ++];
-        frame.pc += pc;
+        int pc = code.code[frame.pc + 1] << 8;
+        pc |= code.code[frame.pc + 2];
+        frame.pc += (short) pc;
+    }
+    else {
+        frame.pc += 3;
     }
 }
 
 template<>
 void ifT<void, void>(jstack_frame &frame, jclass_attr_code &code)
 {
-    int pc = code.code[frame.pc ++] << 8;
-    pc |= code.code[frame.pc ++];
-    frame.pc += pc;
+    int pc = code.code[frame.pc + 1] << 8;
+    pc |= code.code[frame.pc + 2];
+    frame.pc += (short) pc;
 }
 
 
 template <typename Type, typename Comparator>
-void ifcmpT(jstack_frame &frame, jclass_attr_code &code)
+static void ifcmpT(jstack_frame &frame, jclass_attr_code &code)
 {
     Type val2 = pop_param<Type>(frame);
     Type val1 = pop_param<Type>(frame);
 
     if (Comparator().operator()(val1, val2)) {
-        int pc = code.code[frame.pc ++] << 8;
-        pc |= code.code[frame.pc ++];
-        frame.pc += pc;
+        int pc = code.code[frame.pc + 1] << 8;
+        pc |= code.code[frame.pc + 2];
+        frame.pc += (short) pc;
+    }
+    else {
+        frame.pc += 3;
     }
 }
 
@@ -261,6 +262,8 @@ struct ref_not_equ
     }
 };
 
+
+// todo: 下面的所有函数都需要校验 pc 的 ++ 逻辑
 
 static inline void switch_table(jstack_frame &frame, jclass_attr_code &code)
 {
@@ -310,7 +313,7 @@ static inline void lookup_table(jstack_frame &frame, jclass_attr_code &code)
 
 static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
 {
-    auto *const_value = pool.cast<jclass_const>(idx);
+    auto *const_value = pool.child_at(idx - 1);
 
     switch (const_value->tag) {
         case jclass_const_int::TAG: {
@@ -413,6 +416,7 @@ static inline jvalue pop_jvalue(jstack_frame &frame, int slot_num)
 {
     jvalue val = {0};
     switch (slot_num) {
+        case 0: break;
         case 1: val.i = pop_param<jint>(frame); break;
         case 2: val.j = pop_param<jlong>(frame); break;
         default:
@@ -424,6 +428,7 @@ static inline jvalue pop_jvalue(jstack_frame &frame, int slot_num)
 static inline void push_jvalue(jstack_frame &frame, jvalue &val, int slot_num)
 {
     switch (slot_num) {
+        case 0: break;
         case 1: push_param<jint>(frame, val.i); break;
         case 2: push_param<jlong>(frame, val.j); break;
         default:
@@ -434,7 +439,7 @@ static inline void push_jvalue(jstack_frame &frame, jvalue &val, int slot_num)
 static inline void new_array(jstack_frame &frame, jclass_attr_code &code)
 {
     int length = pop_param<jint>(frame);
-    int type = code.code[frame.pc ++];
+    int type = code.code[frame.pc + 1];
 
     jref ref = nullptr;
     jarray &array = jvm::get().array;
@@ -452,6 +457,7 @@ static inline void new_array(jstack_frame &frame, jclass_attr_code &code)
             LOGI("new_array: unknown array type: %d\n", type);
     }
     push_param(frame, ref);
+    frame.pc += 2;
 }
 
 static inline void a_new_array(jstack_frame &frame,
@@ -460,13 +466,14 @@ static inline void a_new_array(jstack_frame &frame,
 {
     int length = pop_param<jint>(frame);
 
-    int index = code.code[frame.pc ++] << 8;
-    index |= code.code[frame.pc ++];
+    int index = code.code[frame.pc + 1] << 8;
+    index |= code.code[frame.pc + 2];
 
     jclass *klass = get_class(index, pool);
     jref ref = jvm::get().array.new_object_array(klass, length);
 
     push_param(frame, ref);
+    frame.pc += 3;
 }
 
 
@@ -474,19 +481,22 @@ static inline void multi_array(jstack_frame &frame,
                                jclass_const_pool &pool,
                                jclass_attr_code &code)
 {
-    int index = code.code[frame.pc ++] << 8;
-    index |= code.code[frame.pc ++];
+    int index = code.code[frame.pc] << 8;
+    index |= code.code[frame.pc];
     jclass *klass = get_class(index, pool);
 
     u1 dimension = pop_param<u1>(frame);
 
     // todo: 未完全实现
+
+    frame.pc += 3;
 }
 
 static inline void array_length(jstack_frame &frame)
 {
     jref ref = pop_param<jref>(frame);
     push_param(frame, jvm::get().array.get_array_length(ref));
+    frame.pc += 1;
 }
 
 
@@ -494,8 +504,8 @@ static inline void check_case(jstack_frame &frame,
                               jclass_const_pool &pool,
                               jclass_attr_code &code)
 {
-    int index = code.code[frame.pc ++] << 8;
-    index |= code.code[frame.pc ++];
+    int index = code.code[frame.pc + 1] << 8;
+    index |= code.code[frame.pc + 2];
     jclass *klass = get_class(index, pool);
 
     jref obj = pop_param<jref>(frame);
@@ -503,18 +513,21 @@ static inline void check_case(jstack_frame &frame,
     if (! klass->is_instance(obj)) {
         // todo: 抛出 class cast exception
     }
+    frame.pc += 3;
 }
 
 static inline void instance_of(jstack_frame &frame,
                               jclass_const_pool &pool,
                               jclass_attr_code &code)
 {
-    int index = code.code[frame.pc ++] << 8;
-    index |= code.code[frame.pc ++];
+    int index = code.code[frame.pc + 1] << 8;
+    index |= code.code[frame.pc + 2];
     jclass *klass = get_class(index, pool);
 
     jref obj = pop_param<jref>(frame);
     push_param<jint>(frame, klass->is_instance(obj) ? 1 : 0);
+
+    frame.pc += 3;
 }
 
 

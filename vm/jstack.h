@@ -30,6 +30,10 @@ struct jstack_frame
      */ 
     slot_t *operand_stack = nullptr;
 
+    /**
+     * 原始的操作数栈指针，用来调试的
+     */
+     slot_t *operand_stack_orig = nullptr;
 
     /**
      * 正在执行的函数

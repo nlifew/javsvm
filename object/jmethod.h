@@ -94,8 +94,6 @@ struct jmethod
     jvalue invoke_virtual(jref ref, jargs &args);
 
     jvalue invoke_interface(jref ref, jargs &args);
-
-    static jargs make(va_list args);
 };
 
 } // namespace javsvm

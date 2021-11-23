@@ -118,7 +118,4 @@ public:
 };
 
 } // namespace javsvm
-
-
-
 #endif

@@ -15,8 +15,11 @@ struct jmethod;
 
 struct jclass
 {
-    // 使用调用者的类加载器加载新的类
-    static jclass *find_class(const char *name);
+    /**
+     * 使用调用者的类加载器加载新的类
+     * todo
+     */
+    static jclass *find_class(const char *name) { return jvm::get().bootstrap_loader.load_class(name); }
 
     const char *name = nullptr;
     u4 access_flag = 0;

@@ -19,7 +19,8 @@ void* jstack::malloc_bytes(int bytes)
 
     void *mem = m_buff + m_offset;
     m_offset += bytes;
-    return mem;
+
+    return mem; // memset(mem, 0, bytes);
 }
 
 void jstack::recycle_bytes(int bytes)
@@ -66,6 +67,7 @@ jstack_frame& jstack::push(jmethod *m)
     frame->operand_stack = calloc_type<slot_t>(code->max_stack);
     frame->variable_table = calloc_type<slot_t>(code->max_locals);
     frame->bytes = m_offset - pos;
+    frame->operand_stack_orig = frame->operand_stack;
 
     frame->next = m_top;
     m_top = frame;

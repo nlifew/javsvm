@@ -39,7 +39,7 @@ struct jargs
 
 
 jvalue run_java(jmethod *m, jref obj, jargs &args);
-    
+
 
 jvalue run_jni(jmethod *m, jref obj, jargs &args);
 

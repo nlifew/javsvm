@@ -3,6 +3,7 @@
 #include "jmethod.h"
 #include "jclass.h"
 #include "jobject.h"
+#include "../engine/engine.h"
 
 using namespace javsvm;
 
@@ -241,4 +242,27 @@ jvalue jmethod::invoke_interface(jref ref, args_wrapper &args)
 
     return lock_and_run(_this, ref, args);
 }
+#else
+
+// 最简单的实现，忽略了 synchronized 和空指针检查，仅仅为了快速测试
+jvalue jmethod::invoke_static(jargs &args)
+{
+    return run_java(this, nullptr, args);
+}
+
+jvalue jmethod::invoke_interface(jref ref, jargs &args)
+{
+    return run_java(this, nullptr, args);
+}
+
+jvalue jmethod::invoke_virtual(jref ref, jargs &args)
+{
+    return run_java(this, nullptr, args);
+}
+
+jvalue jmethod::invoke_special(jref ref, jargs &args)
+{
+    return run_java(this, nullptr, args);
+}
+
 #endif
