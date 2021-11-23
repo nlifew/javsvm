@@ -390,122 +390,61 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
             case _return: goto finally;
 
             // todo: 下面的指令需要加入空检查和类初始化检查的逻辑
-            case getstatic: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jfield *field = get_field(idx, constant_pool);
-                jvalue val = field->get((jref) nullptr);
-                push_jvalue(frame, val, field->slot_num);
-                frame.pc += 3;
+            case getstatic:
+                get_field<static_field>(frame, code, constant_pool);
                 break;
-            }
-            case putstatic: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jfield *field = get_field(idx, constant_pool);
-                jvalue val = pop_jvalue(frame, field->slot_num);
-                field->set((jref) nullptr, val);
-                frame.pc += 3;
+            case putstatic:
+                put_field<static_field>(frame, code, constant_pool);
                 break;
-            }
-            case getfield: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jfield *field = get_field(idx, constant_pool);
-                jref obj = pop_param<jref>(frame);
-                jvalue val = field->get(obj);
-                push_jvalue(frame, val, field->slot_num);
-                frame.pc += 3;
+            case getfield:
+                get_field<direct_field>(frame, code, constant_pool);
                 break;
-            }
-            case putfield: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jfield *field = get_field(idx, constant_pool);
-                jvalue val = pop_jvalue(frame, field->slot_num);
-                jref obj = pop_param<jref>(frame);
-                field->set(obj, val);
-                frame.pc += 3;
+            case putfield:
+                put_field<direct_field>(frame, code, constant_pool);
                 break;
-            }
-
-            case invokespecial: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jmethod *m = get_method(idx, constant_pool);
-                frame.operand_stack -= m->args_slot;
-                jref ref = args.next<jref>();
-                jargs a(frame.operand_stack);
-
-                jvalue val = m->invoke_special(ref, a);
-                push_jvalue(frame, val, m->return_slot);
-                frame.pc += 3;
+            case invokevirtual:
+                invoke_method<virtual_method, 3>(frame, code, constant_pool);
                 break;
-            }
-            case invokevirtual: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jmethod *m = get_method(idx, constant_pool);
-                frame.operand_stack -= m->args_slot;
-                jargs a(frame.operand_stack);
-
-                jvalue val = m->invoke_static(a);
-                push_jvalue(frame, val, m->return_slot);
-                frame.pc += 3;
+            case invokespecial:
+                invoke_method<special_method, 3>(frame, code, constant_pool);
                 break;
-            }
-            case invokeinterface: {
-                int idx = code.code[frame.pc + 1] << 8;
-                idx |= code.code[frame.pc + 2];
-
-                jmethod *m = get_method(idx, constant_pool);
-                frame.operand_stack -= m->args_slot;
-                jref ref = args.next<jref>();
-                jargs a(frame.operand_stack);
-
-                jvalue val = m->invoke_virtual(ref, a);
-                push_jvalue(frame, val, m->return_slot);
-                frame.pc += 5;
+            case invokestatic:
+                invoke_method<static_method, 3>(frame, code, constant_pool);
                 break;
-            }
-            case invokestatic: {
-                int idx = code.code[frame.pc + 1];
-                idx |= code.code[frame.pc + 2];
-
-                jmethod *m = get_method(idx, constant_pool);
-                frame.operand_stack -= m->args_slot;
-                jargs a(frame.operand_stack);
-
-                jvalue val = m->invoke_static(a);
-                push_jvalue(frame, val, m->return_slot);
-                frame.pc += 3;
+            case invokeinterface:
+                invoke_method<interface_method, 5>(frame, code, constant_pool);
                 break;
-            }
             case invokedynamic:
                 // todo:
                 break;
             case _new: {
-                int idx = code.code[frame.pc + 1];
+                int idx = code.code[frame.pc + 1] << 8;
+                idx |= code.code[frame.pc + 2];
+
                 jclass *cls = get_class(idx, constant_pool);
                 jref ref = cls->new_instance();
                 push_param<jref>(frame, ref);
-                frame.pc += 2;
+
+                frame.pc += 3;
                 break;
             }
-            case newarray: new_array(frame, code); break;
-            case anewarray: a_new_array(frame, constant_pool, code); break;
-            case arraylength: array_length(frame); break;
+            case newarray:
+                new_array(frame, code);
+                break;
+            case anewarray:
+                a_new_array(frame, constant_pool, code);
+                break;
+            case arraylength:
+                array_length(frame);
+                break;
+
             case athrow:
                 // todo:
                 break;
+
             case checkcast: check_case(frame, constant_pool, code); break;
             case instanceof: instance_of(frame, constant_pool, code); break;
+
             case monitorenter: {
                 jref ref = pop_param<jref>(frame);
                 auto ptr = jvm::get().heap.lock(ref);

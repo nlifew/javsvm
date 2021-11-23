@@ -366,33 +366,64 @@ static inline jclass *get_class(int index, jclass_const_pool &pool)
     return (jclass*) class_info->extra;
 }
 
-static inline jfield* get_field(int index, jclass_const_pool &pool)
+
+
+
+struct static_method
 {
-    auto *field_ref = pool.cast<jclass_const_field_ref>(index);
-    if (field_ref->extra == nullptr) {
-        // 先获取到这个类的引用
-        jclass *clazz = get_class(field_ref->class_index, pool);
-
-        // 获取这个字段的引用
-        auto *name_and_type = pool.cast<jclass_const_name_and_type>(field_ref->name_and_type_index);
-        auto *name = (char*) pool.cast<jclass_const_utf8>(name_and_type->name_index)->bytes;
-        auto *type = (char*) pool.cast<jclass_const_utf8>(name_and_type->type_index)->bytes;
-
-        field_ref->extra = clazz->get_field(name, type);
-
-        if (field_ref->extra == nullptr) {
-            LOGE("can't find field [%s][%s] in class [%s]\n", name, type, clazz->name);
-            exit(1);
-        }
+    jmethod* operator()(jclass *klass, const char *name, const char *type) const noexcept
+    {
+        return klass->get_static_method(name, type);
     }
-    return (jfield *)field_ref->extra;
-}
+    jvalue operator()(jmethod *m, jargs &args) const noexcept
+    {
+        return m->invoke_static(args);
+    }
+};
 
+struct virtual_method
+{
+    jmethod* operator()(jclass *klass, const char *name, const char *type) const noexcept
+    {
+        return klass->get_virtual_method(name, type);
+    }
+    jvalue operator()(jmethod *m, jargs &args) const noexcept
+    {
+        return m->invoke_virtual(args.next<jref>(), args);
+    }
+};
 
+struct interface_method
+{
+    jmethod* operator()(jclass *klass, const char *name, const char *type) const noexcept
+    {
+        return klass->get_virtual_method(name, type);
+    }
+    jvalue operator()(jmethod *m, jargs &args) const noexcept
+    {
+        return m->invoke_interface(args.next<jref>(), args);
+    }
+};
+
+struct special_method
+{
+    jmethod* operator()(jclass *klass, const char *name, const char *type) const noexcept
+    {
+        return klass->get_method(name, type);
+    }
+    jvalue operator()(jmethod *m, jargs &args) const noexcept
+    {
+        return m->invoke_special(args.next<jref>(), args);
+    }
+};
+
+template <typename T>
 static inline jmethod* get_method(int index, jclass_const_pool &pool)
 {
     auto *method_ref = pool.cast<jclass_const_method_ref>(index);
-    if (method_ref->extra == nullptr) {
+    auto m = (jmethod*) method_ref->extra;
+
+    if (m == nullptr) {
         // 先获取到这个类的引用
         jclass *clazz = get_class(method_ref->class_index, pool);
 
@@ -401,40 +432,133 @@ static inline jmethod* get_method(int index, jclass_const_pool &pool)
         auto *name = (char*) pool.cast<jclass_const_utf8>(name_and_type->name_index)->bytes;
         auto *type = (char*) pool.cast<jclass_const_utf8>(name_and_type->type_index)->bytes;
 
-        method_ref->extra = clazz->get_method(name, type);
-
-        if (method_ref->extra == nullptr) {
+        method_ref->extra = m = T().operator()(clazz, name, type);
+        if (m == nullptr) {
             LOGE("can't find method [%s][%s] in class [%s]\n", name, type, clazz->name);
             exit(1);
         }
     }
-    return (jmethod *)method_ref->extra;
+    return m;
 }
 
 
-static inline jvalue pop_jvalue(jstack_frame &frame, int slot_num)
+template<typename Method, int OpCount>
+static inline void invoke_method(jstack_frame &frame,
+                                 jclass_attr_code &code,
+                                 jclass_const_pool &pool)
 {
-    jvalue val = {0};
-    switch (slot_num) {
-        case 0: break;
-        case 1: val.i = pop_param<jint>(frame); break;
-        case 2: val.j = pop_param<jlong>(frame); break;
-        default:
-            LOGE("pop_jvalue: unknown slot_num: %d\n", slot_num);
-    }
-    return val;
-}
+    int idx = code.code[frame.pc + 1] << 8;
+    idx |= code.code[frame.pc + 2];
 
-static inline void push_jvalue(jstack_frame &frame, jvalue &val, int slot_num)
-{
-    switch (slot_num) {
+    jmethod *m = get_method<Method>(idx, pool);
+    jargs args(frame.operand_stack -= m->args_slot);
+
+    jvalue val = Method().operator()(m, args);
+
+//    frame.operand_stack -= m->args_slot;
+
+    switch (m->return_slot) {
         case 0: break;
         case 1: push_param<jint>(frame, val.i); break;
         case 2: push_param<jlong>(frame, val.j); break;
-        default:
-            LOGE("push_jvalue: unknown slot_num: %d\n", slot_num);
+        default: LOGE("push_jvalue: unknown slot_num: %d\n", m->return_slot);
     }
+
+    frame.pc += OpCount;
 }
+
+
+struct static_field
+{
+    static constexpr bool STATIC = true;
+
+    jfield* operator()(jclass *klass, const char *name, const char *type) const noexcept
+    {
+        return klass->get_static_field(name, type);
+    }
+};
+
+struct direct_field
+{
+    static constexpr bool STATIC = false;
+
+    jfield* operator()(jclass *klass, const char *name, const char *type) const noexcept
+    {
+        return klass->get_field(name, type);
+    }
+};
+
+template <typename T>
+static inline jfield* get_field(int index, jclass_const_pool &pool)
+{
+    auto *field_ref = pool.cast<jclass_const_field_ref>(index);
+    auto f = (jfield*) field_ref->extra;
+    if (f == nullptr) {
+        // 先获取到这个类的引用
+        jclass *clazz = get_class(field_ref->class_index, pool);
+
+        // 获取这个字段的引用
+        auto *name_and_type = pool.cast<jclass_const_name_and_type>(field_ref->name_and_type_index);
+        auto *name = (char*) pool.cast<jclass_const_utf8>(name_and_type->name_index)->bytes;
+        auto *type = (char*) pool.cast<jclass_const_utf8>(name_and_type->type_index)->bytes;
+
+        field_ref->extra = f = clazz->get_field(name, type);
+        if (f == nullptr) {
+            LOGE("can't find field [%s][%s] in class [%s]\n", name, type, clazz->name);
+            exit(1);
+        }
+    }
+    return f;
+}
+
+template <typename Field>
+static inline void put_field(jstack_frame &frame,
+                             jclass_attr_code &code,
+                             jclass_const_pool &pool)
+{
+    int idx = code.code[frame.pc + 1] << 8;
+    idx |= code.code[frame.pc + 2];
+
+    jfield *field = get_field<Field>(idx, pool);
+
+    jvalue val = { 0 };
+    switch (field->slot_num) {
+        case 0: break;
+        case 1: val.i = pop_param<jint>(frame); break;
+        case 2: val.j = pop_param<jlong>(frame); break;
+        default: LOGE("pop_jvalue: unknown slot_num: %d\n", field->slot_num);
+    }
+    jref obj = Field::STATIC ? nullptr : pop_param<jref>(frame);
+
+    field->set(obj, val);
+    frame.pc += 3;
+}
+
+
+template <typename Field>
+static inline void get_field(jstack_frame &frame,
+                             jclass_attr_code &code,
+                             jclass_const_pool &pool)
+{
+    int idx = code.code[frame.pc + 1] << 8;
+    idx |= code.code[frame.pc + 2];
+
+    jfield *field = get_field<Field>(idx, pool);
+    jref obj = Field::STATIC ? nullptr : pop_param<jref>(frame);
+
+    jvalue val = field->get(obj);
+
+    switch (field->slot_num) {
+        case 0: break;
+        case 1: push_param<jint>(frame, val.i); break;
+        case 2: push_param<jlong>(frame, val.j); break;
+        default: LOGE("pop_jvalue: unknown slot_num: %d\n", field->slot_num);
+    }
+
+    frame.pc += 3;
+}
+
+
 
 static inline void new_array(jstack_frame &frame, jclass_attr_code &code)
 {
