@@ -28,9 +28,11 @@ public:
 
     jvm& vm() { return m_jvm; }
 
-    int thread_id() const { return m_thread_id; }
+    [[nodiscard]]
+    int thread_id() const noexcept { return m_thread_id; }
 
-    jstack& stack() { return m_stack; }
+    [[nodiscard]]
+    jstack& stack() noexcept { return m_stack; }
 };
 
 } // namespace javsvm

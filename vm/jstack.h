@@ -99,7 +99,8 @@ public:
 
     ~jstack();
 
-    jstack_frame *top() { return m_top; }
+    [[nodiscard]]
+    jstack_frame *top() const noexcept { return m_top; }
 
     void pop();
 

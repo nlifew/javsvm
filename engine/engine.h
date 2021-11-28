@@ -8,11 +8,12 @@
 namespace javsvm
 {
 
-struct jargs
+class jargs
 {
     slot_t *m_args;
     slot_t *m_orig;
 
+public:
     explicit jargs(slot_t *args) : m_args(args), m_orig(args)
     {
     }
@@ -33,6 +34,12 @@ struct jargs
     }
 
     void reset() noexcept { m_args = m_orig; }
+
+    [[nodiscard]]
+    const slot_t *begin() const noexcept { return m_orig; }
+
+    [[nodiscard]]
+    const slot_t *where() const noexcept { return m_args; }
 };
 
 

@@ -3,7 +3,7 @@
 #include "jclass.h"
 #include "jfield.h"
 #include "jmethod.h"
-//#include <vm/jvm.h>
+#include "../engine/engine.h"
 
 //#include <class/jclass_file.h>
 //#include <engine/engine.h>
@@ -15,10 +15,12 @@
 using namespace javsvm;
 
 
+
+
 jfield* jclass::get_field(const char *_name, const char *_sig) const noexcept
 {
     jfield f;
-    f.name = name;
+    f.name = _name;
     f.sig = _sig;
 
     for (const jclass *klass = this; klass; klass = klass->super_class) {
@@ -122,6 +124,55 @@ bool jclass::is_instance(jref ref) noexcept
         }
     }
     return false;
+}
+
+jclass *jclass::find_class(const char *name)
+{
+    auto &vm = jvm::get();
+    auto &stack = vm.env().stack();
+    auto stack_frame = stack.top();
+
+    // 栈帧为空，说明还没有走到 java 函数，使用初始类加载器
+    if (stack_frame == nullptr) {
+        return vm.bootstrap_loader.load_class(name);
+    }
+    // 找到栈顶的类的加载器
+    auto loader = stack_frame->method->clazz->loader;
+    auto loader_ptr = vm.heap.lock(loader);
+
+    // 如果栈顶函数的类加载器为 null，使用系统类加载器
+    if (loader_ptr == nullptr) {
+        return vm.bootstrap_loader.load_class(name);
+    }
+    static jmethod *java_lang_ClassLoader_loadClass = nullptr;
+    if (java_lang_ClassLoader_loadClass == nullptr) {
+        java_lang_ClassLoader_loadClass = loader_ptr->klass->get_virtual_method("findClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+    }
+    loader_ptr.reset(); // 不用的指针及时释放
+
+    // 走到这里需要调用 java 层的 Class<?> ClassLoader.loadClass(String) 函数
+    slot_t buff[2];
+    memset(buff, 0, sizeof(buff));
+
+    buff[0] = (slot_t) loader;
+    buff[1] = (slot_t) vm.string_pool.find_or_new(name);
+
+    jargs args(buff);
+    jvalue val = java_lang_ClassLoader_loadClass->invoke_virtual(loader, args);
+
+    auto class_ptr = vm.heap.lock(val.l);
+    if (class_ptr == nullptr) {
+        // 加载失败了，直接返回
+        return nullptr;
+    }
+
+    // 获取这个 Class 对象在 native 层的指针，强转后返回
+    static jfield *java_lang_Class_mNativePtr = nullptr;
+    if (java_lang_Class_mNativePtr == nullptr) {
+        java_lang_Class_mNativePtr = class_ptr->klass->get_field("mNativePtr", "J");
+    }
+    val = java_lang_Class_mNativePtr->get(val.l);
+    return (jclass *) val.j;
 }
 
 //jclass* jclass::find_class(const char *name)

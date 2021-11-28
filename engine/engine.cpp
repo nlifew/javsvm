@@ -26,7 +26,7 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
     jclass_const_pool &constant_pool = me->clazz->class_file->constant_pool;
  
     // 将参数压进局部变量表
-    memcpy(frame.variable_table, args.m_orig, me->args_slot * sizeof(slot_t));
+    memcpy(frame.variable_table, args.begin(), me->args_slot * sizeof(slot_t));
 
     // 解释执行
     while (frame.pc < code.code_length) {
