@@ -11,6 +11,7 @@
 #include "object/jmethod.h"
 #include "object/jarray.h"
 #include "engine/engine.h"
+#include "dll/dll_loader.h"
 
 #include <thread>
 #include <queue>
@@ -18,13 +19,25 @@
 using namespace javsvm;
 
 
-int main() {
+int main(int argc, const char *argv[]) {
     chdir("..");
     putenv(strdup("CLASSPATH=test"));
 
     printf("start\n");
     jvm &vm = jvm::get();
     vm.attach();
+
+    dll_loader loader;
+    void *dll = loader.load_library("home/whoami/../../../../../../../Users/./././edz/desktop//////main.dylib");
+    auto add = loader.find_symbol<int(*)(int, int)>("add", dll);
+
+    if (add) {
+        printf("call add() %d\n", add(2, 3));
+    }
+
+    if (true) {
+        return 0;
+    }
 
     jclass *Main = vm.bootstrap_loader.load_class("Main");
     jmethod *msort = Main->get_static_method("msort", "([III[I)V");

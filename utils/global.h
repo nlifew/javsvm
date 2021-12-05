@@ -5,6 +5,15 @@
 #ifndef JAVSVM_GLOBAL_H
 #define JAVSVM_GLOBAL_H
 
+
+#if _WIN32 || WIN32 || WIN64
+#define WINDOWS 1
+#else
+#define WINDOWS 0
+#endif
+
+
+
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>

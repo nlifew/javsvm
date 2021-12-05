@@ -25,12 +25,17 @@ add_subdirectory(vm)
 add_subdirectory(classloader)
 add_subdirectory(engine)
 add_subdirectory(utils)
+add_subdirectory(dll)
 
 add_executable(
         main
         main.cpp
 )
 
+find_library(
+        dl-lib
+        dl
+)
 
 target_link_libraries(
         main
@@ -40,5 +45,7 @@ target_link_libraries(
         vm
         concurrent
         class
+        dll
         utils
+        ${dl-lib}
 )

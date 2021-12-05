@@ -67,12 +67,11 @@ struct jfield
     }
 
     // todo:
-    jvalue get(jref obj) { return jvalue {}; };
+//    jvalue get(jref obj);
 
-    // todo:
     jvalue get(void *values) { return jvalue {}; }
 
-    void set(jref obj, jvalue val) {}
+//    void set(jref obj, jvalue val);
 
     void set(void *values, jvalue val) {}
 };
