@@ -4,4 +4,5 @@ add_library(
         engine
         STATIC
         engine.cpp
+        arm64.asm
 )
