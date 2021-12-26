@@ -38,11 +38,8 @@ public:
     template<typename T>
     T* calloc_type(int n = 1)
     {
-        T* ptr = (T*) malloc_bytes(sizeof(T) * n);
-        for (int i = 0; i < n; i ++) {
-            new (ptr + i) T();
-        }
-        return ptr;
+        T* ptr = (T*) malloc_bytes(sizeof(T) * n + sizeof(int));
+        return ::new(ptr)T[n];
     }
 //
 //    int save();

@@ -83,11 +83,8 @@ private:
     template <typename T>
     T* calloc_type(int n = 1)
     {
-        auto ptr = (T *)malloc_bytes(n * sizeof(T));
-        for (int i = 0; i < n; i ++) {
-            new (ptr + i) T();
-        }
-        return ptr;
+        auto ptr = (T *)malloc_bytes(n * sizeof(T) + sizeof(int));
+        return ::new(ptr) T[n];
     }
 
 public:
