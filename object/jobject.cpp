@@ -2,15 +2,14 @@
 
 #include "jobject.h"
 #include "jlock.h"
-#include "../concurrent/atomic_lock.h"
-#include "../concurrent/object_pool.h"
+#include "../concurrent/pool.h"
 
 #include <thread>
 
 using namespace javsvm;
 
 
-static object_pool<jlock, atomic_lock> global_lock_pool(32);
+static linked_pool<jlock> global_lock_pool(32);
 
 #define ENTER_BARRIER \
     bool _expect_barrier = false; \
@@ -28,7 +27,7 @@ void jobject::lock()
     ENTER_BARRIER
 
     if (m_owner_thread_count++ == 0) {
-        m_lock = global_lock_pool.obtain();
+        m_lock = &global_lock_pool.obtain();
     }
 
     EXIT_BARRIER
@@ -43,7 +42,7 @@ void jobject::unlock()
 
     ENTER_BARRIER
     if (--m_owner_thread_count == 0) {
-        global_lock_pool.recycle(const_cast<jlock*>(m_lock));
+        global_lock_pool.recycle((const jlock &) *m_lock);
         m_lock = nullptr;
     }
     EXIT_BARRIER
