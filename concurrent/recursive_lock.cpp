@@ -3,119 +3,91 @@
 //
 
 #include "recursive_lock.h"
-#include "../utils/log.h"
-#include <cstdlib>
+
 
 using namespace javsvm;
 
+using thread_id = recursive_lock::thread_id;
+static constexpr thread_id INVALID_THREAD_ID = -1;
+
+
+static inline thread_id my_thread_id() noexcept
+{
+    auto id = INVALID_THREAD_ID;
+    pthread_threadid_np(nullptr, &id);
+    return id;
+}
+
+
 recursive_lock::recursive_lock() noexcept:
-        m_lock(),
-        m_cond(),
-        m_reader_count(0)
+    m_owner_thread_id(INVALID_THREAD_ID),
+    m_recursive_count(0)
 {
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-
-    if (pthread_mutex_init(&m_lock, &attr) != 0) {
-        PLOGE("failed to init pthread_mutex\n");
-        exit(1);
-    }
-    pthread_mutexattr_destroy(&attr);
-
-    if (pthread_cond_init(&m_cond, nullptr) != 0) {
-        PLOGE("failed to init pthread_cond\n");
-        pthread_mutex_destroy(&m_lock);
-        exit(1);
-    }
 }
-
-recursive_lock::~recursive_lock() noexcept
-{
-    if (pthread_cond_destroy(&m_cond) != 0) {
-        PLOGE("failed to destroy pthread_cond\n");
-        exit(1);
-    }
-    if (pthread_mutex_destroy(&m_lock) != 0) {
-        PLOGE("failed to destroy pthread_mutex\n");
-        exit(1);
-    }
-}
-
-
-struct pthread_lock_guard
-{
-    pthread_mutex_t &m_lock;
-
-    explicit pthread_lock_guard(pthread_mutex_t &lock) noexcept :
-        m_lock(lock)
-    {
-        if (pthread_mutex_lock(&m_lock) != 0) {
-            PLOGE("failed to call pthread_mutex_lock\n");
-            exit(1);
-        }
-    }
-
-    pthread_lock_guard(const pthread_lock_guard&) = delete;
-    pthread_lock_guard& operator=(const pthread_lock_guard&) = delete;
-
-    ~pthread_lock_guard() noexcept
-    {
-        if (pthread_mutex_unlock(&m_lock) != 0) {
-            PLOGE("failed to call pthread_mutex_unlock\n");
-            exit(1);
-        }
-    }
-};
 
 
 
 void recursive_lock::lock_shared() noexcept
 {
-    pthread_lock_guard lock(m_lock);
-    m_reader_count ++;
+    auto id = my_thread_id();
+    if (id == m_owner_thread_id) {
+        assert(m_recursive_count > 0);
+        m_recursive_count ++;
+        return;
+    }
+    m_mutex.lock_shared();
 }
 
 bool recursive_lock::try_lock_shared() noexcept
 {
-    if (pthread_mutex_trylock(&m_lock) == 0) {
-        m_reader_count ++;
+    auto id = my_thread_id();
+    if (id == m_owner_thread_id) {
+        assert(m_recursive_count > 0);
+        m_recursive_count ++;
         return true;
     }
-    return false;
+    return m_mutex.try_lock_shared();
 }
 
 
 void recursive_lock::unlock_shared() noexcept
 {
-    pthread_lock_guard lock(m_lock);
-    m_reader_count --;
-    if (m_reader_count == 0 && pthread_cond_broadcast(&m_cond) != 0) {
-        PLOGE("failed to call pthread_cond_wait\n");
-        exit(1);
+    auto id = my_thread_id();
+    if (id == m_owner_thread_id) {
+        m_recursive_count --;
+        assert(m_recursive_count > 0);
+        return;
     }
+    m_mutex.unlock_shared();
 }
 
 
 void recursive_lock::lock() noexcept
 {
-    if (pthread_mutex_lock(&m_lock) != 0) {
-        PLOGE("failed to call pthread_mutex_lock\n");
-        exit(1);
+    auto id = my_thread_id();
+    if (id == m_owner_thread_id) {
+        m_recursive_count ++;
+        return;
     }
+    m_mutex.lock();
+    assert(m_recursive_count == 0);
 
-    while (m_reader_count != 0) {
-        if (pthread_cond_wait(&m_cond, &m_lock) != 0) {
-            PLOGE("failed to call pthread_cond_wait\n");
-            exit(1);
-        }
-    }
+    m_owner_thread_id = id;
+    m_recursive_count = 1;
 }
 
 
 bool recursive_lock::try_lock() noexcept
 {
-    if (pthread_mutex_trylock(&m_lock) == 0 && m_reader_count == 0) {
+    auto id = my_thread_id();
+    if (id == m_owner_thread_id) {
+        m_recursive_count ++;
+        return true;
+    }
+    if (m_mutex.try_lock()) {
+        assert(m_recursive_count == 0);
+        m_owner_thread_id = id;
+        m_recursive_count = 1;
         return true;
     }
     return false;
@@ -123,8 +95,10 @@ bool recursive_lock::try_lock() noexcept
 
 void recursive_lock::unlock() noexcept
 {
-    if (pthread_mutex_unlock(&m_lock) != 0) {
-        PLOGE("failed to call pthread_mutex_unlock\n");
-        exit(1);
+    assert(m_recursive_count > 0);
+    m_recursive_count --;
+    if (m_recursive_count == 0) {
+        m_owner_thread_id = INVALID_THREAD_ID;
+        m_mutex.unlock();
     }
 }

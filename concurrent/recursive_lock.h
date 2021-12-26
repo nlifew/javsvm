@@ -1,23 +1,30 @@
 
-#ifndef JAVSVM_CON_RESCURSIVE_LOCK
-#define JAVSVM_CON_RESCURSIVE_LOCK
+#ifndef JAVSVM_CON_RECURSIVE_LOCK
+#define JAVSVM_CON_RECURSIVE_LOCK
 
-
-#include <pthread.h>
+#include <cstdint>
+#include <shared_mutex>
 
 namespace javsvm
 {
 
+/**
+ * 支持递归使用和锁降级的读写锁
+ */
+
 class recursive_lock
 {
+public:
+    using thread_id = uint64_t;
 private:
-    pthread_mutex_t m_lock;
-    pthread_cond_t m_cond;
-    volatile int m_reader_count;
+    std::shared_mutex m_mutex;
+    thread_id m_owner_thread_id;
+    volatile int m_recursive_count;
+
 public:
     recursive_lock() noexcept;
 
-    ~recursive_lock() noexcept;
+    ~recursive_lock() noexcept = default;
 
     recursive_lock(const recursive_lock&) = delete;
     recursive_lock& operator=(const recursive_lock&) = delete;
