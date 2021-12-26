@@ -65,6 +65,7 @@ LPushStackLoop:
     b.ge LPushStackDone
     ; 判断剩余需要复制的大小是否大于 8。如果大于等于 8，复制 8 个字节，否则复制 1 个字节
     ; 复制过程中使用的临时变量为 x21
+    ; 按理说 sp 指针是 16 位对齐的，因此不可能走到 LPushOneByteToStack，但还是留着吧
     subs w20, w4, w19
     cmp w20, #8
     b.lt LPushOneByteToStack
@@ -74,7 +75,6 @@ LPushStackLoop:
     add x22, x22, #8
     b LPushStackLoop
 LPushOneByteToStack:
-    ; todo: 可以通过 switch 查表的方式优化性能
     ldrb w21, [x5, x19]
     strb w21, [x22]
     add w19, w19, #1
