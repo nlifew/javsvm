@@ -306,13 +306,17 @@ void bootstrap_loader::gen_parent_tree(jclass *klass)
 {
     std::set<jclass*> set;
     collect_interface(klass, set);
+    set.erase(klass);
 
     klass->parent_tree_size = (int) set.size();
     klass->parent_tree = m_allocator.calloc_type<jclass*>((int) set.size());
 
-    int i = 0;
+    // 由于 object 类比任何类都先加载，其地址也比其它类要低
+    // 如果正向遍历，object 类会出现在第一个位置————我们当然不想这么做，
+    // 毕竟没有人会写出 o instanceof Object 这种代码
+    int i = (int) set.size() - 1;
     for (auto it : set) {
-        klass->parent_tree[i ++] = it;
+        klass->parent_tree[i --] = it;
     }
 }
 
