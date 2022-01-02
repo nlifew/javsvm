@@ -36,7 +36,14 @@ public:
     }
 
     template<typename T>
-    T* calloc_type(int n = 1)
+    T* calloc_type()
+    {
+        T* ptr = (T*) malloc_bytes(sizeof(T));
+        return ::new(ptr)T;
+    }
+
+    template<typename T>
+    T* calloc_type(int n)
     {
         T* ptr = (T*) malloc_bytes(sizeof(T) * n + sizeof(int));
         return ::new(ptr)T[n];

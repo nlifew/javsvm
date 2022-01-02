@@ -31,7 +31,7 @@ struct jstack_frame
     slot_t *operand_stack = nullptr;
 
     /**
-     * 原始的操作数栈指针，用来调试的
+     * 原始的操作数栈指针，用来恢复操作数栈到原始位置
      */
      slot_t *operand_stack_orig = nullptr;
 
@@ -50,18 +50,46 @@ struct jstack_frame
     /**
      * 指针计数器 pointer counter
      */ 
-    int pc = 0;
-
+    u4 pc = 0;
 
     /**
      * 栈帧使用的字节数
      */ 
     int bytes = 0;
 
+    /**
+     * 异常引用
+     * 当异常实例被抛出，虚拟机会进行栈回溯，如果该异常能够被正常捕获，
+     * 则会修改 exp_catch_pc，并将此字段置位。此时解释引擎会清空操作数栈，
+     * 并重新修正 pc
+     */
+     jref exp = nullptr;
+
+     u4 exp_handler_pc = 0;
+
     jstack_frame() = default;
     ~jstack_frame() = default;
     jstack_frame(const jstack_frame &) = delete;
     jstack_frame &operator=(const jstack_frame&) = delete;
+
+
+    template <typename T>
+    inline T pop_param() noexcept
+    {
+        operand_stack -= slotof(T);
+        T t = *(T *)(operand_stack);
+        return t;
+    }
+
+    template <typename T>
+    inline void push_param(const T &t) noexcept
+    {
+#ifndef NDEBUG
+        *operand_stack = 0;
+#endif
+        *(T *) (operand_stack) = t;
+        operand_stack += slotof(T);
+    }
 };
 
 class jstack
@@ -81,10 +109,17 @@ private:
     void recycle_bytes(int bytes);
 
     template <typename T>
-    T* calloc_type(int n = 1)
+    T* calloc_type(int n)
     {
         auto ptr = (T *)malloc_bytes(n * sizeof(T) + sizeof(int));
         return ::new(ptr) T[n];
+    }
+
+    template<typename T>
+    T* calloc_type()
+    {
+        auto ptr = (T *)malloc_bytes(sizeof(T));
+        return ::new(ptr) T;
     }
 
 public:

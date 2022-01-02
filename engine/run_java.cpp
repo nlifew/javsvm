@@ -28,31 +28,40 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
     // 将参数压进局部变量表
     memcpy(frame.variable_table, args.begin(), me->args_slot * sizeof(slot_t));
 
+    const auto code_length = code.code_length;
+
+loop:
     // 解释执行
-    while (frame.pc < code.code_length) {
+    while (frame.pc < code_length) {
         const int op = code.code[frame.pc];
 
         // 调试使用
-#if 1
-    LOGI("------------------------dump stack frame------------------------\n");
-    LOGI("pc: %d, op: %s(%d)\n", frame.pc, ops_str[op], op);
-    LOGI("variable_table(total %d):\n", code.max_locals);
+#ifndef NDEBUG
+    LOGD("------------------------dump stack frame------------------------\n");
+    LOGD("pc: %d, op: %s(%d)\n", frame.pc, ops_str[op], op);
+    LOGD("variable_table(total %d):\n", code.max_locals);
     for (int i = 0; i < code.max_locals; i ++) {
-        LOGI("\t\t[%d/%d]: %#llx\n", i, code.max_locals, frame.variable_table[i]);
+        LOGD("\t\t[%d/%d]: %#llx\n", i, code.max_locals, frame.variable_table[i]);
     }
     int stack_depth = (int) (frame.operand_stack - frame.operand_stack_orig);
-    LOGI("operand_stack(cur %d, max %d):\n", stack_depth, code.max_stack);
+    LOGD("operand_stack(cur %d, max %d):\n", stack_depth, code.max_stack);
     for (int i = 0; i < stack_depth; i ++) {
-        LOGI("\t\t[%d/%d]: %#llx\n", i, stack_depth, *(frame.operand_stack - i - 1));
+        LOGD("\t\t[%d/%d]: %#llx\n", i, stack_depth, *(frame.operand_stack - i - 1));
     }
-    LOGI("------------------------------end-------------------------------\n");
+    LOGD("------------------------------end-------------------------------\n");
 #endif
+
+    /**
+     * 注意事项:
+     * 1. 对于每条指令，先执行操作，再更新 pc
+     */
+
         switch (op) {
             case nop:
                 frame.pc += 1;
                 break;
             case aconst_null:
-                push_param<jref>(frame, nullptr);
+                frame.push_param<jref>(nullptr);
                 frame.pc += 1;
                 break;
             case iconst_m1:
@@ -62,35 +71,35 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
             case iconst_3:
             case iconst_4:
             case iconst_5:
-                push_param<jint>(frame, op - 3);
+                frame.push_param<jint>(op - 3);
                 frame.pc += 1;
                 break;
             case lconst_0:
             case lconst_1:
-                push_param<jlong>(frame, op - 9);
+                frame.push_param<jlong>(op - 9);
                 frame.pc += 1;
                 break;
             case fconst_0:
             case fconst_1:
             case fconst_2:
-                push_param<jfloat>(frame, ((float) op) - 11);
+                frame.push_param<jfloat>((float) op - 11);
                 frame.pc += 1;
                 break;
             case dconst_0:
             case dconst_1:
-                push_param<jdouble>(frame, op - 14);
+                frame.push_param<jdouble>(op - 14);
                 frame.pc += 1;
                 break;
             case bipush: {
                 u1 val = code.code[frame.pc + 1];
-                push_param(frame, val);
+                frame.push_param(val);
                 frame.pc += 2;
                 break;
             }
             case sipush: {
                 u2 val = code.code[frame.pc + 1] << 8;
                 val |= code.code[frame.pc + 2];
-                push_param(frame, val);
+                frame.push_param(val);
                 frame.pc += 3;
                 break;
             }
@@ -169,14 +178,14 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
                 frame.pc += 1;
                 break;
 
-            case iaload: getT<jint>(frame); frame.pc += 1; break;
-            case laload: getT<jlong>(frame); frame.pc += 1; break;
-            case faload: getT<jfloat>(frame); frame.pc += 1; break;
-            case daload: getT<jdouble>(frame); frame.pc += 1; break;
-            case aaload: getT<jref>(frame); frame.pc += 1; break;
-            case baload: getT<jbyte>(frame); frame.pc += 1; break;
-            case caload: getT<jchar>(frame); frame.pc += 1; break;
-            case saload: getT<jshort>(frame); frame.pc += 1; break;
+            case iaload: getT<jint>(frame); break;
+            case laload: getT<jlong>(frame); break;
+            case faload: getT<jfloat>(frame); break;
+            case daload: getT<jdouble>(frame); break;
+            case aaload: getT<jref>(frame); break;
+            case baload: getT<jbyte>(frame); break;
+            case caload: getT<jchar>(frame); break;
+            case saload: getT<jshort>(frame); break;
 
             case istore: 
             case fstore: 
@@ -239,14 +248,14 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
                 frame.pc += 1;
                 break;
 
-            case iastore: setT<jint>(frame); frame.pc += 1; break;
-            case lastore: setT<jlong>(frame); frame.pc += 1; break;
-            case fastore: setT<jfloat>(frame); frame.pc += 1; break;
-            case dastore: setT<jdouble>(frame); frame.pc += 1; break;
-            case aastore: setT<jref>(frame); frame.pc += 1; break;
-            case bastore: setT<jbyte>(frame); frame.pc += 1; break;
-            case castore: setT<jchar>(frame); frame.pc += 1; break;
-            case sastore: setT<jshort>(frame); frame.pc += 1; break;
+            case iastore: setT<jint>(frame);  break;
+            case lastore: setT<jlong>(frame); break;
+            case fastore: setT<jfloat>(frame); break;
+            case dastore: setT<jdouble>(frame); break;
+            case aastore: setT<jref>(frame); break;
+            case bastore: setT<jbyte>(frame); break;
+            case castore: setT<jchar>(frame); break;
+            case sastore: setT<jshort>(frame); break;
             case pop:
             case pop2:
                 frame.operand_stack -= op - 86;
@@ -289,72 +298,78 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
             case fadd: addT<jfloat>(frame); break;
             case dadd: addT<jdouble>(frame); break;
 
-            case isub: subT<jint>(frame); frame.pc += 1; break;
-            case lsub: subT<jlong>(frame); frame.pc += 1; break;
-            case fsub: subT<jfloat>(frame); frame.pc += 1; break;
-            case dsub: subT<jdouble>(frame); frame.pc += 1; break;
+            case isub: subT<jint>(frame); break;
+            case lsub: subT<jlong>(frame); break;
+            case fsub: subT<jfloat>(frame); break;
+            case dsub: subT<jdouble>(frame); break;
 
-            case imul: mulT<jint>(frame); frame.pc += 1; break;
-            case lmul: mulT<jlong>(frame); frame.pc += 1; break;
-            case fmul: mulT<jfloat>(frame); frame.pc += 1; break;
-            case dmul: mulT<jdouble>(frame); frame.pc += 1; break;
+            case imul: mulT<jint>(frame); break;
+            case lmul: mulT<jlong>(frame); break;
+            case fmul: mulT<jfloat>(frame); break;
+            case dmul: mulT<jdouble>(frame); break;
 
-            case idiv: divT<jint>(frame); frame.pc += 1; break;
-            case _ldiv: divT<jlong>(frame); frame.pc += 1; break;
-            case fdiv: divT<jfloat>(frame); frame.pc += 1; break;
-            case ddiv: divT<jdouble>(frame); frame.pc += 1; break;
+            case idiv: divT<jint>(frame); break;
+            case _ldiv: divT<jlong>(frame); break;
+            case fdiv: divT<jfloat>(frame); break;
+            case ddiv: divT<jdouble>(frame); break;
 
-            case irem: remT<jint>(frame); frame.pc += 1; break;
-            case lrem: remT<jlong>(frame); frame.pc += 1; break;
-            case frem: remT<jfloat>(frame); frame.pc += 1; break;
-            case drem: remT<jdouble>(frame); frame.pc += 1; break;
+            case irem: remT<jint>(frame); break;
+            case lrem: remT<jlong>(frame); break;
+            case frem: remT<jfloat>(frame); break;
+            case drem: remT<jdouble>(frame); break;
 
-            case ineg: negT<jint>(frame); frame.pc += 1; break;
-            case lneg: negT<jlong>(frame); frame.pc += 1; break;
-            case fneg: negT<jfloat>(frame); frame.pc += 1; break;
-            case dneg: negT<jdouble>(frame); frame.pc += 1; break;
+            case ineg: negT<jint>(frame); break;
+            case lneg: negT<jlong>(frame); break;
+            case fneg: negT<jfloat>(frame); break;
+            case dneg: negT<jdouble>(frame); break;
 
-            case ishl: shlT<jint>(frame); frame.pc += 1; break;
-            case lshl: shlT<jlong>(frame); frame.pc += 1; break;
-            case ishr: shrT<jint>(frame); frame.pc += 1; break;
-            case lshr: shrT<jlong>(frame); frame.pc += 1; break;
-            case iushr: ushrT<jint, uint32_t>(frame); frame.pc += 1; break;
-            case lushr: ushrT<jlong, uint64_t>(frame); frame.pc += 1; break;
+            case ishl: shlT<jint>(frame); break;
+            case lshl: shlT<jlong>(frame); break;
+            case ishr: shrT<jint>(frame); break;
+            case lshr: shrT<jlong>(frame); break;
+            case iushr: ushrT<jint, uint32_t>(frame); break;
+            case lushr: ushrT<jlong, uint64_t>(frame); break;
 
-            case iand: andT<jint>(frame); frame.pc += 1; break;
-            case land: andT<jlong>(frame); frame.pc += 1; break;
-            case ior: orT<jint>(frame); frame.pc += 1; break;
-            case lor: orT<jlong>(frame); frame.pc += 1; break;
-            case ixor: xorT<jint>(frame); frame.pc += 1; break;
-            case lxor: xorT<jlong>(frame); frame.pc += 1; break;
+            case iand: andT<jint>(frame); break;
+            case land: andT<jlong>(frame); break;
+            case ior: orT<jint>(frame); break;
+            case lor: orT<jlong>(frame); break;
+            case ixor: xorT<jint>(frame); break;
+            case lxor: xorT<jlong>(frame); break;
 
-            case iinc: inc(frame, code); break;
+            case iinc: {
+                u1 idx = code.code[frame.pc + 1];
+                auto inc = (int8_t) code.code[frame.pc + 2];
+                frame.variable_table[idx] += inc;
+                frame.pc += 3;
+                break;
+            }
 
-            case i2l: i2T<jint, jlong>(frame); frame.pc += 1; break;
-            case i2f: i2T<jint, jfloat>(frame); frame.pc += 1; break;
-            case i2d: i2T<jint, jdouble>(frame); frame.pc += 1; break;
+            case i2l: i2T<jint, jlong>(frame); break;
+            case i2f: i2T<jint, jfloat>(frame); break;
+            case i2d: i2T<jint, jdouble>(frame); break;
 
-            case l2i: i2T<jlong, jint>(frame); frame.pc += 1; break;
-            case l2f: i2T<jlong, jfloat>(frame); frame.pc += 1; break;
-            case l2d: i2T<jlong, jdouble>(frame); frame.pc += 1; break;
+            case l2i: i2T<jlong, jint>(frame); break;
+            case l2f: i2T<jlong, jfloat>(frame); break;
+            case l2d: i2T<jlong, jdouble>(frame); break;
 
-            case f2i: i2T<jfloat, jint>(frame); frame.pc += 1; break;
-            case f2l: i2T<jfloat, jlong>(frame); frame.pc += 1; break;
-            case f2d: i2T<jfloat, jdouble>(frame); frame.pc += 1; break;
+            case f2i: i2T<jfloat, jint>(frame); break;
+            case f2l: i2T<jfloat, jlong>(frame); break;
+            case f2d: i2T<jfloat, jdouble>(frame); break;
 
-            case d2i: i2T<jdouble, jint>(frame); frame.pc += 1; break;
-            case d2l: i2T<jdouble, jlong>(frame); frame.pc += 1; break;
-            case d2f: i2T<jdouble, jfloat>(frame); frame.pc += 1; break;
+            case d2i: i2T<jdouble, jint>(frame); break;
+            case d2l: i2T<jdouble, jlong>(frame); break;
+            case d2f: i2T<jdouble, jfloat>(frame); break;
 
-            case i2b: i2T<jint, jbyte>(frame); frame.pc += 1; break;
-            case i2c: i2T<jint, jchar>(frame); frame.pc += 1; break;
-            case i2s: i2T<jint, jshort>(frame); frame.pc += 1; break;
+            case i2b: i2T<jint, jbyte>(frame); break;
+            case i2c: i2T<jint, jchar>(frame); break;
+            case i2s: i2T<jint, jshort>(frame); break;
 
-            case lcmp: cmpT<jlong>(frame); frame.pc += 1; break;
-            case fcmpl: cmpT<jfloat, numbers::Float, -1>(frame); frame.pc += 1; break;
-            case fcmpg: cmpT<jfloat, numbers::Float, 1>(frame); frame.pc += 1; break;
-            case dcmpl: cmpT<jdouble, numbers::Double, -1>(frame); frame.pc += 1; break;
-            case dcmpg: cmpT<jdouble, numbers::Double, 1>(frame); frame.pc += 1; break;
+            case lcmp: cmpT<jlong>(frame); break;
+            case fcmpl: cmpT<jfloat, numbers::Float, -1>(frame); break;
+            case fcmpg: cmpT<jfloat, numbers::Float, 1>(frame); break;
+            case dcmpl: cmpT<jdouble, numbers::Double, -1>(frame); break;
+            case dcmpg: cmpT<jdouble, numbers::Double, 1>(frame); break;
 
             case ifeq: ifT<jint, std::equal_to<jint>>(frame, code); break;
             case ifne: ifT<jint, std::not_equal_to<jint>>(frame, code); break;
@@ -374,22 +389,31 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
             case if_acmpeq: ifcmpT<jref, ref_equ>(frame, code); break;
             case if_acmpne: ifcmpT<jref, ref_not_equ>(frame, code); break;
 
-            case _goto: ifT<void, void>(frame, code); break;
-            case jsr:
-            case ret:
-                // todo
+            case _goto: {
+                int pc = code.code[frame.pc + 1] << 8;
+                pc |= code.code[frame.pc + 2];
+                frame.pc += (short) pc;
                 break;
+            }
+            case goto_w: {
+                // todo
+            }
+
+            // jsr 和 ret 指令已经被 jvm 规范禁止使用
+            case jsr: LOGE("invalid op code: jsr\n"); exit(1); break;
+            case ret: LOGE("invalid op code: ret\n"); exit(1); break;
+
             case tableswitch: switch_table(frame, code); break;
             case lookupswitch: lookup_table(frame, code); break;
 
-            case ireturn: result.i = pop_param<jint>(frame); goto finally;
-            case lreturn: result.j = pop_param<jlong>(frame); goto finally;
-            case freturn: result.f = pop_param<jfloat>(frame); goto finally;
-            case dreturn: result.d = pop_param<jdouble>(frame); goto finally;
-            case areturn: result.l = pop_param<jref>(frame); goto finally;
+            case ireturn: result.i = frame.pop_param<jint>(); goto finally;
+            case lreturn: result.j = frame.pop_param<jlong>(); goto finally;
+            case freturn: result.f = frame.pop_param<jfloat>(); goto finally;
+            case dreturn: result.d = frame.pop_param<jdouble>(); goto finally;
+            case areturn: result.l = frame.pop_param<jref>(); goto finally;
             case _return: goto finally;
 
-            // todo: 下面的指令需要加入空检查和类初始化检查的逻辑
+            // 下面的指令不需要加入空检查和类初始化检查的逻辑，jfield 和 jmethod 中会有真实的逻辑
             case getstatic:
                 get_field<static_field>(frame, code, constant_pool);
                 break;
@@ -423,8 +447,8 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
 
                 jclass *cls = get_class(idx, constant_pool);
                 jref ref = cls->new_instance();
-                push_param<jref>(frame, ref);
 
+                frame.push_param<jref>(ref);
                 frame.pc += 3;
                 break;
             }
@@ -438,52 +462,65 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
                 array_length(frame);
                 break;
 
-            case athrow:
-                // todo:
+            case athrow: {
+                auto exp = frame.pop_param<jref>();
+                throw_throwable(exp);
+                frame.pc += 1;
                 break;
+            }
 
-            case checkcast: check_case(frame, constant_pool, code); break;
+            case checkcast: check_cast(frame, constant_pool, code); break;
             case instanceof: instance_of(frame, constant_pool, code); break;
 
             case monitorenter: {
-                jref ref = pop_param<jref>(frame);
+                jref ref = frame.pop_param<jref>();
                 auto ptr = jvm::get().heap.lock(ref);
-                ptr->lock();
+                if (ptr == nullptr) {
+                    throw_exp("java/lang/NullPointerException", "monitorenter");
+                }
+                else {
+                    ptr->lock();
+                }
+                frame.pc += 1;
                 break;
             }
             case monitorexit: {
-                jref ref = pop_param<jref>(frame);
+                jref ref = frame.pop_param<jref>();
                 auto ptr = jvm::get().heap.lock(ref);
-                ptr->unlock();
+                if (ptr == nullptr) {
+                    throw_exp("java/lang/NullPointerException", "monitorenter");
+                }
+                else {
+                    ptr->unlock();
+                }
+                frame.pc += 1;
                 break;
             }
             case wide:
             case multianewarray:
-            case goto_w:
+                // todo
             case jsr_w:
-                // todo:
-                break;
+                LOGE("invalid op code: jsr\n"); exit(1); break;
             default:
                 LOGE("unsupported byte code %#02x\n", op);
                 exit(1);
         }
     }
-    goto finally;
-
 _catch:
-    // 
+    // 正常情况下通过 return 语句返回，是不会走到这里的。
+    // 执行到这里说明要么字节码出现问题，要么 pc 被异常处理机制调整过
+    if (frame.exp == nullptr) {
+        // wtf, 没有异常发生?
+        LOGE("run_java: _catch label arrived, but no exception found\n");
+        exit(1);
+    }
+    frame.operand_stack = frame.operand_stack_orig;
+    frame.pc = frame.exp_handler_pc;
+    frame.push_param<jref>(frame.exp);
+    frame.exp_handler_pc = 0;
+    frame.exp = nullptr;
+    goto loop;
 
 finally:
     return result;
-}
-
-/**
- * native 函数执行逻辑
- */ 
-
-jvalue javsvm::run_jni(jmethod *m, jref _this, jargs &args)
-{
-    // todo: 实现 jni 函数调用
-    jvalue v = {0};
-    return v;
 }

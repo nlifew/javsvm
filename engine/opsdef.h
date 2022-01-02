@@ -22,7 +22,7 @@ enum jops
     sipush,         /* 将 2 字节常量 (-0x8000 - 0x7fff) 压栈 */
     ldc,            /* 将指定 index (1 字节) 常量值从常量池中压栈 (占 1 个操作数槽) */
     ldc_w,          /* 同上，index (2 字节) */
-    ldc2_w,         /* 同上，占 2 个操作数栈 */
+    ldc2_w,         /* 同上，index 为 2 个字节，占 2 个操作数栈， */
     iload,          /* 将指定的 int 本地变量压栈 */
     lload,          /* 将指定的 long 本地变量压栈 */
     fload,          /* 将指定的 float 本地变量压栈 */
@@ -294,7 +294,7 @@ static const char* ops_str[] = {
         "bastore",
         "castore",
         "sastore",
-        "pop",
+        "pop_param",
         "pop2",
         "dup",
         "dup_x1",

@@ -66,6 +66,11 @@ public:
 
     bool operator==(const jobject *p) const noexcept { return m_ptr == p; }
 
+    bool operator!=(const jobject *p) const noexcept { return m_ptr != p; }
+
+    bool operator==(const jobject_ptr &p) const noexcept { return m_ptr == p.m_ptr; }
+
+    bool operator!=(const jobject_ptr &p) const noexcept { return m_ptr != p.m_ptr; }
 
     [[nodiscard]]
     jobject* get() const noexcept { return m_ptr; }
