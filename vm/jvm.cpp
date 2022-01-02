@@ -19,45 +19,71 @@ jvm &jvm::get()
     return vm;
 }
 
-static std::unordered_map<const jvm*, jenv*>& thread_local_map()
+//static std::unordered_map<const jvm*, jenv*>& thread_local_map()
+//{
+//    thread_local std::unordered_map<const jvm*, jenv*> map;
+//    return map;
+//}
+
+static inline jenv* &get_env()
 {
-    thread_local std::unordered_map<const jvm*, jenv*> map;
-    return map;
+    thread_local jenv *env = nullptr;
+    return env;
 }
 
 jenv& jvm::env()
 {
-    auto &map = thread_local_map();
-    const auto &it = map.find(this);
-    if (it == map.end()) {
+//    auto &map = thread_local_map();
+//    const auto &it = map.find(this);
+//    if (it == map.end()) {
+//        LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
+//        exit(1);
+//    }
+//    return *(it->second);
+    auto &e = get_env();
+    if (e == nullptr) {
         LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
         exit(1);
     }
-    return *(it->second);
+    return *e;
 }
 
 
 jenv& jvm::attach()
 {
-    auto &map = thread_local_map();
-    auto it = map.find(this);
-    if (it != map.end()) {
+//    auto &map = thread_local_map();
+//    auto it = map.find(this);
+//    if (it != map.end()) {
+//        LOGE("you can call jvm::attach() only once on one thread\n");
+//        exit(1);
+//    }
+//    auto *env = new jenv(*this);
+//    map[this] = env;
+//    return *env;
+    auto &e = get_env();
+    if (e != nullptr) {
         LOGE("you can call jvm::attach() only once on one thread\n");
         exit(1);
     }
-    auto *env = new jenv(*this);
-    map[this] = env;
-    return *env;
+    e = new jenv(*this);
+    return *e;
 }
 
 void jvm::detach()
 {
-    auto &map = thread_local_map();
-    auto it = map.find(this);
-    if (it == map.end()) {
+//    auto &map = thread_local_map();
+//    auto it = map.find(this);
+//    if (it == map.end()) {
+//        LOGE("this thread has not attached to a jenv instance, call jvm::attach() before\n");
+//        exit(1);
+//    }
+//    map.erase(it);
+    auto &e = get_env();
+    if (e == nullptr) {
         LOGE("this thread has not attached to a jenv instance, call jvm::attach() before\n");
         exit(1);
     }
-    map.erase(it);
+    delete e;
+    e = nullptr;
 }
 

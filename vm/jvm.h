@@ -9,6 +9,7 @@
 #include "../classloader/bootstrap_loader.h"
 #include "../object/jarray.h"
 #include "../object/jstring.h"
+#include "../dll/dll_loader.h"
 
 namespace javsvm
 {
@@ -28,7 +29,7 @@ public:
     bootstrap_loader bootstrap_loader;  /* 启动类加载器 */
     jarray array;
 
-//    dll_loader m_dll_loader;          /* 动态库加载类 */
+    dll_loader dll_loader;              /* 动态库加载类 */
     jstring string_pool;                /* 字符串池 */
 
     ~jvm() = default;
