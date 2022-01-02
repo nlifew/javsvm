@@ -129,36 +129,35 @@ void jmethod::bind(jclass *klass, jclass_file *cls, int index)
 }
 
 
-
-
-#if 0
-static jvalue lock_and_run(jmethod *method, jref ref, args_wrapper &args)
+/**
+ * 通用的逻辑，包含了锁检查，入口点检查等
+ * @param method 要执行的函数
+ * @param ref 需要执行函数的对象。如果是静态函数，应该是这个函数所属的 class 对象
+ * @param args 函数执行需要传递的参数
+ */
+static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
 {
-    const int& access_flag = method->orig->access_flag;
-
-    jobject_ptr object;
-
+    auto access_flag = method->access_flag;
 
     // 如果被 synchronized 关键字修饰，加锁
-    jlock *synchronized = nullptr;
+    bool synchronized = false;
 
-    if ((access_flag & jclass_method::ACC_SYNCHRONIZED) != 0) {
-        object = std::move(jvm::get().heap().lock(ref));
-
-        synchronized = &(object->lock);
-        synchronized->lock();
+    if ((access_flag & jclass_method::ACC_SYNCHRONIZED) != 0
+            || strcmp(method->name, "<cinit>") == 0) {
+        synchronized = true;
+        jvm::get().heap.lock(ref)->lock();
     }
 
-    runner &runner = jvm::get().env().runner();
     jvalue value = {0};
 
     // 如果被 native 关键字修饰，跳转到 jni 引擎
     if ((access_flag & jclass_method::ACC_NATIVE) != 0) {
         if (method->entrance.jni_func == nullptr) {
+            // todo: 查找函数并跳转到 jni 引擎
             LOGE("java.lang.UnsatisfiedLinkError\n");
             exit(1);
         }
-        value = runner.run_jni(method, ref, args);
+        value = run_jni(method, ref, args);
     }
     // 普通的 java 函数
     else {
@@ -166,27 +165,27 @@ static jvalue lock_and_run(jmethod *method, jref ref, args_wrapper &args)
             LOGE("java.lang.AbstractMethodError\n");
             exit(1);
         }
-        value = runner.run_java(method, ref, args);
+        value = run_java(method, ref, args);
     }
 
     // 解除锁
     if (synchronized) {
-        synchronized->unlock();
+        jvm::get().heap.lock(ref)->unlock();
     }
     return value;
 }
 
 
-jvalue jmethod::invoke_static(args_wrapper &args)
+// 最简单的实现，忽略了 synchronized 和空指针检查，仅仅为了快速测试
+jvalue jmethod::invoke_static(jargs &args)
 {
-    // 锁住堆内存，获取真实的 jobject 指针
     return lock_and_run(this, clazz->object, args);
 }
 
-jvalue jmethod::invoke_special(jref ref, args_wrapper &args)
+
+jvalue jmethod::invoke_special(jref ref, jargs &args)
 {
-    // 锁住堆内存，获取真实的 jobject 指针
-    auto object = jvm::get().heap().lock(ref);
+    auto object = jvm::get().heap.lock(ref);
 
     // 检查是否是空指针对象
     if (object == nullptr) {
@@ -201,12 +200,10 @@ jvalue jmethod::invoke_special(jref ref, args_wrapper &args)
 }
 
 
-jvalue jmethod::invoke_virtual(jref ref, args_wrapper &args)
+jvalue jmethod::invoke_virtual(jref ref, jargs &args) const
 {
-    // 锁住堆内存，获取真实的 jobject 指针
-    auto object = jvm::get().heap().lock(ref);
+    auto object = jvm::get().heap.lock(ref);
 
-    
     // 检查是否是空指针对象
     if (object == nullptr) {
         LOGE("java.lang.NullPointerException\n");
@@ -214,7 +211,7 @@ jvalue jmethod::invoke_virtual(jref ref, args_wrapper &args)
     }
 
     // 获取函数的真正实现
-    auto _this = object->clazz->vtable[index_in_table];
+    auto _this = object->klass->vtable[index_in_table];
 
     // 释放 jobject 指针
     object.reset();
@@ -222,12 +219,13 @@ jvalue jmethod::invoke_virtual(jref ref, args_wrapper &args)
     return lock_and_run(_this, ref, args);
 }
 
-jvalue jmethod::invoke_interface(jref ref, args_wrapper &args)
+
+jvalue jmethod::invoke_interface(jref ref, jargs &args) const
 {
     // 锁住堆内存，获取真实的 jobject 指针
-    auto object = jvm::get().heap().lock(ref);
+    auto object = jvm::get().heap.lock(ref);
 
-    
+
     // 检查是否是空指针对象
     if (object == nullptr) {
         LOGE("java.lang.NullPointerException\n");
@@ -235,34 +233,10 @@ jvalue jmethod::invoke_interface(jref ref, args_wrapper &args)
     }
 
     // 获取函数的真正实现
-    auto _this = object->clazz->get_virtual_method(name, sig);
+    auto _this = object->klass->get_virtual_method(name, sig);
 
     // 释放 jobject 指针
     object.reset();
 
     return lock_and_run(_this, ref, args);
 }
-#else
-
-// 最简单的实现，忽略了 synchronized 和空指针检查，仅仅为了快速测试
-jvalue jmethod::invoke_static(jargs &args)
-{
-    return run_java(this, nullptr, args);
-}
-
-jvalue jmethod::invoke_interface(jref ref, jargs &args)
-{
-    return run_java(this, nullptr, args);
-}
-
-jvalue jmethod::invoke_virtual(jref ref, jargs &args)
-{
-    return run_java(this, nullptr, args);
-}
-
-jvalue jmethod::invoke_special(jref ref, jargs &args)
-{
-    return run_java(this, nullptr, args);
-}
-
-#endif

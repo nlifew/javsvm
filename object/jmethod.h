@@ -91,9 +91,9 @@ struct jmethod
 
     jvalue invoke_special(jref ref, jargs &args);
 
-    jvalue invoke_virtual(jref ref, jargs &args);
+    jvalue invoke_virtual(jref ref, jargs &args) const;
 
-    jvalue invoke_interface(jref ref, jargs &args);
+    jvalue invoke_interface(jref ref, jargs &args) const;
 };
 
 } // namespace javsvm
