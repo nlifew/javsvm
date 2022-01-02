@@ -215,8 +215,8 @@ void jarray::set_array_region(jref array, jsize start, jint len, const void *buf
              start, len, length);
         exit(1);
     }
-    LOGI("set array region: start [%d], len [%d], buff [%d]\n", start, len, *(int*) buff);
-    LOGI("array length [%d], ele_size [%d]\n", length, ele_size);
+    LOGD("set array region: start [%d], len [%d], buff [%d]\n", start, len, *(int*) buff);
+    LOGD("array length [%d], ele_size [%d]\n", length, ele_size);
 
     char s_buff[16];
     std::string s;

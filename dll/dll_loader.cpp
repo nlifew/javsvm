@@ -161,8 +161,7 @@ static inline void free_library0(void *native_ptr)
 
 dll_loader::~dll_loader()
 {
-    // todo: 我们真的需要在析构函数上加锁吗 ?
-    std::unique_lock wr_lock(m_lock);
+//    std::unique_lock wr_lock(m_lock);
     for (const auto &it : m_cache) {
         free_library0(it.second);
     }

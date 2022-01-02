@@ -1,7 +1,7 @@
 
 
-#ifndef JAVSVM_DLLLOADER_H
-#define JAVSVM_DLLLOADER_H
+#ifndef JAVSVM_DLL_LOADER_H
+#define JAVSVM_DLL_LOADER_H
 
 
 #include <string>

@@ -334,7 +334,7 @@ void bootstrap_loader::gen_method_table(jclass *klass, jclass_file *cls)
     klass->method_table_size = cls->method_count;
     klass->method_tables = m_allocator.calloc_type<jmethod>(cls->method_count);
 
-    LOGD("gen_method_table: class '%s'\n", klass->name);
+//    LOGD("gen_method_table: class '%s'\n", klass->name);
 
     for (int i = 0; i < klass->method_table_size; i++) {
 //        LOGD("bind method [%d/%d]\n", i, klass->method_table_size);

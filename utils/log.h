@@ -16,7 +16,7 @@
 #define LOG_LEVEL_ERROR     5
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_VERBOSE
+#define LOG_LEVEL LOG_LEVEL_INFO
 #endif
 
 

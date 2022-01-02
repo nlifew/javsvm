@@ -50,7 +50,7 @@ target_link_libraries(
         vm
         concurrent
         class
-        dll
+        dllloader
         utils
         ${dl-lib}
 )

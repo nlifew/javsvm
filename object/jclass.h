@@ -63,7 +63,7 @@ struct jclass
     bool is_instance(jref obj) noexcept;
 
 
-    // todo
+    // todo: 分配内存，创建对象，但不执行构造函数
     jref new_instance()
     {
         auto &heap = jvm::get().heap;

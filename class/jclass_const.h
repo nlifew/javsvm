@@ -42,7 +42,7 @@ public:
 
     
     template <typename T>
-    T *cast(int index)
+    T *cast(int index) const noexcept
     {
         jclass_const *p = child_at(index - 1);
         return T::TAG == p->tag ? (T *)p : nullptr;

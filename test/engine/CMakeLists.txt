@@ -24,6 +24,7 @@ target_link_libraries(
         object
         vm
         class
+        dllloader
         concurrent
         utils
 )
