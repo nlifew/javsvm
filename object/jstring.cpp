@@ -85,11 +85,8 @@ jref jstring::intern(jref str)
 
     m_jvm.array.get_char_array_region(char_array, 0, char_array_len, buff);
 
-    auto *utf_buff = strings::tostring((wchar_t *) buff);
-    std::unique_ptr<char, void(*)(const char*)> utf_buff_guard(
-            utf_buff, [](const char *ptr) { delete[] ptr; });
-
-    return m_cache.put_if_absent(utf_buff, [str]() -> jref {
+    auto utf8 = strings::tostring((wchar_t *) buff);
+    return m_cache.put_if_absent(utf8, [str]() -> jref {
         return str;
     });
 }

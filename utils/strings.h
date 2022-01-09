@@ -11,46 +11,44 @@ namespace javsvm
 
 struct strings
 {
-
-    static bool is_empty(const char *str) { return str == nullptr || *str == '\0'; }
-
-    static bool strequ(const char *s1, const char *s2)
-    {
-        return s1 == s2 || s1 && s2 && ::strcmp(s1, s2) == 0;
-    }
-
-    static wchar_t* towstring(const char *src)
+    static std::wstring towstring(const char *src)
     {
         if (src == nullptr) {
-            return nullptr;
+            return {};
         }
 
         size_t bytes_len = strlen(src);
         auto *buff = new wchar_t[bytes_len];
 
         size_t char_len = mbstowcs(buff, src, bytes_len);
-        if (char_len == -1) {
-            delete[] buff;
-            return nullptr;
+        std::wstring wstr;
+
+        if (char_len != -1) {
+            wstr.append(buff, char_len);
         }
-        return buff;
+        delete[] buff;
+        return wstr;
     }
 
-    static char *tostring(const wchar_t *src)
+    static std::string tostring(const wchar_t *src)
     {
         if (src == nullptr) {
-            return nullptr;
+            return {};
         }
         size_t chars_len = wcslen(src);
-        auto *buff = new char[chars_len * 3]; // 按照宽字符串的 3 倍申请空间
+        auto *buff = new char[chars_len * 4]; // 按照宽字符串的 4 倍申请空间
 
         size_t bytes_len = wcstombs(buff, src, chars_len * 3);
-        if (bytes_len == -1) {
-            delete[] buff;
-            return nullptr;
+        std::string str;
+
+        if (bytes_len != -1) {
+            str.append(buff);
         }
-        return buff;
+        delete[] buff;
+        return str;
     }
+
+
 };
 
 } // namespace javsvm
