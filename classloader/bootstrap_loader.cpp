@@ -25,20 +25,25 @@ using namespace javsvm;
 
 
 bootstrap_loader::bootstrap_loader(jvm &mem) noexcept :
-    m_allocator(mem.method_area)
+        m_allocator(mem.method_area)
 {
 }
 
 
-jclass* bootstrap_loader::load_class(const char *name)
+static inline std::string trim(const char *name) noexcept
 {
-    LOGI("load class '%s'...\n", name);
     std::string name_s(name);
 
     // 规范 java 类名。如果输入的不是数组类型，末尾又没有 ';'，自动添加 'L' 和 ';'
     if (name[0] != '[' && name[name_s.size() - 1] != ';') {
         name_s.insert(0, "L").append(";");
     }
+    return name_s;
+}
+
+jclass *bootstrap_loader::find_class(const char *name) noexcept
+{
+    std::string name_s = std::move(trim(name));
 
     {
         std::shared_lock rd_lock(m_lock);
@@ -49,45 +54,7 @@ jclass* bootstrap_loader::load_class(const char *name)
             return it->second;
         }
     }
-
-    std::lock_guard wr_lock(m_lock);
-    {
-        auto it = m_classes.find(name_s);
-        if (it != m_classes.end()) {
-            LOGI("class '%s' found when double-check, return\n", name);
-            return it->second;
-        }
-    }
-
-    // 如果是数组类型，走另外一条分支
-    if (name[0] == '[') {
-        return load_array_type(name_s);
-    }
-
-    // 先寻找相应的 .class 文件，如果没找到，或者 .class 文件解析失败，返回 nullptr
-    jclass_file *cls = find_class(name_s.c_str());
-    if (cls == nullptr) {
-        LOGI("can't find class '%s'\n", name);
-        return nullptr;
-    }
-
-    // 既然 .class 文件解析成功，接下来就没有回头路了。只要失败，整个虚拟机直接退出。
-    // 虽然当前的类 X 加载失败，但其父类，父父类都可能加载成功而进入缓存池，我们不希望这些
-    // 数据影响下一次加载过程。另外，jmethod_area 将已分配的内存回收进内存池目前也是没有实现的。
-    jclass *klass = prepare_class(cls);
-    if (klass == nullptr) {
-        PLOGE("failed to load class '%s'，restore memory pointer\n", name);
-        exit(1);
-    }
-
-    LOGI("class '%s' load success, store to map\n", name);
-    m_classes[name_s] = klass;
-
-    // 准备创建对应的 java 层对象
-    new_class_object(klass);
-
-    LOGI("class '%s' load finish\n", name);
-    return klass;
+    return nullptr;
 }
 
 
@@ -119,7 +86,7 @@ static jclass_file* open_class_file(const char *dir, const char *name)
 /**
  * 获取 CLASSPATH 环境变量
  * 如果为空，则返回 "."
- * 返回值是一个原始的字符串，因此不需要 delete[]
+ * 返回的是复制后的字符串，因此需要调用者 delete[]
  */
 static char* get_classpath()
 {
@@ -140,7 +107,7 @@ static char* get_classpath()
  * 遍历 CLASSPATH 环境变量并尝试加载，成功即返回
  * 失败返回 nullptr
  */
-jclass_file* bootstrap_loader::find_class(const char *name)
+static jclass_file* find_class_file(const char *name)
 {
     // 准备在 CLASSPATH 环境变量下查找这个文件
     char *classpath = get_classpath();
@@ -218,6 +185,66 @@ jclass_file* bootstrap_loader::open_jar_file(const char *jar, const char *name)
     return f;
 }
 */
+
+
+
+jclass* bootstrap_loader::load_class(const char *name) noexcept
+{
+    LOGI("load class '%s'...\n", name);
+
+    // 规范 java 类名
+    std::string name_s = std::move(trim(name));
+
+
+    {
+        std::shared_lock rd_lock(m_lock);
+
+        auto it = m_classes.find(name_s);
+        if (it != m_classes.end()) {
+            LOGI("class '%s' found in cache, return\n", name);
+            return it->second;
+        }
+    }
+
+    std::lock_guard wr_lock(m_lock);
+    {
+        auto it = m_classes.find(name_s);
+        if (it != m_classes.end()) {
+            LOGI("class '%s' found when double-check, return\n", name);
+            return it->second;
+        }
+    }
+
+    // 如果是数组类型，走另外一条分支
+    if (name[0] == '[') {
+        return load_array_type(name_s);
+    }
+
+    // 先寻找相应的 .class 文件，如果没找到，或者 .class 文件解析失败，返回 nullptr
+    jclass_file *cls = find_class_file(name_s.c_str());
+    if (cls == nullptr) {
+        LOGI("can't find class '%s'\n", name);
+        return nullptr;
+    }
+
+    // 既然 .class 文件解析成功，接下来就没有回头路了。只要失败，整个虚拟机直接退出。
+    // 虽然当前的类 X 加载失败，但其父类，父父类都可能加载成功而进入缓存池，我们不希望这些
+    // 数据影响下一次加载过程。另外，jmethod_area 将已分配的内存回收进内存池目前也是没有实现的。
+    jclass *klass = prepare_class(cls);
+    if (klass == nullptr) {
+        PLOGE("failed to load class '%s'，restore memory pointer\n", name);
+        exit(1);
+    }
+
+    LOGI("class '%s' load success, store to map\n", name);
+    m_classes[name_s] = klass;
+
+    // 准备创建对应的 java 层对象
+    new_class_object(klass);
+
+    LOGI("class '%s' load finish\n", name);
+    return klass;
+}
 
 
 static char *get_class_name(jclass_file *cls, int index)
@@ -501,7 +528,7 @@ void bootstrap_loader::layout_static_fields(jclass *klass)
 //};
 
 
-static int align_8(int size)
+static inline int align_8(int size) noexcept
 {
     return ((size - 1) | 7) + 1;
 }

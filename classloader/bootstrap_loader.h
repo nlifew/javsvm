@@ -47,11 +47,6 @@ private:
     jmethod_area &m_allocator;
 
     /**
-     * 寻找 class 文件，并转化为 jclass_file 格式
-     */  
-    static jclass_file *find_class(const char *name);
-
-    /**
      * 保证 .class 文件内容是合法的，可靠的
      */ 
     // jclass *verify_class(jclass_file *);
@@ -114,7 +109,13 @@ public:
      * 根据类的全限定名找到并解析为内存中的 jclass 格式
      * 如果缓存池中已经有这个类，直接返回; 否则从磁盘中加载
      */
-    jclass *load_class(const char *name);
+    jclass *load_class(const char *name) noexcept;
+
+    /**
+     * 在缓存池中查找已加载的类
+     * @return 未找到则返回 nullptr，不会触发加载动作
+     */
+    jclass *find_class(const char *name) noexcept;
 };
 
 } // namespace javsvm
