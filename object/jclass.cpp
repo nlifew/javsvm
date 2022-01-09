@@ -40,9 +40,31 @@ jfield* jclass::get_field(const char *_name, const char *_sig) const noexcept
 
 jfield *jclass::get_static_field(const char *_name, const char *_sig) const noexcept
 {
-    jfield *f = get_field(_name, _sig);
-    if (f != nullptr && (f->access_flag & jclass_field::ACC_STATIC) != 0) {
-        return f;
+    jfield f;
+    f.name = _name;
+    f.sig = _sig;
+
+    for (const jclass *klass = this; klass; klass = klass->super_class) {
+        using cmp_t = int (*)(const void *, const void *);
+
+        auto _result = (jfield *) bsearch(&f, klass->field_tables,
+                                klass->field_table_size,
+                                sizeof(jfield),
+                                (cmp_t)jfield::compare_to);
+        if (_result != nullptr && (_result->access_flag & jclass_field::ACC_STATIC) != 0) {
+            return _result;
+        }
+        // 查询接口类
+        for (int j = 0, z = klass->interface_num; j < z; j ++) {
+            auto interface = klass->interfaces[j];
+            _result = (jfield *) bsearch(&f, interface->field_tables,
+                                         interface->field_table_size,
+                                         sizeof(jfield),
+                                         (cmp_t)jfield::compare_to);
+            if (_result != nullptr && (_result->access_flag & jclass_field::ACC_STATIC) != 0) {
+                return _result;
+            }
+        }
     }
     return nullptr;
 }
@@ -126,7 +148,45 @@ bool jclass::is_instance(jref ref) noexcept
     return false;
 }
 
-jclass *jclass::find_class(const char *name)
+bool jclass::is_assign_from(jclass *sub) const noexcept
+{
+    if (sub == nullptr) {
+        return false;
+    }
+    const auto pt = sub->parent_tree;
+    for (int i = 0, z = sub->parent_tree_size; i < z; i ++) {
+        if (pt[i] == this) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+jclass *jclass::of(jref obj) noexcept
+{
+    auto &vm = jvm::get();
+    jclass *java_lang_Class = vm.bootstrap_loader.load_class("java/lang/Class");
+    if (java_lang_Class == nullptr) {
+        LOGE("javsvm::of: failed to load java/lang/Class\n");
+        exit(1);
+    }
+    if (! java_lang_Class->is_instance(obj)) {
+        return nullptr;
+    }
+
+    jfield *mNativePtr = java_lang_Class->get_field("mNativePtr", "Ljava/lang/Class;");
+    if (mNativePtr == nullptr) {
+        LOGE("javsvm::of: failed to find field: mNativePtr\n");
+        exit(1);
+    }
+    return (jclass*) mNativePtr->get(obj).j;
+}
+
+
+
+
+jclass *jclass::load_class(const char *name)
 {
     auto &vm = jvm::get();
     auto &stack = vm.env().stack();

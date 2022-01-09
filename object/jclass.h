@@ -18,7 +18,14 @@ struct jclass
     /**
      * 使用调用者的类加载器加载新的类
      */
-    static jclass *find_class(const char *name);
+    static jclass *load_class(const char *name);
+
+
+    /**
+     * 获取 java 层的 Class 对象在本地的指针
+     * 如果失败返回 nullptr
+     */
+     static jclass *of(jref obj) noexcept;
 
     const char *name = nullptr;
     u4 access_flag = 0;
@@ -60,8 +67,15 @@ struct jclass
     jmethod *get_static_method(const char *_name, const char *_sig) const noexcept;
     jmethod *get_virtual_method(const char *_name, const char *_sig) const noexcept;
 
+    /**
+     * 判断后面的对象是否是当前 class 的子类
+     */
     bool is_instance(jref obj) noexcept;
 
+    /**
+     * 判断后面的类是否是当前 class 的子类
+     */
+     bool is_assign_from(jclass *sub) const noexcept;
 
     // todo: 分配内存，创建对象，但不执行构造函数
     jref new_instance()

@@ -61,7 +61,7 @@ lookup_exp_table(u4 pc, jref ref, jmethod *method)
 
         if (catch_type->extra == nullptr) {
             auto *class_name = constant_pool.cast<jclass_const_utf8>(catch_type->index);
-            catch_type->extra = jclass::find_class((char*) class_name->bytes);
+            catch_type->extra = jclass::load_class((char *) class_name->bytes);
             if (catch_type->extra == nullptr) {
                 LOGE("can't find class [%s]\n", class_name->bytes);
                 exit(1);

@@ -375,7 +375,7 @@ static inline jclass *get_class(int index, jclass_const_pool &pool)
     if (class_info->extra == nullptr) {
         auto *class_name = pool.cast<jclass_const_utf8>(class_info->index);
 
-        class_info->extra = jclass::find_class((char*) class_name->bytes);
+        class_info->extra = jclass::load_class((char *) class_name->bytes);
         
         if (class_info->extra == nullptr) {
             LOGE("can't find class [%s]\n", class_name->bytes);
