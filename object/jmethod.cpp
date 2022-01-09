@@ -120,7 +120,6 @@ void jmethod::bind(jclass *klass, jclass_file *cls, int index)
         }
     }
     if (orig->access_flag & jclass_method::ACC_NATIVE) {
-        // todo: 从已经存在的 lib 池中搜索 jni 函数
         entrance.jni_func = nullptr;
     }
 
@@ -152,11 +151,6 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
 
     // 如果被 native 关键字修饰，跳转到 jni 引擎
     if ((access_flag & jclass_method::ACC_NATIVE) != 0) {
-        if (method->entrance.jni_func == nullptr) {
-            // todo: 查找函数并跳转到 jni 引擎
-            LOGE("java.lang.UnsatisfiedLinkError\n");
-            exit(1);
-        }
         value = run_jni(method, ref, args);
     }
     // 普通的 java 函数
@@ -220,7 +214,7 @@ jvalue jmethod::invoke_virtual(jref ref, jargs &args) const
 }
 
 
-jvalue jmethod::invoke_interface(jref ref, jargs &args) const
+jvalue jmethod::invoke_interface(jref ref, jargs &args)
 {
     // 锁住堆内存，获取真实的 jobject 指针
     auto object = jvm::get().heap.lock(ref);
@@ -233,7 +227,9 @@ jvalue jmethod::invoke_interface(jref ref, jargs &args) const
     }
 
     // 获取函数的真正实现
-    auto _this = object->klass->get_virtual_method(name, sig);
+    jmethod *_this = object->klass == clazz ?
+            this :
+            object->klass->get_virtual_method(name, sig);
 
     // 释放 jobject 指针
     object.reset();

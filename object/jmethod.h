@@ -52,7 +52,7 @@ struct jmethod
      * 如果是一个 native 函数，应该指向一个 jni 函数
      */ 
     union {
-        void (*jni_func)();
+        void *jni_func;
         jclass_attr_code *code_func = nullptr;
     } entrance;
 
@@ -93,7 +93,7 @@ struct jmethod
 
     jvalue invoke_virtual(jref ref, jargs &args) const;
 
-    jvalue invoke_interface(jref ref, jargs &args) const;
+    jvalue invoke_interface(jref ref, jargs &args);
 };
 
 } // namespace javsvm
