@@ -359,7 +359,7 @@ static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
             // 这里比较复杂，因为要创建出一个新的 java.lang.String 对象
             auto *s = ((jclass_const_string *) const_value);
             auto *utf8 = pool.cast<jclass_const_utf8>(s->index);
-            auto ref = jvm::get().string_pool.find_or_new((char*) utf8->bytes);
+            auto ref = jvm::get().string.find_or_new((char*) utf8->bytes);
             frame.push_param<jref>(ref);
             break;
         }
@@ -588,7 +588,7 @@ static inline void new_array(jstack_frame &frame, jclass_attr_code &code)
     jarray &array = jvm::get().array;
 
     switch (type) {
-        case 4: ref = array.new_bool_array(length); break;
+        case 4: ref = array.new_boolean_array(length); break;
         case 5: ref = array.new_char_array(length); break;
         case 6: ref = array.new_float_array(length); break;
         case 7: ref = array.new_double_array(length); break;

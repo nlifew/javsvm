@@ -20,7 +20,7 @@ void javsvm::throw_exp(const char *class_name, const char *msg)
         return;
     }
     auto _init_ = klass->get_method("<init>", "(Ljava/lang/String;)V");
-    auto exp = klass->new_instance(_init_, jvm::get().string_pool.find_or_new(msg));
+    auto exp = klass->new_instance(_init_, jvm::get().string.find_or_new(msg));
     auto exp_ptr = jvm::get().heap.lock(exp);
     if (exp_ptr == nullptr) {
         LOGE("failed to create exception instance with class '%s' and msg '%s'\n", class_name, msg);

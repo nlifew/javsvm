@@ -18,9 +18,9 @@ class jvm
 {
 private:
     jvm() noexcept:
-        bootstrap_loader(*this),
-        array(*this),
-        string_pool(*this)
+            bootstrap_loader(*this),
+            array(*this),
+            string(*this)
     {
     }
 public:
@@ -30,7 +30,7 @@ public:
     jarray array;
 
     dll_loader dll_loader;              /* 动态库加载类 */
-    jstring string_pool;                /* 字符串池 */
+    jstring string;                /* 字符串池 */
 
     ~jvm() = default;
     jvm(const jvm&) = delete;

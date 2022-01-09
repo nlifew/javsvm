@@ -215,7 +215,7 @@ jclass *jclass::load_class(const char *name)
     memset(buff, 0, sizeof(buff));
 
     buff[0] = (slot_t) loader;
-    buff[1] = (slot_t) vm.string_pool.find_or_new(name);
+    buff[1] = (slot_t) vm.string.find_or_new(name);
 
     jargs args(buff);
     jvalue val = java_lang_ClassLoader_loadClass->invoke_virtual(loader, args);
