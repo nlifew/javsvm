@@ -1,6 +1,13 @@
 
 
+#include <cstdarg>
+
 #include "jni.h"
+#include "jni_utils.h"
+
+
+
+#include "call_method.h"
 
 struct _jfieldID
 {
@@ -10,1176 +17,1050 @@ struct _jmethodID
 {
 };
 
-static jint GetVersion 
-      (JNIEnv *env)
-{
 
-}
 
-static jclass DefineClass
-      (JNIEnv *env, const char *name, jobject loader, const jbyte *buf,
-       jsize len)
+static jint JNICALL
+GetVersion(JNIEnv *env)
 {
-
+    // 只支持常量，jni 1.8 接口
+    return JNI_VERSION_1_8;
 }
 
-static jclass FindClass
-      (JNIEnv *env, const char *name)
-{
 
-}
-static jmethodID FromReflectedMethod
-      (JNIEnv *env, jobject method)
+static jclass (JNICALL DefineClass)
+        (JNIEnv *env, const char *name, jobject loader, const jbyte *buf,
+         jsize len)
 {
-
+    return nullptr;
 }
-static jfieldID FromReflectedField
-      (JNIEnv *env, jobject field)
-{
 
-}
-static jobject ToReflectedMethod
-      (JNIEnv *env, jclass cls, jmethodID methodID, jboolean isStatic)
+static jclass (JNICALL FindClass)
+        (JNIEnv *env, const char *name)
 {
-
+    // todo:
 }
-static jclass GetSuperclass
-      (JNIEnv *env, jclass sub)
-{
 
-}
-static jboolean IsAssignableFrom
-      (JNIEnv *env, jclass sub, jclass sup)
-{
 
-}
-static jobject ToReflectedField
-      (JNIEnv *env, jclass cls, jfieldID fieldID, jboolean isStatic)
+static jclass (JNICALL GetSuperclass)
+        (JNIEnv *env, jclass sub)
 {
 
 }
-static jint Throw
-      (JNIEnv *env, jthrowable obj)
-{
 
-}
-static jint ThrowNew
-      (JNIEnv *env, jclass clazz, const char *msg)
+static jboolean (JNICALL IsAssignableFrom)
+        (JNIEnv *env, jclass sub, jclass sup)
 {
-
 }
-static jthrowable ExceptionOccurred
-      (JNIEnv *env)
-{
 
-}
-static void ExceptionDescribe
-      (JNIEnv *env)
+static jmethodID (JNICALL FromReflectedMethod)
+        (JNIEnv *env, jobject method)
 {
-
 }
-static void ExceptionClear
-      (JNIEnv *env)
-{
 
-}
-static void FatalError
-      (JNIEnv *env, const char *msg)
+static jfieldID (JNICALL FromReflectedField)
+        (JNIEnv *env, jobject field)
 {
-
 }
-static jint PushLocalFrame
-      (JNIEnv *env, jint capacity)
-{
 
-}
-static jobject PopLocalFrame
-      (JNIEnv *env, jobject result)
-{
 
-}
-static jobject NewGlobalRef
-      (JNIEnv *env, jobject lobj)
+static jobject (JNICALL ToReflectedMethod)
+        (JNIEnv *env, jclass cls, jmethodID methodID, jboolean isStatic)
 {
-
 }
-static void DeleteGlobalRef
-      (JNIEnv *env, jobject gref)
-{
 
-}
-static void DeleteLocalRef
-      (JNIEnv *env, jobject obj)
-{
 
-}
-static jboolean IsSameObject
-      (JNIEnv *env, jobject obj1, jobject obj2)
-{
 
-}
-static jobject NewLocalRef
-      (JNIEnv *env, jobject ref)
+static jobject (JNICALL ToReflectedField)
+        (JNIEnv *env, jclass cls, jfieldID fieldID, jboolean isStatic)
 {
-
 }
-static jint EnsureLocalCapacity
-      (JNIEnv *env, jint capacity)
-{
 
-}
-static jobject AllocObject
-      (JNIEnv *env, jclass clazz)
-{
 
-}
-static jobject NewObject
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
+static jint (JNICALL Throw)
+        (JNIEnv *env, jthrowable obj)
 {
-
 }
-static jobject NewObjectV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
-{
 
-}
-static jobject NewObjectA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
+static jint (JNICALL ThrowNew)
+        (JNIEnv *env, jclass clazz, const char *msg)
 {
-
 }
-static jclass GetObjectClass
-      (JNIEnv *env, jobject obj)
-{
 
-}
-static jboolean IsInstanceOf
-      (JNIEnv *env, jobject obj, jclass clazz)
+static jthrowable (JNICALL ExceptionOccurred)
+        (JNIEnv *env)
 {
-
 }
-static jmethodID GetMethodID
-      (JNIEnv *env, jclass clazz, const char *name, const char *sig)
-{
 
-}
-static jobject CallObjectMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
+static void (JNICALL ExceptionDescribe)
+        (JNIEnv *env)
 {
-
 }
-static jobject CallObjectMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
-{
 
-}
-static jobject CallObjectMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args)
+static void (JNICALL ExceptionClear)
+        (JNIEnv *env)
 {
-
 }
-static jboolean CallBooleanMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
-{
 
-}
-static jboolean CallBooleanMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
+static void (JNICALL FatalError)
+        (JNIEnv *env, const char *msg)
 {
-
 }
-static jboolean CallBooleanMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args)
-{
 
-}
-static jbyte CallByteMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
-{
 
-}
-static jbyte CallByteMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
+static jint (JNICALL PushLocalFrame)
+        (JNIEnv *env, jint capacity)
 {
-
 }
-static jbyte CallByteMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jchar CallCharMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
+static jobject (JNICALL PopLocalFrame)
+        (JNIEnv *env, jobject result)
 {
-
 }
-static jchar CallCharMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
-{
 
-}
-static jchar CallCharMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jshort CallShortMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
+static jobject (JNICALL NewGlobalRef)
+        (JNIEnv *env, jobject lobj)
 {
-
 }
-static jshort CallShortMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
-{
 
-}
-static jshort CallShortMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
+static void (DeleteGlobalRef)
+        (JNIEnv *env, jobject gref)
 {
-
 }
-static jint CallIntMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
-{
 
-}
-static jint CallIntMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
+static void (JNICALL DeleteLocalRef)
+        (JNIEnv *env, jobject obj)
 {
-
 }
-static jint CallIntMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jlong CallLongMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
+static jboolean (JNICALL IsSameObject)
+        (JNIEnv *env, jobject obj1, jobject obj2)
 {
-
 }
-static jlong CallLongMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
-{
 
-}
-static jlong CallLongMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
+static jobject (JNICALL NewLocalRef)
+        (JNIEnv *env, jobject ref)
 {
-
 }
-static jfloat CallFloatMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
-{
 
-}
-static jfloat CallFloatMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
+static jint (JNICALL EnsureLocalCapacity)
+        (JNIEnv *env, jint capacity)
 {
-
 }
-static jfloat CallFloatMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jdouble CallDoubleMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
-{
 
-}
-static jdouble CallDoubleMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
+static jobject (JNICALL AllocObject)
+        (JNIEnv *env, jclass clazz)
 {
-
 }
-static jdouble CallDoubleMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args)
-{
 
-}
-static void CallVoidMethod
-      (JNIEnv *env, jobject obj, jmethodID methodID, ...)
-{
 
-}
-static void CallVoidMethodV
-      (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
-{
 
-}
-static void CallVoidMethodA
-      (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args)
+static jobject (JNICALL NewObjectA)
+        (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
 {
 
 }
-static jobject CallNonvirtualObjectMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jobject CallNonvirtualObjectMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
-{
 
-}
-static jobject CallNonvirtualObjectMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue * args)
+static jobject (JNICALL NewObjectV)
+        (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
 {
 
 }
-static jboolean CallNonvirtualBooleanMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jboolean CallNonvirtualBooleanMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
-{
 
-}
-static jboolean CallNonvirtualBooleanMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue * args)
+static jobject (JNICALL NewObject)
+        (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
 {
-
+    va_list ap;
+    va_start(ap, methodID);
+    auto r = NewObjectV(env, clazz, methodID, ap);
+    va_end(ap);
+    return r;
 }
-static jbyte CallNonvirtualByteMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jbyte CallNonvirtualByteMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
-{
 
-}
-static jbyte CallNonvirtualByteMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
+static jclass (JNICALL GetObjectClass)
+        (JNIEnv *env, jobject obj)
 {
-
 }
-static jchar CallNonvirtualCharMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jchar CallNonvirtualCharMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
+static jboolean (JNICALL IsInstanceOf)
+        (JNIEnv *env, jobject obj, jclass clazz)
 {
-
 }
-static jchar CallNonvirtualCharMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
-{
 
-}
-static jshort CallNonvirtualShortMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jshort CallNonvirtualShortMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
+static jfieldID (JNICALL GetFieldID)
+        (JNIEnv *env, jclass clazz, const char *name, const char *sig)
 {
-
 }
-static jshort CallNonvirtualShortMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
-{
 
-}
-static jint CallNonvirtualIntMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jint CallNonvirtualIntMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
+static jobject (JNICALL GetObjectField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jint CallNonvirtualIntMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
-{
 
-}
-static jlong CallNonvirtualLongMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
+static jboolean (JNICALL GetBooleanField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jlong CallNonvirtualLongMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
-{
 
-}
-static jlong CallNonvirtualLongMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
+static jbyte (JNICALL GetByteField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jfloat CallNonvirtualFloatMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jfloat CallNonvirtualFloatMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
+static jchar (JNICALL GetCharField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jfloat CallNonvirtualFloatMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
-{
 
-}
-static jdouble CallNonvirtualDoubleMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
+static jshort (JNICALL GetShortField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jdouble CallNonvirtualDoubleMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
-{
 
-}
-static jdouble CallNonvirtualDoubleMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue *args)
+static jint (JNICALL GetIntField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static void CallNonvirtualVoidMethod
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static void CallNonvirtualVoidMethodV
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       va_list args)
+static jlong (JNICALL GetLongField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static void CallNonvirtualVoidMethodA
-      (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,
-       const jvalue * args)
-{
 
-}
-static jfieldID GetFieldID
-      (JNIEnv *env, jclass clazz, const char *name, const char *sig)
+static jfloat (JNICALL GetFloatField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jobject GetObjectField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
-{
 
-}
-static jboolean GetBooleanField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
+static jdouble (JNICALL GetDoubleField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID)
 {
-
 }
-static jbyte GetByteField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
-{
 
-}
-static jchar GetCharField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
-{
 
-}
-static jshort GetShortField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
+static void (JNICALL SetObjectField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jobject val)
 {
-
 }
-static jint GetIntField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
-{
 
-}
-static jlong GetLongField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
+static void (JNICALL SetBooleanField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jboolean val)
 {
-
 }
-static jfloat GetFloatField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
-{
 
-}
-static jdouble GetDoubleField
-      (JNIEnv *env, jobject obj, jfieldID fieldID)
+static void (JNICALL SetByteField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jbyte val)
 {
-
 }
-static void SetObjectField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jobject val)
-{
 
-}
-static void SetBooleanField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jboolean val)
+static void (JNICALL SetCharField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jchar val)
 {
-
 }
-static void SetByteField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jbyte val)
-{
 
-}
-static void SetCharField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jchar val)
+static void (JNICALL SetShortField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jshort val)
 {
-
 }
-static void SetShortField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jshort val)
-{
 
-}
-static void SetIntField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jint val)
+static void (JNICALL SetIntField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jint val)
 {
-
 }
-static void SetLongField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jlong val)
-{
 
-}
-static void SetFloatField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jfloat val)
+static void (JNICALL SetLongField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jlong val)
 {
-
 }
-static void SetDoubleField
-      (JNIEnv *env, jobject obj, jfieldID fieldID, jdouble val)
-{
 
-}
-static jmethodID GetStaticMethodID
-      (JNIEnv *env, jclass clazz, const char *name, const char *sig)
+static void (JNICALL SetFloatField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jfloat val)
 {
-
 }
-static jobject CallStaticObjectMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jobject CallStaticObjectMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
+static void (JNICALL SetDoubleField)
+        (JNIEnv *env, jobject obj, jfieldID fieldID, jdouble val)
 {
-
 }
-static jobject CallStaticObjectMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jboolean CallStaticBooleanMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jboolean CallStaticBooleanMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
-{
 
-}
-static jboolean CallStaticBooleanMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
+static jfieldID (JNICALL GetStaticFieldID)
+        (JNIEnv *env, jclass clazz, const char *name, const char *sig)
 {
-
 }
-static jbyte CallStaticByteMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jbyte CallStaticByteMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
+static jobject (JNICALL GetStaticObjectField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jbyte CallStaticByteMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jchar CallStaticCharMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
+static jboolean (JNICALL GetStaticBooleanField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jchar CallStaticCharMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
-{
 
-}
-static jchar CallStaticCharMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
+static jbyte (JNICALL GetStaticByteField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jshort CallStaticShortMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jshort CallStaticShortMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
+static jchar (JNICALL GetStaticCharField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jshort CallStaticShortMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jint CallStaticIntMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
+static jshort (JNICALL GetStaticShortField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jint CallStaticIntMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
-{
 
-}
-static jint CallStaticIntMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
+static jint (JNICALL GetStaticIntField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jlong CallStaticLongMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jlong CallStaticLongMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
+static jlong (JNICALL GetStaticLongField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jlong CallStaticLongMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
-{
 
-}
-static jfloat CallStaticFloatMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
+static jfloat (JNICALL GetStaticFloatField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jfloat CallStaticFloatMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
-{
 
-}
-static jfloat CallStaticFloatMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
+static jdouble (JNICALL GetStaticDoubleField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID)
 {
-
 }
-static jdouble CallStaticDoubleMethod
-      (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
-{
 
-}
-static jdouble CallStaticDoubleMethodV
-      (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
-{
 
-}
-static jdouble CallStaticDoubleMethodA
-      (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args)
+static void (JNICALL SetStaticObjectField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jobject value)
 {
-
 }
-static void CallStaticVoidMethod
-      (JNIEnv *env, jclass cls, jmethodID methodID, ...)
-{
 
-}
-static void CallStaticVoidMethodV
-      (JNIEnv *env, jclass cls, jmethodID methodID, va_list args)
+static void (JNICALL SetStaticBooleanField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jboolean value)
 {
-
 }
-static void CallStaticVoidMethodA
-      (JNIEnv *env, jclass cls, jmethodID methodID, const jvalue * args)
-{
 
-}
-static jfieldID GetStaticFieldID
-      (JNIEnv *env, jclass clazz, const char *name, const char *sig)
+static void (JNICALL SetStaticByteField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jbyte value)
 {
-
 }
-static jobject GetStaticObjectField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
-{
 
-}
-static jboolean GetStaticBooleanField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
+static void (JNICALL SetStaticCharField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jchar value)
 {
-
 }
-static jbyte GetStaticByteField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
-{
 
-}
-static jchar GetStaticCharField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
+static void (JNICALL SetStaticShortField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jshort value)
 {
-
 }
-static jshort GetStaticShortField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
-{
 
-}
-static jint GetStaticIntField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
+static void (JNICALL SetStaticIntField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jint value)
 {
-
 }
-static jlong GetStaticLongField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
-{
 
-}
-static jfloat GetStaticFloatField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
+static void (JNICALL SetStaticLongField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jlong value)
 {
-
 }
-static jdouble GetStaticDoubleField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID)
-{
 
-}
-static void SetStaticObjectField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jobject value)
+static void (JNICALL SetStaticFloatField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jfloat value)
 {
-
 }
-static void SetStaticBooleanField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jboolean value)
-{
 
-}
-static void SetStaticByteField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jbyte value)
+static void (JNICALL SetStaticDoubleField)
+        (JNIEnv *env, jclass clazz, jfieldID fieldID, jdouble value)
 {
-
 }
-static void SetStaticCharField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jchar value)
-{
 
-}
-static void SetStaticShortField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jshort value)
-{
 
-}
-static void SetStaticIntField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jint value)
+static jstring (JNICALL NewString)
+        (JNIEnv *env, const jchar *unicode, jsize len)
 {
-
 }
-static void SetStaticLongField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jlong value)
-{
 
-}
-static void SetStaticFloatField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jfloat value)
+static jsize (JNICALL GetStringLength)
+        (JNIEnv *env, jstring str)
 {
-
 }
-static void SetStaticDoubleField
-      (JNIEnv *env, jclass clazz, jfieldID fieldID, jdouble value)
-{
 
-}
-static jstring NewString
-      (JNIEnv *env, const jchar *unicode, jsize len)
+static const jchar *(JNICALL GetStringChars)
+        (JNIEnv *env, jstring str, jboolean *isCopy)
 {
-
 }
-static jsize GetStringLength
-      (JNIEnv *env, jstring str)
-{
 
-}
-static const jchar *GetStringChars
-      (JNIEnv *env, jstring str, jboolean *isCopy)
+static void (JNICALL ReleaseStringChars)
+        (JNIEnv *env, jstring str, const jchar *chars)
 {
-
 }
-static void ReleaseStringChars
-      (JNIEnv *env, jstring str, const jchar *chars)
-{
 
-}
-static jstring NewStringUTF
-      (JNIEnv *env, const char *utf)
-{
 
-}
-static jsize GetStringUTFLength
-      (JNIEnv *env, jstring str)
+static jstring (JNICALL NewStringUTF)
+        (JNIEnv *env, const char *utf)
 {
-
 }
-static const char* GetStringUTFChars
-      (JNIEnv *env, jstring str, jboolean *isCopy)
-{
 
-}
-static void ReleaseStringUTFChars
-      (JNIEnv *env, jstring str, const char* chars)
+static jsize (JNICALL GetStringUTFLength)
+        (JNIEnv *env, jstring str)
 {
-
 }
-static 
-    jsize GetArrayLength
-      (JNIEnv *env, jarray array)
-{
 
-}
-static jobjectArray NewObjectArray
-      (JNIEnv *env, jsize len, jclass clazz, jobject init)
+static const char* (JNICALL GetStringUTFChars)
+        (JNIEnv *env, jstring str, jboolean *isCopy)
 {
-
 }
-static jobject GetObjectArrayElement
-      (JNIEnv *env, jobjectArray array, jsize index)
-{
 
-}
-static void SetObjectArrayElement
-      (JNIEnv *env, jobjectArray array, jsize index, jobject val)
+static void (JNICALL ReleaseStringUTFChars)
+        (JNIEnv *env, jstring str, const char* chars)
 {
-
 }
-static jbooleanArray NewBooleanArray
-      (JNIEnv *env, jsize len)
-{
 
-}
-static jbyteArray NewByteArray
-      (JNIEnv *env, jsize len)
-{
 
-}
-static jcharArray NewCharArray
-      (JNIEnv *env, jsize len)
-{
 
-}
-static jshortArray NewShortArray
-      (JNIEnv *env, jsize len)
+static jsize (JNICALL GetArrayLength)
+        (JNIEnv *env, jarray array)
 {
-
 }
-static jintArray NewIntArray
-      (JNIEnv *env, jsize len)
-{
 
-}
-static jlongArray NewLongArray
-      (JNIEnv *env, jsize len)
-{
 
-}
-static jfloatArray NewFloatArray
-      (JNIEnv *env, jsize len)
+static jobjectArray (JNICALL NewObjectArray)
+        (JNIEnv *env, jsize len, jclass clazz, jobject init)
 {
-
 }
-static jdoubleArray NewDoubleArray
-      (JNIEnv *env, jsize len)
-{
 
-}
-static jboolean * GetBooleanArrayElements
-      (JNIEnv *env, jbooleanArray array, jboolean *isCopy)
+static jobject (JNICALL GetObjectArrayElement)
+        (JNIEnv *env, jobjectArray array, jsize index)
 {
-
 }
-static jbyte * GetByteArrayElements
-      (JNIEnv *env, jbyteArray array, jboolean *isCopy)
-{
 
-}
-static jchar * GetCharArrayElements
-      (JNIEnv *env, jcharArray array, jboolean *isCopy)
+static void (JNICALL SetObjectArrayElement)
+        (JNIEnv *env, jobjectArray array, jsize index, jobject val)
 {
-
 }
-static jshort * GetShortArrayElements
-      (JNIEnv *env, jshortArray array, jboolean *isCopy)
-{
 
-}
-static jint * GetIntArrayElements
-      (JNIEnv *env, jintArray array, jboolean *isCopy)
-{
 
-}
-static jlong * GetLongArrayElements
-      (JNIEnv *env, jlongArray array, jboolean *isCopy)
+static jbooleanArray (JNICALL NewBooleanArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static jfloat * GetFloatArrayElements
-      (JNIEnv *env, jfloatArray array, jboolean *isCopy)
-{
 
-}
-static jdouble * GetDoubleArrayElements
-      (JNIEnv *env, jdoubleArray array, jboolean *isCopy)
+static jbyteArray (JNICALL NewByteArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void ReleaseBooleanArrayElements
-      (JNIEnv *env, jbooleanArray array, jboolean *elems, jint mode)
-{
 
-}
-static void ReleaseByteArrayElements
-      (JNIEnv *env, jbyteArray array, jbyte *elems, jint mode)
+static jcharArray (JNICALL NewCharArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void ReleaseCharArrayElements
-      (JNIEnv *env, jcharArray array, jchar *elems, jint mode)
-{
 
-}
-static void ReleaseShortArrayElements
-      (JNIEnv *env, jshortArray array, jshort *elems, jint mode)
+static jshortArray (JNICALL NewShortArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void ReleaseIntArrayElements
-      (JNIEnv *env, jintArray array, jint *elems, jint mode)
-{
 
-}
-static void ReleaseLongArrayElements
-      (JNIEnv *env, jlongArray array, jlong *elems, jint mode)
+static jintArray (JNICALL NewIntArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void ReleaseFloatArrayElements
-      (JNIEnv *env, jfloatArray array, jfloat *elems, jint mode)
-{
 
-}
-static void ReleaseDoubleArrayElements
-      (JNIEnv *env, jdoubleArray array, jdouble *elems, jint mode)
+static jlongArray (JNICALL NewLongArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void GetBooleanArrayRegion
-      (JNIEnv *env, jbooleanArray array, jsize start, jsize l, jboolean *buf)
-{
 
-}
-static void GetByteArrayRegion
-      (JNIEnv *env, jbyteArray array, jsize start, jsize len, jbyte *buf)
+static jfloatArray (JNICALL NewFloatArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void GetCharArrayRegion
-      (JNIEnv *env, jcharArray array, jsize start, jsize len, jchar *buf)
-{
 
-}
-static void GetShortArrayRegion
-      (JNIEnv *env, jshortArray array, jsize start, jsize len, jshort *buf)
+static jdoubleArray (JNICALL NewDoubleArray)
+        (JNIEnv *env, jsize len)
 {
-
 }
-static void GetIntArrayRegion
-      (JNIEnv *env, jintArray array, jsize start, jsize len, jint *buf)
-{
 
-}
-static void GetLongArrayRegion
-      (JNIEnv *env, jlongArray array, jsize start, jsize len, jlong *buf)
-{
 
-}
-static void GetFloatArrayRegion
-      (JNIEnv *env, jfloatArray array, jsize start, jsize len, jfloat *buf)
+static jboolean * (JNICALL GetBooleanArrayElements)
+        (JNIEnv *env, jbooleanArray array, jboolean *isCopy)
 {
-
 }
-static void GetDoubleArrayRegion
-      (JNIEnv *env, jdoubleArray array, jsize start, jsize len, jdouble *buf)
-{
 
-}
-static void SetBooleanArrayRegion
-      (JNIEnv *env, jbooleanArray array, jsize start, jsize l, const jboolean *buf)
+static jbyte * (JNICALL GetByteArrayElements)
+        (JNIEnv *env, jbyteArray array, jboolean *isCopy)
 {
-
 }
-static void SetByteArrayRegion
-      (JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte *buf)
-{
 
+static jchar * (JNICALL GetCharArrayElements)
+        (JNIEnv *env, jcharArray array, jboolean *isCopy)
+{
 }
-static void SetCharArrayRegion
-      (JNIEnv *env, jcharArray array, jsize start, jsize len, const jchar *buf)
+
+static jshort * (JNICALL GetShortArrayElements)
+        (JNIEnv *env, jshortArray array, jboolean *isCopy)
 {
+}
 
+static jint * (JNICALL GetIntArrayElements)
+        (JNIEnv *env, jintArray array, jboolean *isCopy)
+{
 }
-static void SetShortArrayRegion
-      (JNIEnv *env, jshortArray array, jsize start, jsize len, const jshort *buf)
+
+static jlong * (JNICALL GetLongArrayElements)
+        (JNIEnv *env, jlongArray array, jboolean *isCopy)
 {
+}
 
+static jfloat * (JNICALL GetFloatArrayElements)
+        (JNIEnv *env, jfloatArray array, jboolean *isCopy)
+{
 }
-static void SetIntArrayRegion
-      (JNIEnv *env, jintArray array, jsize start, jsize len, const jint *buf)
+
+static jdouble * (JNICALL GetDoubleArrayElements)
+        (JNIEnv *env, jdoubleArray array, jboolean *isCopy)
 {
+}
 
+
+static void (JNICALL ReleaseBooleanArrayElements)
+        (JNIEnv *env, jbooleanArray array, jboolean *elems, jint mode)
+{
 }
-static void SetLongArrayRegion
-      (JNIEnv *env, jlongArray array, jsize start, jsize len, const jlong *buf)
+
+static void (JNICALL ReleaseByteArrayElements)
+        (JNIEnv *env, jbyteArray array, jbyte *elems, jint mode)
 {
+}
 
+static void (JNICALL ReleaseCharArrayElements)
+        (JNIEnv *env, jcharArray array, jchar *elems, jint mode)
+{
 }
-static void SetFloatArrayRegion
-      (JNIEnv *env, jfloatArray array, jsize start, jsize len, const jfloat *buf)
+
+static void (JNICALL ReleaseShortArrayElements)
+        (JNIEnv *env, jshortArray array, jshort *elems, jint mode)
 {
+}
 
+static void (JNICALL ReleaseIntArrayElements)
+        (JNIEnv *env, jintArray array, jint *elems, jint mode)
+{
 }
-static void SetDoubleArrayRegion
-      (JNIEnv *env, jdoubleArray array, jsize start, jsize len, const jdouble *buf)
+
+static void (JNICALL ReleaseLongArrayElements)
+        (JNIEnv *env, jlongArray array, jlong *elems, jint mode)
 {
+}
 
+static void (JNICALL ReleaseFloatArrayElements)
+        (JNIEnv *env, jfloatArray array, jfloat *elems, jint mode)
+{
 }
-static jint RegisterNatives
-      (JNIEnv *env, jclass clazz, const JNINativeMethod *methods,
-       jint nMethods)
+
+static void (JNICALL ReleaseDoubleArrayElements)
+        (JNIEnv *env, jdoubleArray array, jdouble *elems, jint mode)
 {
+}
+
 
+static void (JNICALL GetBooleanArrayRegion)
+        (JNIEnv *env, jbooleanArray array, jsize start, jsize l, jboolean *buf)
+{
 }
-static jint UnregisterNatives
-      (JNIEnv *env, jclass clazz)
+
+static void (JNICALL GetByteArrayRegion)
+        (JNIEnv *env, jbyteArray array, jsize start, jsize len, jbyte *buf)
 {
+}
 
+static void (JNICALL GetCharArrayRegion)
+        (JNIEnv *env, jcharArray array, jsize start, jsize len, jchar *buf)
+{
 }
-static jint MonitorEnter
-      (JNIEnv *env, jobject obj)
+
+static void (JNICALL GetShortArrayRegion)
+        (JNIEnv *env, jshortArray array, jsize start, jsize len, jshort *buf)
 {
+}
 
+static void (JNICALL GetIntArrayRegion)
+        (JNIEnv *env, jintArray array, jsize start, jsize len, jint *buf)
+{
 }
-static jint MonitorExit
-      (JNIEnv *env, jobject obj)
+
+static void (JNICALL GetLongArrayRegion)
+        (JNIEnv *env, jlongArray array, jsize start, jsize len, jlong *buf)
 {
+}
 
+static void (JNICALL GetFloatArrayRegion)
+        (JNIEnv *env, jfloatArray array, jsize start, jsize len, jfloat *buf)
+{
 }
-static jint GetJavaVM
-      (JNIEnv *env, JavaVM **vm)
+
+static void (JNICALL GetDoubleArrayRegion)
+        (JNIEnv *env, jdoubleArray array, jsize start, jsize len, jdouble *buf)
 {
+}
+
 
+static void (JNICALL SetBooleanArrayRegion)
+        (JNIEnv *env, jbooleanArray array, jsize start, jsize l, const jboolean *buf)
+{
 }
-static void GetStringRegion
-      (JNIEnv *env, jstring str, jsize start, jsize len, jchar *buf)
+
+static void (JNICALL SetByteArrayRegion)
+        (JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte *buf)
 {
+}
 
+static void (JNICALL SetCharArrayRegion)
+        (JNIEnv *env, jcharArray array, jsize start, jsize len, const jchar *buf)
+{
 }
-static void GetStringUTFRegion
-      (JNIEnv *env, jstring str, jsize start, jsize len, char *buf)
+
+static void (JNICALL SetShortArrayRegion)
+        (JNIEnv *env, jshortArray array, jsize start, jsize len, const jshort *buf)
 {
+}
 
+static void (JNICALL SetIntArrayRegion)
+        (JNIEnv *env, jintArray array, jsize start, jsize len, const jint *buf)
+{
 }
-static void * GetPrimitiveArrayCritical
-      (JNIEnv *env, jarray array, jboolean *isCopy)
+
+static void (JNICALL SetLongArrayRegion)
+        (JNIEnv *env, jlongArray array, jsize start, jsize len, const jlong *buf)
 {
+}
 
+static void (JNICALL SetFloatArrayRegion)
+        (JNIEnv *env, jfloatArray array, jsize start, jsize len, const jfloat *buf)
+{
 }
-static void ReleasePrimitiveArrayCritical
-      (JNIEnv *env, jarray array, void *carray, jint mode)
+
+static void (JNICALL SetDoubleArrayRegion)
+        (JNIEnv *env, jdoubleArray array, jsize start, jsize len, const jdouble *buf)
 {
+}
 
+
+static jint (JNICALL RegisterNatives)
+        (JNIEnv *env, jclass clazz, const JNINativeMethod *methods,
+         jint nMethods)
+{
 }
-static const jchar * GetStringCritical
-      (JNIEnv *env, jstring string, jboolean *isCopy)
+
+static jint (JNICALL UnregisterNatives)
+        (JNIEnv *env, jclass clazz)
 {
+}
 
+
+static jint (JNICALL MonitorEnter)
+        (JNIEnv *env, jobject obj)
+{
 }
-static void ReleaseStringCritical
-      (JNIEnv *env, jstring string, const jchar *cstring)
+
+static jint (JNICALL MonitorExit)
+        (JNIEnv *env, jobject obj)
 {
+}
 
+
+static jint (JNICALL GetJavaVM)
+        (JNIEnv *env, JavaVM **vm)
+{
 }
-static jweak NewWeakGlobalRef
-       (JNIEnv *env, jobject obj)
+
+
+static void (JNICALL GetStringRegion)
+        (JNIEnv *env, jstring str, jsize start, jsize len, jchar *buf)
 {
+}
 
+static void (JNICALL GetStringUTFRegion)
+        (JNIEnv *env, jstring str, jsize start, jsize len, char *buf)
+{
 }
-static void DeleteWeakGlobalRef
-       (JNIEnv *env, jweak ref)
+
+
+static void * (JNICALL GetPrimitiveArrayCritical)
+        (JNIEnv *env, jarray array, jboolean *isCopy)
 {
+}
 
+static void (JNICALL ReleasePrimitiveArrayCritical)
+        (JNIEnv *env, jarray array, void *carray, jint mode)
+{
 }
-static jboolean ExceptionCheck
-       (JNIEnv *env)
+
+
+static const jchar * (JNICALL GetStringCritical)
+        (JNIEnv *env, jstring string, jboolean *isCopy)
 {
+}
 
+static void (JNICALL ReleaseStringCritical)
+        (JNIEnv *env, jstring string, const jchar *cstring)
+{
 }
-static jobject NewDirectByteBuffer
-       (JNIEnv* env, void* address, jlong capacity)
+
+
+static jweak (JNICALL NewWeakGlobalRef)
+        (JNIEnv *env, jobject obj)
 {
+}
 
+static void (JNICALL DeleteWeakGlobalRef)
+        (JNIEnv *env, jweak ref)
+{
 }
-static void* GetDirectBufferAddress
-       (JNIEnv* env, jobject buf)
+
+
+static jboolean (JNICALL ExceptionCheck)
+        (JNIEnv *env)
 {
+}
 
+
+static jobject (JNICALL NewDirectByteBuffer)
+        (JNIEnv* env, void* address, jlong capacity)
+{
 }
-static jlong GetDirectBufferCapacity
-       (JNIEnv* env, jobject buf)
+
+static void* (JNICALL GetDirectBufferAddress)
+        (JNIEnv* env, jobject buf)
 {
+}
 
+static jlong (JNICALL GetDirectBufferCapacity)
+        (JNIEnv* env, jobject buf)
+{
 }
-static /* New JNI 1.6 Features */
+
+
+/* New JNI 1.6 Features */
 
-    jobjectRefType GetObjectRefType
+static jobjectRefType (JNICALL GetObjectRefType)
         (JNIEnv* env, jobject obj)
 {
 
 }
 
+
+
+
+
+static JNINativeInterface_ g_native_interface = {
+        .reserved0 = nullptr,
+        .reserved1 = nullptr,
+        .reserved2 = nullptr,
+        .reserved3 = nullptr,
+        .GetVersion = ::GetVersion,
+        .DefineClass = ::DefineClass,
+        .FindClass = ::FindClass,
+        .FromReflectedMethod = ::FromReflectedMethod,
+        .FromReflectedField = ::FromReflectedField,
+        .ToReflectedMethod = ::ToReflectedMethod,
+        .GetSuperclass = ::GetSuperclass,
+        .IsAssignableFrom = ::IsAssignableFrom,
+        .ToReflectedField = ::ToReflectedField,
+
+        .Throw = ::Throw,
+        .ThrowNew = ::ThrowNew,
+        .ExceptionOccurred = ::ExceptionOccurred,
+        .ExceptionDescribe = ::ExceptionDescribe,
+        .ExceptionClear = ::ExceptionClear,
+        .FatalError = ::FatalError,
+
+        .PushLocalFrame = ::PushLocalFrame,
+        .PopLocalFrame = ::PopLocalFrame,
+
+        .NewGlobalRef = ::NewGlobalRef,
+        .DeleteGlobalRef = ::DeleteGlobalRef,
+        .DeleteLocalRef = ::DeleteLocalRef,
+        .IsSameObject = ::IsSameObject,
+        .NewLocalRef = ::NewLocalRef,
+        .EnsureLocalCapacity = ::EnsureLocalCapacity,
+
+        .AllocObject = ::AllocObject,
+        .NewObject = ::NewObject,
+        .NewObjectV = ::NewObjectV,
+        .NewObjectA = ::NewObjectA,
+
+        .GetObjectClass = ::GetObjectClass,
+        .IsInstanceOf = ::IsInstanceOf,
+
+        .GetMethodID = ::GetMethodID,
+
+        .CallObjectMethod = ::CallObjectMethod,
+        .CallObjectMethodV = ::CallObjectMethodV,
+        .CallObjectMethodA = ::CallObjectMethodA,
+
+        .CallBooleanMethod = ::CallBooleanMethod,
+        .CallBooleanMethodV = ::CallBooleanMethodV,
+        .CallBooleanMethodA = ::CallBooleanMethodA,
+
+        .CallByteMethod = ::CallByteMethod,
+        .CallByteMethodV = ::CallByteMethodV,
+        .CallByteMethodA = ::CallByteMethodA,
+
+        .CallCharMethod = ::CallCharMethod,
+        .CallCharMethodV = ::CallCharMethodV,
+        .CallCharMethodA = ::CallCharMethodA,
+
+        .CallShortMethod = ::CallShortMethod,
+        .CallShortMethodV = ::CallShortMethodV,
+        .CallShortMethodA = ::CallShortMethodA,
+
+        .CallIntMethod = ::CallIntMethod,
+        .CallIntMethodV = ::CallIntMethodV,
+        .CallIntMethodA = ::CallIntMethodA,
+
+        .CallLongMethod = ::CallLongMethod,
+        .CallLongMethodV = ::CallLongMethodV,
+        .CallLongMethodA = ::CallLongMethodA,
+
+        .CallFloatMethod = ::CallFloatMethod,
+        .CallFloatMethodV = ::CallFloatMethodV,
+        .CallFloatMethodA = ::CallFloatMethodA,
+
+        .CallDoubleMethod = ::CallDoubleMethod,
+        .CallDoubleMethodV = ::CallDoubleMethodV,
+        .CallDoubleMethodA = ::CallDoubleMethodA,
+
+        .CallVoidMethod = ::CallVoidMethod,
+        .CallVoidMethodV = ::CallVoidMethodV,
+        .CallVoidMethodA = ::CallVoidMethodA,
+
+        .CallNonvirtualObjectMethod = ::CallNonvirtualObjectMethod,
+        .CallNonvirtualObjectMethodV = ::CallNonvirtualObjectMethodV,
+        .CallNonvirtualObjectMethodA = ::CallNonvirtualObjectMethodA,
+
+        .CallNonvirtualBooleanMethod = ::CallNonvirtualBooleanMethod,
+        .CallNonvirtualBooleanMethodV = ::CallNonvirtualBooleanMethodV,
+        .CallNonvirtualBooleanMethodA = ::CallNonvirtualBooleanMethodA,
+
+        .CallNonvirtualByteMethod = ::CallNonvirtualByteMethod,
+        .CallNonvirtualByteMethodV = ::CallNonvirtualByteMethodV,
+        .CallNonvirtualByteMethodA = ::CallNonvirtualByteMethodA,
+
+        .CallNonvirtualCharMethod = ::CallNonvirtualCharMethod,
+        .CallNonvirtualCharMethodV = ::CallNonvirtualCharMethodV,
+        .CallNonvirtualCharMethodA = ::CallNonvirtualCharMethodA,
+
+        .CallNonvirtualShortMethod = ::CallNonvirtualShortMethod,
+        .CallNonvirtualShortMethodV = ::CallNonvirtualShortMethodV,
+        .CallNonvirtualShortMethodA = ::CallNonvirtualShortMethodA,
+
+        .CallNonvirtualIntMethod = ::CallNonvirtualIntMethod,
+        .CallNonvirtualIntMethodV = ::CallNonvirtualIntMethodV,
+        .CallNonvirtualIntMethodA = ::CallNonvirtualIntMethodA,
+
+        .CallNonvirtualLongMethod = ::CallNonvirtualLongMethod,
+        .CallNonvirtualLongMethodV = ::CallNonvirtualLongMethodV,
+        .CallNonvirtualLongMethodA = ::CallNonvirtualLongMethodA,
+
+        .CallNonvirtualFloatMethod = ::CallNonvirtualFloatMethod,
+        .CallNonvirtualFloatMethodV = ::CallNonvirtualFloatMethodV,
+        .CallNonvirtualFloatMethodA = ::CallNonvirtualFloatMethodA,
+
+        .CallNonvirtualDoubleMethod = ::CallNonvirtualDoubleMethod,
+        .CallNonvirtualDoubleMethodV = ::CallNonvirtualDoubleMethodV,
+        .CallNonvirtualDoubleMethodA = ::CallNonvirtualDoubleMethodA,
+
+        .CallNonvirtualVoidMethod = ::CallNonvirtualVoidMethod,
+        .CallNonvirtualVoidMethodV = ::CallNonvirtualVoidMethodV,
+        .CallNonvirtualVoidMethodA = ::CallNonvirtualVoidMethodA,
+
+
+        .GetFieldID = ::GetFieldID,
+        .GetObjectField = ::GetObjectField,
+        .GetBooleanField = ::GetBooleanField,
+        .GetByteField = ::GetByteField,
+        .GetCharField = ::GetCharField,
+        .GetShortField = ::GetShortField,
+        .GetIntField = ::GetIntField,
+        .GetLongField = ::GetLongField,
+        .GetFloatField = ::GetFloatField,
+        .GetDoubleField = ::GetDoubleField,
+
+        .SetObjectField = ::SetObjectField,
+        .SetBooleanField = ::SetBooleanField,
+        .SetByteField = ::SetByteField,
+        .SetCharField = ::SetCharField,
+        .SetShortField = ::SetShortField,
+        .SetIntField = ::SetIntField,
+        .SetLongField = ::SetLongField,
+        .SetFloatField = ::SetFloatField,
+        .SetDoubleField = ::SetDoubleField,
+
+        .GetStaticMethodID = ::GetStaticMethodID,
+
+        .CallStaticObjectMethod = ::CallStaticObjectMethod,
+        .CallStaticObjectMethodV = ::CallStaticObjectMethodV,
+        .CallStaticObjectMethodA = ::CallStaticObjectMethodA,
+
+        .CallStaticBooleanMethod = ::CallStaticBooleanMethod,
+        .CallStaticBooleanMethodV = ::CallStaticBooleanMethodV,
+        .CallStaticBooleanMethodA = ::CallStaticBooleanMethodA,
+
+        .CallStaticByteMethod = ::CallStaticByteMethod,
+        .CallStaticByteMethodV = ::CallStaticByteMethodV,
+        .CallStaticByteMethodA = ::CallStaticByteMethodA,
+
+        .CallStaticCharMethod = ::CallStaticCharMethod,
+        .CallStaticCharMethodV = ::CallStaticCharMethodV,
+        .CallStaticCharMethodA = ::CallStaticCharMethodA,
+
+        .CallStaticShortMethod = ::CallStaticShortMethod,
+        .CallStaticShortMethodV = ::CallStaticShortMethodV,
+        .CallStaticShortMethodA = ::CallStaticShortMethodA,
+
+
+        .CallStaticIntMethod = ::CallStaticIntMethod,
+        .CallStaticIntMethodV = ::CallStaticIntMethodV,
+        .CallStaticIntMethodA = ::CallStaticIntMethodA,
+
+        .CallStaticLongMethod = ::CallStaticLongMethod,
+        .CallStaticLongMethodV = ::CallStaticLongMethodV,
+        .CallStaticLongMethodA = ::CallStaticLongMethodA,
+
+        .CallStaticFloatMethod = ::CallStaticFloatMethod,
+        .CallStaticFloatMethodV = ::CallStaticFloatMethodV,
+        .CallStaticFloatMethodA = ::CallStaticFloatMethodA,
+
+        .CallStaticDoubleMethod = ::CallStaticDoubleMethod,
+        .CallStaticDoubleMethodV = ::CallStaticDoubleMethodV,
+        .CallStaticDoubleMethodA = ::CallStaticDoubleMethodA,
+
+        .CallStaticVoidMethod = CallStaticVoidMethod,
+        .CallStaticVoidMethodV = CallStaticVoidMethodV,
+        .CallStaticVoidMethodA = CallStaticVoidMethodA,
+
+        .GetStaticFieldID = ::GetStaticFieldID,
+        .GetStaticObjectField = ::GetStaticObjectField,
+        .GetStaticBooleanField = ::GetStaticBooleanField,
+        .GetStaticByteField = ::GetStaticByteField,
+        .GetStaticCharField = ::GetStaticCharField,
+        .GetStaticShortField = ::GetStaticShortField,
+        .GetStaticIntField = ::GetStaticIntField,
+        .GetStaticLongField = ::GetStaticLongField,
+        .GetStaticFloatField = ::GetStaticFloatField,
+        .GetStaticDoubleField = ::GetStaticDoubleField,
+
+        .SetStaticObjectField = ::SetStaticObjectField,
+        .SetStaticBooleanField = ::SetStaticBooleanField,
+        .SetStaticByteField = ::SetStaticByteField,
+        .SetStaticCharField = ::SetStaticCharField,
+        .SetStaticShortField = ::SetStaticShortField,
+        .SetStaticIntField = ::SetStaticIntField,
+        .SetStaticLongField = ::SetStaticLongField,
+        .SetStaticFloatField = ::SetStaticFloatField,
+        .SetStaticDoubleField = ::SetStaticDoubleField,
+
+        .NewString = ::NewString,
+        .GetStringLength = ::GetStringLength,
+        .GetStringChars = ::GetStringChars,
+        .ReleaseStringChars = ::ReleaseStringChars,
+
+        .NewStringUTF = ::NewStringUTF,
+        .GetStringUTFLength = ::GetStringUTFLength,
+        .GetStringUTFChars = ::GetStringUTFChars,
+        .ReleaseStringUTFChars = ::ReleaseStringUTFChars,
+
+        .GetArrayLength = ::GetArrayLength,
+
+        .NewObjectArray = ::NewObjectArray,
+        .GetObjectArrayElement = ::GetObjectArrayElement,
+        .SetObjectArrayElement = ::SetObjectArrayElement,
+
+        .NewBooleanArray = ::NewBooleanArray,
+        .NewByteArray = ::NewByteArray,
+        .NewCharArray = ::NewCharArray,
+        .NewShortArray = ::NewShortArray,
+        .NewIntArray = ::NewIntArray,
+        .NewLongArray = ::NewLongArray,
+        .NewFloatArray = ::NewFloatArray,
+        .NewDoubleArray = ::NewDoubleArray,
+
+        .GetBooleanArrayElements = ::GetBooleanArrayElements,
+        .GetByteArrayElements = ::GetByteArrayElements,
+        .GetCharArrayElements = ::GetCharArrayElements,
+        .GetShortArrayElements = ::GetShortArrayElements,
+        .GetIntArrayElements = ::GetIntArrayElements,
+        .GetLongArrayElements = ::GetLongArrayElements,
+        .GetFloatArrayElements = ::GetFloatArrayElements,
+        .GetDoubleArrayElements = ::GetDoubleArrayElements,
+
+        .ReleaseBooleanArrayElements = ::ReleaseBooleanArrayElements,
+        .ReleaseByteArrayElements = ::ReleaseByteArrayElements,
+        .ReleaseCharArrayElements = ::ReleaseCharArrayElements,
+        .ReleaseShortArrayElements = ::ReleaseShortArrayElements,
+        .ReleaseIntArrayElements = ::ReleaseIntArrayElements,
+        .ReleaseLongArrayElements = ::ReleaseLongArrayElements,
+        .ReleaseFloatArrayElements = ::ReleaseFloatArrayElements,
+        .ReleaseDoubleArrayElements = ::ReleaseDoubleArrayElements,
+
+        .GetBooleanArrayRegion = ::GetBooleanArrayRegion,
+        .GetByteArrayRegion = ::GetByteArrayRegion,
+        .GetCharArrayRegion = ::GetCharArrayRegion,
+        .GetShortArrayRegion = ::GetShortArrayRegion,
+        .GetIntArrayRegion = ::GetIntArrayRegion,
+        .GetLongArrayRegion = ::GetLongArrayRegion,
+        .GetFloatArrayRegion = ::GetFloatArrayRegion,
+        .GetDoubleArrayRegion = ::GetDoubleArrayRegion,
+
+        .SetBooleanArrayRegion = ::SetBooleanArrayRegion,
+        .SetByteArrayRegion = ::SetByteArrayRegion,
+        .SetCharArrayRegion = ::SetCharArrayRegion,
+        .SetShortArrayRegion = ::SetShortArrayRegion,
+        .SetIntArrayRegion = ::SetIntArrayRegion,
+        .SetLongArrayRegion = ::SetLongArrayRegion,
+        .SetFloatArrayRegion = ::SetFloatArrayRegion,
+        .SetDoubleArrayRegion = ::SetDoubleArrayRegion,
+
+        .RegisterNatives = ::RegisterNatives,
+        .UnregisterNatives = ::UnregisterNatives,
+
+        .MonitorEnter = ::MonitorEnter,
+        .MonitorExit = ::MonitorExit,
+
+        .GetJavaVM = ::GetJavaVM,
+
+        .GetStringRegion = ::GetStringRegion,
+        .GetStringUTFRegion = ::GetStringUTFRegion,
+
+        .GetPrimitiveArrayCritical = ::GetPrimitiveArrayCritical,
+        .ReleasePrimitiveArrayCritical = ::ReleasePrimitiveArrayCritical,
+
+        .GetStringCritical = ::GetStringCritical,
+        .ReleaseStringCritical = ::ReleaseStringCritical,
+
+        .NewWeakGlobalRef = ::NewWeakGlobalRef,
+        .DeleteWeakGlobalRef = ::DeleteWeakGlobalRef,
+
+        .ExceptionCheck = ::ExceptionCheck,
+
+        .NewDirectByteBuffer = ::NewDirectByteBuffer,
+        .GetDirectBufferAddress = ::GetDirectBufferAddress,
+        .GetDirectBufferCapacity = ::GetDirectBufferCapacity,
+
+
+        /* New JNI 1.6 Features */
+        .GetObjectRefType = ::GetObjectRefType,
+};

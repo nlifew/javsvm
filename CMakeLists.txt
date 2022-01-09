@@ -28,6 +28,7 @@ add_subdirectory(classloader)
 add_subdirectory(engine)
 add_subdirectory(utils)
 add_subdirectory(dll)
+add_subdirectory(jni)
 
 # 测试相关的
 add_subdirectory(test)
@@ -44,8 +45,9 @@ find_library(
 
 target_link_libraries(
         main
-        classloader
+        jni
         engine
+        classloader
         object
         vm
         concurrent

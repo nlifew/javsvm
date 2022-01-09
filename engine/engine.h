@@ -10,11 +10,12 @@ namespace javsvm
 
 class jargs
 {
-    slot_t *m_args;
-    slot_t *m_orig;
+    const slot_t *m_args;
+    const slot_t *m_orig;
 
 public:
-    explicit jargs(slot_t *args) : m_args(args), m_orig(args)
+    explicit jargs(const slot_t *args) noexcept :
+        m_args(args), m_orig(args)
     {
     }
 

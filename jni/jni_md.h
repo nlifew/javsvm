@@ -26,10 +26,18 @@
 #ifndef _JAVASOFT_JNI_MD_H_
 #define _JAVASOFT_JNI_MD_H_
 
-#define JNIEXPORT __declspec(dllexport)
-#define JNIIMPORT __declspec(dllimport)
-#define JNICALL __stdcall
+/* javsvm-changed: remove JNIEXPORT and JNIIMPORT */
+//#define JNIEXPORT __declspec(dllexport)
+//#define JNIIMPORT __declspec(dllimport)
+#define JNIEXPORT
+#define JNIIMPORT
+#endif
+/* javsvm-changed: end of removing JNIEXPORT and JNIIMPORT */
 
+/* javsvm-changed: define JNICALL to nothing on mac-arm64 */
+//#define JNICALL __stdcall
+#define JNICALL
+/* javsvm-changed: define JNICALL end */
 
 
 /* javsvm-changed: use <stdint> to instead. */

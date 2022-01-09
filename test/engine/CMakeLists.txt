@@ -17,6 +17,12 @@ add_executable(
         engine.cpp
 )
 
+add_executable(
+        test_jnilib
+        jnilib.cpp
+)
+
+
 target_link_libraries(
         test_engine
         classloader
