@@ -104,14 +104,14 @@ public:
     {
         value_t last_value, new_value;
         linked_pool_node<T> *node;
-#ifndef NDEBUG
+
         int loop_count = 0;
-#endif
+
 
         do {
-#ifndef NDEBUG
+
             loop_count ++;
-#endif
+
             last_value = m_value.load(std::memory_order_acquire);
             int size = (int) (last_value & 0xFF);
 
@@ -121,9 +121,7 @@ public:
                 ::new((void*) node) linked_pool_node<T>(std::forward<Args>(args)...);
 //                m_allocator.construct(node, std::forward<Args>(args)...);
 
-#ifndef NDEBUG
-                LOGD("obtain: 循环 %d 次\n", loop_count);
-#endif
+                LOGD("obtain: 循环 %d 次 (缓存池为空，直接创建新对象)\n", loop_count);
                 return node->obj;
             }
 
@@ -134,9 +132,7 @@ public:
 
         node->next = nullptr;
 
-#ifndef NDEBUG
-        LOGD("obtain: 循环 %d 次\n", loop_count);
-#endif
+        LOGD("obtain: 循环 %d 次 (获取到缓存，复用之)\n", loop_count);
 
         return node->obj;
     }
@@ -146,13 +142,12 @@ public:
         value_t last_value, new_value;
         auto node = (linked_pool_node<T> *) &t;
 
-#ifndef NDEBUG
         int loop_count = 0;
-#endif
+
         do {
-#ifndef NDEBUG
+
             loop_count ++;
-#endif
+
 
             last_value = m_value.load(std::memory_order_acquire);
             int size = (int) (last_value & 0xFF);
@@ -163,9 +158,8 @@ public:
 //                m_allocator.destroy(node);
                 m_allocator.deallocate(node, 1);
 
-#ifndef NDEBUG
-                LOGD("recycle: 循环 %d 次\n", loop_count);
-#endif
+
+                LOGD("recycle: 循环 %d 次 (缓存池已满，直接销毁)\n", loop_count);
 
                 return false;
             }
@@ -174,9 +168,9 @@ public:
             new_value = ((uint64_t) node << 8) | (size + 1);
         } while (! m_value.compare_exchange_strong(last_value, new_value));
 
-#ifndef NDEBUG
-        LOGD("recycle: 循环 %d 次\n", loop_count);
-#endif
+
+        LOGD("recycle: 循环 %d 次 (直接回收)\n", loop_count);
+
         return true;
     }
 
@@ -185,22 +179,22 @@ public:
         value_t last_value, new_value;
         linked_pool_node<T> *node;
 
-#ifndef NDEBUG
+
         int loop_count = 0;
-#endif
+
         while (true) {
 
-#ifndef NDEBUG
+
             loop_count ++;
-#endif
+
             last_value = m_value.load(std::memory_order_acquire);
             int size = (int) (last_value & 0xFF);
 
             // 如果对象池为空，直接返回
             if (size <= 0) {
-#ifndef NDEBUG
-                LOGD("recycle: 循环 %d 次\n", loop_count);
-#endif
+
+                LOGD("clear: 销毁 %d 个对象\n", loop_count);
+
                 return;
             }
 

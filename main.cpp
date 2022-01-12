@@ -5,7 +5,6 @@
 
 #include "vm/jvm.h"
 #include "object/jobject.h"
-#include "object/jlock.h"
 #include "object/jclass.h"
 #include "object/jfield.h"
 #include "object/jmethod.h"
