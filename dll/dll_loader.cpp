@@ -2,6 +2,8 @@
 
 #include "dll_loader.h"
 #include "../utils/log.h"
+#include "../vm/jvm.h"
+#include "../jni/jni.h"
 
 #include <memory>
 #include <cstring>
@@ -9,7 +11,6 @@
 #include <unistd.h>
 
 #include <vector>
-#include <shared_mutex>
 
 
 #if WINDOWS
@@ -104,6 +105,18 @@ static std::string trim(const char *name)
     return path;
 }
 
+
+
+static void* load_library0(const char *name) noexcept
+{
+#if WINDOWS
+    return LoadLibraryA(name);
+#else
+    return dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
+#endif
+}
+
+
 void* dll_loader::load_library(const char *name)
 {
     LOGI("load_library: start with '%s'\n", name);
@@ -133,11 +146,7 @@ void* dll_loader::load_library(const char *name)
         }
     }
 
-#if WINDOWS
-    void *native_ptr = LoadLibraryA(key.c_str());
-#else
-    void *native_ptr = dlopen(key.c_str(), RTLD_LAZY | RTLD_GLOBAL);
-#endif
+    void *native_ptr = ::load_library0(key.c_str());
 
     if (native_ptr == nullptr) {
         PLOGE("load_library: failed to load library '%s'\n", key.c_str());
@@ -145,9 +154,34 @@ void* dll_loader::load_library(const char *name)
     }
     m_cache[key] = native_ptr;
 
-    // todo: 调用 JNI_OnLoad()
-
+    // 准备调用 JNI_OnLoad()
+    if (call_JNI_OnLoad(native_ptr) < 0) {
+        PLOGE("load_library: call JNI_OnLoad error\n");
+        exit(1);
+    }
     return native_ptr;
+}
+
+int dll_loader::call_JNI_OnLoad(void *library) noexcept
+{
+    LOGD("call_JNI_OnLoad: start with library %p\n", library);
+
+    using JNI_OnLoad_t = jint (*) (JavaVM*, void*);
+    auto JNI_OnLoad = (JNI_OnLoad_t) find_symbol("JNI_OnLoad", library);
+
+    if (JNI_OnLoad == nullptr) {
+        // 如果没有导出 JNI_OnLoad，直接返回即可
+        LOGD("call_JNI_OnLoad: JNI_OnLoad is nullptr, ignore\n");
+        return 0;
+    }
+
+    LOGD("call_JNI_OnLoad: will call\n");
+
+    auto status = JNI_OnLoad((JavaVM *) m_vm.jni(), nullptr);
+    if (status < 0) {
+        LOGE("call_JNI_OnLoad: JNI 层返回异常 %d\n", status);
+    }
+    return status;
 }
 
 static inline void free_library0(void *native_ptr)
@@ -184,7 +218,7 @@ void dll_loader::free_library(const char *name)
 }
 
 
-static inline void* find_symbol(void *native_ptr, const char *symbol)
+static inline void* find_symbol0(void *native_ptr, const char *symbol)
 {
 #if WINDOWS
     return GetProcAddress((HMODULE) native_ptr, symbol);
@@ -193,14 +227,14 @@ static inline void* find_symbol(void *native_ptr, const char *symbol)
 #endif
 }
 
-void *dll_loader::find_symbol0(const char *symbol, void *native_ptr)
+void *dll_loader::find_symbol(const char *symbol, void *native_ptr)
 {
     if (native_ptr != nullptr) {
-        return ::find_symbol(native_ptr, symbol);
+        return ::find_symbol0(native_ptr, symbol);
     }
     std::shared_lock rd_lock(m_lock);
     for (const auto &it : m_cache) {
-        auto sym = ::find_symbol(it.second, symbol);
+        auto sym = ::find_symbol0(it.second, symbol);
         if (sym != nullptr) {
             return sym;
         }

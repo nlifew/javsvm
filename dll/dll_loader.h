@@ -11,16 +11,24 @@
 namespace javsvm
 {
 
+class jvm;
 
 class dll_loader
 {
 private:
+    jvm &m_vm;
     std::unordered_map<std::string, void*> m_cache;
     recursive_lock m_lock;
 
-    void *find_symbol0(const char *symbol, void *native_ptr = nullptr);
+    int call_JNI_OnLoad(void *symbol) noexcept;
+
 public:
-    dll_loader() = default;
+    explicit dll_loader(jvm *vm) noexcept:
+        m_vm(*vm)
+    {
+    }
+
+
     dll_loader(const dll_loader &) = delete;
     dll_loader &operator=(const dll_loader &) = delete;
     ~dll_loader();
@@ -29,11 +37,7 @@ public:
 
     void free_library(const char *name);
 
-    template <typename T>
-    T find_symbol(const char *symbol, void *native_ptr = nullptr)
-    {
-        return (T) find_symbol0(symbol, native_ptr);
-    }
+    void* find_symbol(const char *symbol, void *native_ptr = nullptr);
 };
 
 };
