@@ -771,7 +771,7 @@ jclass* bootstrap_loader::create_primitive_type(const char *type)
     auto *klass = m_allocator.calloc_type<jclass>();
     klass->name = name;
     klass->access_flag = jclass_file::ACC_PUBLIC | jclass_file::ACC_ABSTRACT | jclass_file::ACC_FINAL;
-    klass->object = holder.java_lang_Class->new_instance();
+    klass->object = holder.java_lang_Class->new_instance(holder.java_lang_Class_init, klass);
 
     // 不为基本数据类型添加构造函数和类构造函数
     LOGI("primitive type '%s' created\n", type);
