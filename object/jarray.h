@@ -15,6 +15,7 @@ namespace javsvm
 class jobject;
 struct jclass;
 class jvm;
+class jobject_ptr;
 
 class jarray
 {
@@ -27,6 +28,11 @@ public:
 
     void set_array_region(jref array, jsize start, jint len, const void *buff);
 
+    /**
+     * 获取数组存储元素的起始地址
+     */
+    static void *storage_of(jobject_ptr &ptr) noexcept;
+
 public:
     explicit jarray(jvm &vm) noexcept :
         m_jvm(vm)
@@ -37,7 +43,7 @@ public:
 
     jsize get_array_length(jref array);
 
-    jref new_bool_array(int length) { return new_type_array("[Z", length, sizeof(jboolean)); }
+    jref new_boolean_array(int length) { return new_type_array("[Z", length, sizeof(jboolean)); }
 
     jref new_byte_array(int length) { return new_type_array("[B", length, sizeof(jbyte)); }
 

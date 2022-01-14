@@ -113,7 +113,7 @@ struct thread_id_provider
 {
     int operator()() const noexcept
     {
-        return jvm::get().env().thread_id();
+        return jvm::get().env().thread_id;
     }
 };
 

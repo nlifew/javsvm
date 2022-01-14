@@ -57,9 +57,9 @@ static void calculate_field_size(const char *sig, int *p_mem_size, int *p_slot_n
 
 
 
-void jfield::bind(jclass *clazz, jclass_file *cls, int index)
+void jfield::bind(jclass *_clazz, jclass_file *cls, int index)
 {
-    klass = clazz;
+    clazz = _clazz;
     orig = cls->fields + index;
     access_flag = orig->access_flag;
     name = (char *)cls->constant_pool.cast<jclass_const_utf8>(orig->name_index)->bytes;

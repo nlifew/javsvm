@@ -24,8 +24,7 @@ void jheap::unlock(jobject *ptr)
 
 bool jheap::is_nullptr(jref ref)
 {
-    auto *ptr = (jobject *) ref;
-    return ptr == nullptr;
+    return lock(ref) == nullptr;
 }
 
 jref jheap::malloc_bytes(int bytes)

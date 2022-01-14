@@ -26,27 +26,27 @@
 #ifndef _JAVASOFT_JNI_MD_H_
 #define _JAVASOFT_JNI_MD_H_
 
-/* javsvm-changed: remove JNIEXPORT and JNIIMPORT */
-//#define JNIEXPORT __declspec(dllexport)
-//#define JNIIMPORT __declspec(dllimport)
+/* javsvm-changed: define JNIEXPORT，JNIIMPORT，JNICALL on different platform */
+
+#ifdef _WIN32
+#define JNIEXPORT __declspec(dllexport)
+#define JNIIMPORT __declspec(dllimport)
+#define JNICALL __stdcall
+#else
 #define JNIEXPORT
 #define JNIIMPORT
-#endif
-/* javsvm-changed: end of removing JNIEXPORT and JNIIMPORT */
-
-/* javsvm-changed: define JNICALL to nothing on mac-arm64 */
-//#define JNICALL __stdcall
 #define JNICALL
-/* javsvm-changed: define JNICALL end */
+#endif
 
+/* javsvm-changed: define JNIEXPORT，JNIIMPORT，JNICALL end */
 
-/* javsvm-changed: use <stdint> to instead. */
+/* javsvm-changed: use <stdint.h> to instead. */
 #include <stdint.h>
 
 typedef int32_t /*long*/ jint;
 typedef int64_t /*__int64*/ jlong;
 typedef int8_t /*signed char*/ jbyte;
 
-/* javsvm-changed: end */
+/* javsvm-changed: use <stdint.h> end */
 
 #endif /* !_JAVASOFT_JNI_MD_H_ */

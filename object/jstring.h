@@ -22,10 +22,21 @@ private:
     // std::unordered_map<std::wstring, jref> m_cache;
 
     jvm &m_jvm;
-
-    jref new_string(const char *str);
-
 public:
+    jref new_string(const char *str) noexcept;
+
+    jref new_string(const wchar_t *str) noexcept;
+
+
+    int length(jref ref) noexcept;
+
+    /**
+     * 获取某个字符串内的数组引用
+     * @return 失败返回 nullptr
+     */
+    jref value_of(jref ref) noexcept;
+
+
     explicit jstring(jvm &vm) noexcept :
         m_jvm(vm)
     {

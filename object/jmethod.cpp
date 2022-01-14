@@ -147,7 +147,7 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
         jvm::get().heap.lock(ref)->lock();
     }
 
-    jvalue value = {0};
+    jvalue value;
 
     // 如果被 native 关键字修饰，跳转到 jni 引擎
     if ((access_flag & jclass_method::ACC_NATIVE) != 0) {

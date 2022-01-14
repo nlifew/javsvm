@@ -106,24 +106,22 @@ static inline javsvm::jclass* to_class(jclass clazz) noexcept
     return javsvm::jclass::of(to_object(clazz));
 }
 
-/**
- * jni 层使用的 JNIEnv* 转为 javsvm 使用的 jenv*
- */
-static inline javsvm::jenv *to_env(JNIEnv *env)
+
+using jargs_ptr = std::unique_ptr<javsvm::slot_t, void(*)(const javsvm::slot_t *)>;
+
+static inline jargs_ptr make_jargs(javsvm::slot_t *p) noexcept
 {
-    // todo
-    return nullptr;
+    return { p, [](const javsvm::slot_t*){} };
 }
 
 /**
  * va_list 转 slot 数组
- * 调用者需要 delete[] 释放内存
  */
-static javsvm::slot_t *to_args(jmethodID method, va_list ap)
+static jargs_ptr to_args(jmethodID method, va_list ap)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
-        return nullptr;
+        return make_jargs(nullptr);
     }
 
     auto args = new javsvm::slot_t[_method->args_slot];
@@ -170,18 +168,17 @@ static javsvm::slot_t *to_args(jmethodID method, va_list ap)
                 break;
         }
     }
-    return args;
+    return make_jargs(args);
 }
 
 /**
  * jvalue 数组转 slot 数组
- * 调用者需要 delete[] 释放内存
  */
-static javsvm::slot_t *to_args(jmethodID method, const jvalue *ap)
+static jargs_ptr to_args(jmethodID method, const jvalue *ap)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
-        return nullptr;
+        return make_jargs(nullptr);
     }
 
     int ap_index = 0;
@@ -230,7 +227,7 @@ static javsvm::slot_t *to_args(jmethodID method, const jvalue *ap)
                 break;
         }
     }
-    return args;
+    return make_jargs(args);
 }
 
 

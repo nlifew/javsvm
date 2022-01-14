@@ -74,7 +74,7 @@ lookup_exp_table(u4 pc, jref ref, jmethod *method)
     return nullptr;
 }
 
-void javsvm::throw_throwable(jref ref)
+void javsvm::throw_throwable(jref ref) noexcept
 {
     auto ptr = jvm::get().heap.lock(ref);
     if (ptr == nullptr) {
@@ -82,7 +82,7 @@ void javsvm::throw_throwable(jref ref)
         return;
     }
     // 栈回溯
-    const auto &stack = jvm::get().env().stack();
+    const auto &stack = jvm::get().env().stack;
 
     for (jstack_frame *frame = stack.top(); frame; frame = frame->next) {
         const auto &method = frame->method;
@@ -90,7 +90,7 @@ void javsvm::throw_throwable(jref ref)
         // 先判断一下是不是 native 函数
         auto access_flag = method->access_flag;
         if ((access_flag & jclass_method::ACC_NATIVE) != 0) {
-            // 当前正在执行 native 函数，只需要把异常放进栈帧中暂存一下即可
+            // 当前正在执行 native 函数，只需要把异常放进栈帧中暂存一下即可 (jni随时会清除异常)
             // native 函数执行完，栈帧弹出后，引擎会重新抛出异常
             frame->exp = ref;
             return;
@@ -110,4 +110,33 @@ void javsvm::throw_throwable(jref ref)
     // 即使经过栈回溯，也没有找到能捕获异常的函数
     // 此时需要调用 java.lang.Thread 的默认异常处理函数
     // todo:
+}
+
+
+jref javsvm::check_exception() noexcept
+{
+    // 栈回溯
+    const auto &stack = jvm::get().env().stack;
+
+    for (jstack_frame *frame = stack.top(); frame; frame = frame->next) {
+        if (frame->exp != nullptr) {
+            return frame->exp;
+        }
+    }
+    return nullptr;
+}
+
+void javsvm::clear_exception() noexcept
+{
+    auto frame = jvm::get().env().stack.top();
+    if (frame == nullptr) {
+        return;
+    }
+    auto method = frame->method;
+    if ((method->access_flag & jclass_method::ACC_NATIVE) != 0) {
+        frame->exp = nullptr;
+        return;
+    }
+    LOGE("clear_exception: 禁止在 java 层中清除异常");
+    exit(1);
 }

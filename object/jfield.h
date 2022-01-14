@@ -16,7 +16,7 @@ struct jfield
     /**
      * 指向该字段所在的 class
      */ 
-    jclass *klass = nullptr;
+    jclass *clazz = nullptr;
 
     /**
      * 指向 .class 文件中的 jclass_field 信息，用来获取 access_flag 等信息
@@ -67,13 +67,13 @@ struct jfield
     }
 
     // todo:
-//    jvalue get(jref obj);
+    jvalue get(jref obj) { return {}; }
 
-    jvalue get(void *values) { return jvalue {}; }
+//    jvalue get(void *values) { return jvalue {}; }
 
-//    void set(jref obj, jvalue val);
+    void set(jref obj, jvalue val) {  }
 
-    void set(void *values, jvalue val) {}
+//    void set(void *values, jvalue val) {}
 };
 
 } // namespace javsvm

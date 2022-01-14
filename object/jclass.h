@@ -77,26 +77,31 @@ struct jclass
      */
      bool is_assign_from(jclass *sub) const noexcept;
 
-    // todo: 分配内存，创建对象，但不执行构造函数
-    jref new_instance()
-    {
-        auto &heap = jvm::get().heap;
-        jref ref = heap.malloc_bytes(object_size);
-        auto ptr = heap.lock(ref);
-        ptr->klass = this;
+     /**
+      * 分配内存，创建对象，但不执行构造函数
+      * @return jref
+      */
+    [[nodiscard]]
+    jref new_instance() const noexcept;
 
-        return ref;
-    }
+    /**
+     * 分配内存，并执行构造函数
+     * @param m <init>
+     * @param ap 构造函数的参数
+     * @return jref
+     */
+    [[nodiscard]]
+    jref new_instance(jmethod *m, va_list ap) const noexcept;
 
-    jref new_instance(jmethod *m, ...)
-    {
-        auto &heap = jvm::get().heap;
-        jref ref = heap.malloc_bytes(object_size);
-        auto ptr = heap.lock(ref);
-        ptr->klass = this;
-
-        return ref;
-    }
+    /**
+     *
+     * 分配内存，并执行构造函数
+     * @param m <init>
+     * @param ... 构造函数的参数
+     * @return jref
+     */
+    [[nodiscard]]
+    jref new_instance(jmethod *m, ...) const noexcept;
 };
 } // namespace javsvm
 

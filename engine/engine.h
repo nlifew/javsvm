@@ -57,12 +57,20 @@ jvalue run_java(jmethod *m, jref obj, jargs &args);
  */
 jvalue run_jni(jmethod *m, jref obj, jargs &args);
 
-jref check_exception();
+
+jref check_exception() noexcept;
+
+/**
+ * 清除已经抛出的异常
+ * NOTE: 此函数只支持 jni 中调用。在 java 中被调整过的栈是无法被还原的
+ * (todo: 当然也是有办法的，待验证，因此先不支持)
+ */
+void clear_exception() noexcept;
 
 /**
  * 抛出指定的对象
  */
-void throw_throwable(jref ref);
+void throw_throwable(jref ref) noexcept;
 
 /**
  * 创建并抛出一个异常. java 中的 Error 类也可以通过此方式被抛出

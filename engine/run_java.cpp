@@ -18,7 +18,7 @@ jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
     jvalue result = {0};
 
     // 创建栈帧并初始化
-    jstack &stack = jvm::get().env().stack();
+    jstack &stack = jvm::get().env().stack;
     jstack_frame &frame = stack.push(me);
     
     
@@ -510,9 +510,8 @@ _catch:
     // 正常情况下通过 return 语句返回，是不会走到这里的。
     // 执行到这里说明要么字节码出现问题，要么 pc 被异常处理机制调整过
     if (frame.exp == nullptr) {
-        // wtf, 没有异常发生?
-        LOGE("run_java: _catch label arrived, but no exception found\n");
-        exit(1);
+        // 没有异常发生，说明当前函数并不支持处理该异常，直接返回
+        goto finally;
     }
     frame.operand_stack = frame.operand_stack_orig;
     frame.pc = frame.exp_handler_pc;

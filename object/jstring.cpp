@@ -14,8 +14,8 @@ using namespace javsvm;
 
 static jfield *java_lang_String_value = nullptr;
 static jclass *java_lang_String = nullptr;
-static jmethod *java_lang_String_init = nullptr;
-
+//static jmethod *java_lang_String_init = nullptr;
+static jmethod *java_lang_String_init2 = nullptr;
 
 bool bind_java_class()
 {
@@ -25,7 +25,10 @@ bool bind_java_class()
     if (java_lang_String == nullptr && (java_lang_String = loader.load_class("java/lang/String")) == nullptr) {
         return false;
     }
-    if (java_lang_String_init == nullptr && (java_lang_String_init = java_lang_String->get_method("<init>", "([BII)V")) == nullptr) {
+//    if (java_lang_String_init == nullptr && (java_lang_String_init = java_lang_String->get_method("<init>", "([BII)V")) == nullptr) {
+//        return false;
+//    }
+    if (java_lang_String_init2 == nullptr && (java_lang_String_init2 = java_lang_String->get_method("<init>", "([CII)V")) == nullptr) {
         return false;
     }
     if (java_lang_String_value == nullptr && (java_lang_String_value = java_lang_String->get_field("value", "[C")) == nullptr) {
@@ -35,22 +38,49 @@ bool bind_java_class()
 }
 
 
-jref jstring::new_string(const char* str)
+jref jstring::new_string(const char* str) noexcept
+{
+    auto wstr = strings::towstring(str);
+    return new_string(wstr.c_str());
+}
+
+
+jref jstring::new_string(const wchar_t * str) noexcept
 {
     if (! bind_java_class()) {
         LOGE("java_lang_String hasn't been init\n");
         exit(1);
     }
 
-    // todo: 使用 String(char[]) 或许效率更高 ?
+    auto chars_len = (int) wcslen(str);
+    jref chars_array = m_jvm.array.new_char_array(chars_len);
+    m_jvm.array.set_char_array_region(chars_array, 0, chars_len, (jchar *) str);
 
-    auto bytes_len = (int) strlen(str);
-    jref bytes_array = m_jvm.array.new_byte_array(bytes_len);
-    m_jvm.array.set_byte_array_region(bytes_array, 0, bytes_len, (jbyte*) str);
-
-    jref obj = java_lang_String->new_instance(java_lang_String_init, bytes_array, 0, bytes_len);
+    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, 0, chars_array);
     return obj;
 }
+
+
+jref jstring::value_of(jref ref) noexcept
+{
+    if (! bind_java_class()) {
+        LOGE("java_lang_String hasn't been init\n");
+        exit(1);
+    }
+    return java_lang_String_value->get(ref).l;
+}
+
+int jstring::length(jref ref) noexcept
+{
+    if (! bind_java_class()) {
+        LOGE("java_lang_String hasn't been init\n");
+        exit(1);
+    }
+    jref char_array = java_lang_String_value->get(ref).l;
+    int char_array_len = m_jvm.array.get_array_length(char_array);
+    return char_array_len;
+}
+
 
 
 jref jstring::find(const char *str) const

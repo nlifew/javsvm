@@ -43,7 +43,7 @@ std::deque<int> m_queue;
 
 static void product()
 {
-    const int thread_id = jvm::get().attach().thread_id();
+    const int thread_id = jvm::get().attach().thread_id;
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     for (int i = 0; i < N; i ++) {
@@ -69,7 +69,7 @@ static void product()
 
 static void consumer()
 {
-    const int thread_id = jvm::get().attach().thread_id();
+    const int thread_id = jvm::get().attach().thread_id;
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     for (int i = 0; i < N; i ++) {

@@ -30,21 +30,37 @@ struct strings
         return wstr;
     }
 
-    static std::string tostring(const wchar_t *src)
+    static size_t tostring(const wchar_t *src, char **out)
     {
+        *out = nullptr;
+
         if (src == nullptr) {
-            return {};
+            return 0;
         }
+
         size_t chars_len = wcslen(src);
         auto *buff = new char[chars_len * 4]; // 按照宽字符串的 4 倍申请空间
 
-        size_t bytes_len = wcstombs(buff, src, chars_len * 3);
-        std::string str;
+        size_t bytes_len = wcstombs(buff, src, chars_len * 4);
 
-        if (bytes_len != -1) {
-            str.append(buff);
+        if (bytes_len < 0) {
+            delete[] buff;
+            return 0;
         }
-        delete[] buff;
+        *out = buff;
+        return bytes_len;
+    }
+
+    static std::string tostring(const wchar_t *src)
+    {
+        std::string str;
+        char *c_str = nullptr;
+        tostring(src, &c_str);
+
+        if (c_str != nullptr) {
+            str.append(c_str);
+            delete[] c_str;
+        }
         return str;
     }
 

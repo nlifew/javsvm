@@ -108,7 +108,7 @@ jref jarray::new_type_array(const char *type, int length, int ele_size)
 }
 
 /**
- * 非基本类型的数组统一继承自 Object[]
+ * 数组统一继承自 Object
  */
 jref jarray::new_object_array(jclass *klass, int length)
 {
@@ -240,4 +240,15 @@ void jarray::set_array_region(jref array, jsize start, jint len, const void *buf
     LOGI("%s", s.c_str());
 
     LOGI("set array region end\n");
+}
+
+
+void *jarray::storage_of(jobject_ptr &obj) noexcept
+{
+    if (obj == nullptr) {
+        // todo: throw null pointer exception
+        LOGE("NullPointerException occurred when get array region\n");
+        exit(1);
+    }
+    return ((jsize *)(obj->values)) + 2;
 }

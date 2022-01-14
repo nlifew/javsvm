@@ -25,7 +25,7 @@ static jmethodID (JNICALL GetStaticMethodID)
 
 
 
-static jvalue call_direct_method(JNIEnv*, jobject obj, jmethodID method, const javsvm::slot_t *args)
+static javsvm::jvalue call_direct_method(JNIEnv*, jobject obj, jmethodID method, const javsvm::slot_t *args)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
@@ -63,10 +63,10 @@ static jvalue call_direct_method(JNIEnv*, jobject obj, jmethodID method, const j
         ret = _method->invoke_interface(_obj, _args);
     }
 
-    return *(jvalue*) &ret;
+    return ret;
 }
 
-static jvalue call_static_method(JNIEnv *env, jclass clazz, jmethodID method, const javsvm::slot_t *args)
+static javsvm::jvalue call_static_method(JNIEnv *env, jclass clazz, jmethodID method, const javsvm::slot_t *args)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
@@ -104,11 +104,11 @@ static jvalue call_static_method(JNIEnv *env, jclass clazz, jmethodID method, co
         return call_direct_method(env, (jobject) clazz, method, args);
     }
 
-    return *(jvalue*) &ret;
+    return ret;
 }
 
 
-static jvalue call_nonvirtual_method(JNIEnv *env, jobject obj, jclass clazz, jmethodID method, const javsvm::slot_t *args)
+static javsvm::jvalue call_nonvirtual_method(JNIEnv *env, jobject obj, jclass clazz, jmethodID method, const javsvm::slot_t *args)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
@@ -148,7 +148,7 @@ static jvalue call_nonvirtual_method(JNIEnv *env, jobject obj, jclass clazz, jme
         ret = _method->invoke_special(_obj, _args);
     }
 
-    return *(jvalue*) &ret;
+    return ret;
 }
 
 
@@ -199,5 +199,6 @@ static jvalue call_nonvirtual_method(JNIEnv *env, jobject obj, jclass clazz, jme
 
 #define return_type void
 #define name Void
+#define no_return
 #include "call_method_gen.h"
-
+#undef no_return

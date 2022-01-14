@@ -189,7 +189,7 @@ jclass *jclass::of(jref obj) noexcept
 jclass *jclass::load_class(const char *name)
 {
     auto &vm = jvm::get();
-    auto &stack = vm.env().stack();
+    auto &stack = vm.env().stack;
     auto stack_frame = stack.top();
 
     // 栈帧为空，说明还没有走到 java 函数，使用初始类加载器
@@ -235,26 +235,88 @@ jclass *jclass::load_class(const char *name)
     return (jclass *) val.j;
 }
 
-//jclass* jclass::find_class(const char *name)
-//{
-//    return jvm::get().bootstrap_loader().load_class(name);
-//}
 
-/*
-jref jclass::new_instance()
+jref jclass::new_instance() const noexcept
 {
+    auto &heap = jvm::get().heap;
+    jref ref = heap.malloc_bytes(object_size);
 
-}
-
-jref jclass::new_instance(jmethod *m, ...)
-{
-    va_list args;
-    va_start(args, m);
-    args_wrapper wrapper = jmethod::make(args);
-    va_end(args);
-
-    jref ref = new_instance();
-    m->invoke_special(ref, wrapper);
+    auto ptr = heap.lock(ref);
+    ptr->klass = const_cast<jclass*>(this);
     return ref;
 }
-*/
+
+
+jref jclass::new_instance(jmethod *m, ...) const noexcept
+{
+    va_list ap;
+    va_start(ap, m);
+    auto ret = new_instance(m, ap);
+    va_end(ap);
+    return ret;
+}
+
+/**
+ * va_list 转 slot 数组
+ * 调用者需要 delete[] 释放内存
+ */
+static javsvm::slot_t *to_args(const char *sig, int num, va_list ap)
+{
+    auto args = new javsvm::slot_t[num];
+    javsvm::jargs _args(args);
+
+    for (int i = 1; sig[i] != ')'; i ++) {
+        switch (sig[i]) {
+            case 'Z':       /* boolean */
+                _args.next<jboolean>() = va_arg(ap, jint) != 0;
+                break;
+            case 'B':       /* byte */
+                _args.next<jbyte>() = va_arg(ap, jint) & 0xFF;
+                break;
+            case 'C':       /* char */
+                _args.next<jchar>() = va_arg(ap, jint) & 0xFFFF;
+                break;
+            case 'S':       /* short */
+                _args.next<jshort>() = va_arg(ap, jint) & 0xFFFF;
+                break;
+            case 'I':       /* int */
+                _args.next<jint>() = va_arg(ap, jint);
+                break;
+            case 'J':       /* long */
+                _args.next<jlong>() = va_arg(ap, jlong);
+                break;
+            case 'F':       /* float */
+                _args.next<jfloat>() = va_arg(ap, jdouble);
+                break;
+            case 'D':       /* double */
+                _args.next<jdouble>() = va_arg(ap, jdouble);
+                break;
+            case 'L':       /* object */
+                _args.next<javsvm::jref>() = va_arg(ap, jref);
+                i = (int) (strchr(sig + i + 1, ';') - sig);
+                break;
+            case '[':       /* array */
+                _args.next<javsvm::jref>() = va_arg(ap, jref);
+                while (sig[i] == '[') i ++;
+                if (sig[i] == 'L') i = (int) (strchr(sig + i + 1, ';') - sig);
+                break;
+            default:
+                LOGE("to_args: unknown jmethod sig: '%s'\n", sig);
+                break;
+        }
+    }
+    return args;
+}
+
+jref jclass::new_instance(jmethod *m, va_list ap) const noexcept
+{
+    auto *args = to_args(m->sig, m->args_slot, ap);
+    std::unique_ptr<slot_t, void(*)(const slot_t *)> args_guard(
+            args, [](const slot_t *ptr) { delete[] ptr; });
+
+    jref obj = new_instance();
+
+    jargs _args(args);
+    m->invoke_special(obj, _args);
+    return obj;
+}
