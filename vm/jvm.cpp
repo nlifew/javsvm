@@ -2,6 +2,8 @@
 
 #include "jvm.h"
 #include "../utils/log.h"
+#include "../jni/jni.h"
+#include "../jni/jni_utils.h"
 
 //#include <locale.h>
 
@@ -13,77 +15,89 @@ using namespace javsvm;
 //    // setlocale(LC_ALL, "");
 //}
 
-jvm &jvm::get()
+struct jni_reserved
 {
-    static jvm vm;
-    return vm;
+    JNIInvokeInterface_ interface;
+    JavaVM_ vm;
+};
+
+jvm::jvm() noexcept :
+        bootstrap_loader(*this),
+        array(*this),
+        string(*this),
+        dll_loader(this),
+        m_jni_reserved()
+{
+    static_assert(sizeof(m_jni_reserved) >= sizeof(jni_reserved));
+
+    auto jni = (jni_reserved *) m_jni_reserved;
+
+    init_jni_vm(&jni->interface, this);
+    jni->vm.functions = &jni->interface;
 }
 
-//static std::unordered_map<const jvm*, jenv*>& thread_local_map()
-//{
-//    thread_local std::unordered_map<const jvm*, jenv*> map;
-//    return map;
-//}
-
-static inline jenv* &get_env()
+void *jvm::jni() const noexcept
 {
-    thread_local jenv *env = nullptr;
-    return env;
+    return &((jni_reserved *) m_jni_reserved)->vm;
 }
 
-jenv& jvm::env()
+jvm &jvm::get() noexcept
 {
-//    auto &map = thread_local_map();
-//    const auto &it = map.find(this);
-//    if (it == map.end()) {
-//        LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
-//        exit(1);
-//    }
-//    return *(it->second);
-    auto &e = get_env();
-    if (e == nullptr) {
+    static jvm m;
+    return m;
+}
+
+
+struct env_wrapper
+{
+    char buff[sizeof(jenv)]{};
+    bool inited = false;
+};
+
+static inline env_wrapper &get_env(const jvm *) noexcept
+{
+    thread_local env_wrapper w;
+    return w;
+}
+
+jenv *jvm::env(int) const noexcept
+{
+    auto &e = get_env(this);
+    return e.inited ? (jenv*) e.buff : nullptr;
+}
+
+
+jenv& jvm::env() const noexcept
+{
+    auto &e = get_env(this);
+    if (! e.inited) {
         LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
         exit(1);
     }
-    return *e;
+    return *(jenv*) e.buff;
 }
 
 
-jenv& jvm::attach()
+jenv& jvm::attach() noexcept
 {
-//    auto &map = thread_local_map();
-//    auto it = map.find(this);
-//    if (it != map.end()) {
-//        LOGE("you can call jvm::attach() only once on one thread\n");
-//        exit(1);
-//    }
-//    auto *env = new jenv(*this);
-//    map[this] = env;
-//    return *env;
-    auto &e = get_env();
-    if (e != nullptr) {
+    auto &e = get_env(this);
+    if (e.inited) {
         LOGE("you can call jvm::attach() only once on one thread\n");
         exit(1);
     }
-    e = new jenv(*this);
-    return *e;
+    new (e.buff) jenv(*this);
+    e.inited = true;
+    return *(jenv*) e.buff;
 }
 
-void jvm::detach()
+void jvm::detach() const noexcept
 {
-//    auto &map = thread_local_map();
-//    auto it = map.find(this);
-//    if (it == map.end()) {
-//        LOGE("this thread has not attached to a jenv instance, call jvm::attach() before\n");
-//        exit(1);
-//    }
-//    map.erase(it);
-    auto &e = get_env();
-    if (e == nullptr) {
+    auto &e = get_env(this);
+    if (! e.inited) {
         LOGE("this thread has not attached to a jenv instance, call jvm::attach() before\n");
         exit(1);
     }
-    delete e;
-    e = nullptr;
+    ((jenv *) e.buff)->~jenv();
+    e.inited = false;
 }
 

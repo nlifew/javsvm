@@ -14,25 +14,31 @@ class jvm;
 class jenv
 {
 private:
-    jstack m_stack;
-    jvm& m_jvm;
-    int m_thread_id;
 
     explicit jenv(jvm& vm) noexcept;
 
     friend class jvm;
+
+    /**
+     * jni 保留的
+     */
+    char m_jni_reserved[235 * sizeof(void*)];
+
 public:
+    jvm& jvm;
+
+    const int thread_id;
+    jstack stack;
+
     ~jenv() = default;
     jenv(const jenv &) = delete;
     jenv &operator=(const jenv &) = delete;
 
-    jvm& vm() { return m_jvm; }
-
-    [[nodiscard]]
-    int thread_id() const noexcept { return m_thread_id; }
-
-    [[nodiscard]]
-    jstack& stack() noexcept { return m_stack; }
+    /**
+     * 返回 jni 使用的 JNIEnv*
+     */
+     [[nodiscard]]
+     void *jni() const noexcept;
 };
 
 } // namespace javsvm

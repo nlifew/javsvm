@@ -1,93 +1,100 @@
 
+#ifndef JAVSVM_JNI_UTILS_H
+#define JAVSVM_JNI_UTILS_H
+
 
 #include "../object/jclass.h"
 #include "../object/jobject.h"
-#include "../object/jfield.h"
-#include "../object/jmethod.h"
 #include "../engine/engine.h"
 #include "../class/jclass_file.h"
+#include "../object/jmethod.h"
 
 #include <memory>
+#include <set>
+
+template <typename T>
+static T take_from(const javsvm::jvalue &v) { }
+
+//template <>
+//inline void take_from(const javsvm::jvalue &v) {  }
+
+template<>
+inline jboolean take_from(const javsvm::jvalue &v) { return v.z; }
+
+template<>
+inline jbyte take_from(const javsvm::jvalue &v) { return v.b; }
+
+template<>
+inline jchar take_from(const javsvm::jvalue &v) { return v.c; }
+
+template<>
+inline jshort take_from(const javsvm::jvalue &v) { return v.s; }
+
+template<>
+inline jint take_from(const javsvm::jvalue &v) { return v.i; }
+
+template<>
+inline jlong take_from(const javsvm::jvalue &v) { return v.j; }
+
+template<>
+inline jfloat take_from(const javsvm::jvalue &v) { return v.f; }
+
+template<>
+inline jdouble take_from(const javsvm::jvalue &v) { return v.d; }
+
+static inline jobject to_object(javsvm::jref obj) noexcept
+{
+    // todo 此处直接强转罢，反正也没有 gc ==
+    return (jobject) obj;
+}
+
+template<>
+inline jobject take_from(const javsvm::jvalue &v) { return to_object(v.l); }
 
 
 template <typename T>
-static T take_from(const jvalue &v) { }
-
-template <>
-inline void take_from(const jvalue &v) {  }
-
-template<>
-inline jboolean take_from(const jvalue &v) { return v.z; }
-
-template<>
-inline jbyte take_from(const jvalue &v) { return v.b; }
-
-template<>
-inline jchar take_from(const jvalue &v) { return v.c; }
-
-template<>
-inline jshort take_from(const jvalue &v) { return v.s; }
-
-template<>
-inline jint take_from(const jvalue &v) { return v.i; }
-
-template<>
-inline jlong take_from(const jvalue &v) { return v.j; }
-
-template<>
-inline jfloat take_from(const jvalue &v) { return v.f; }
-
-template<>
-inline jdouble take_from(const jvalue &v) { return v.d; }
-
-template<>
-inline jobject take_from(const jvalue &v) { return v.l; }
-
-
-template <typename T>
-static void pack_to(jvalue &value, const T &t) {  }
+static javsvm::jvalue pack_to(T) {  }
 
 
 //template <>
 //inline void pack_to(jvalue &v) {  }
 
 template<>
-inline void pack_to(jvalue &v, const jboolean &z) { v.z = z; }
+inline javsvm::jvalue pack_to(jboolean val) { return {.z = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jbyte &b) { v.b = b; }
+inline javsvm::jvalue pack_to(jbyte val) { return { .b = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jchar &c) { v.c = c; }
+inline javsvm::jvalue pack_to(jchar val) { return { .c = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jshort &s) { v.s = s; }
+inline javsvm::jvalue pack_to(jshort val) { return { .s = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jint &i) { v.i = i; }
+inline javsvm::jvalue pack_to(jint val) { return { .i = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jlong &j) { v.j = j; }
+inline javsvm::jvalue pack_to(jlong val) { return { .j = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jfloat &f) { v.f = f; }
+inline javsvm::jvalue pack_to(jfloat val) { return { .f = val }; }
 
 template<>
-inline void pack_to(jvalue &v, const jdouble &d) { v.d = d; }
-
-template<>
-inline void pack_to(jvalue &v, const jobject &l) { v.l = l; }
-
-
-#define HAS_FLAG(x, f) (((x) & (f)) == (f))
-
-
+inline javsvm::jvalue pack_to(jdouble val) { return { .d = val }; }
 
 static inline javsvm::jref to_object(jobject obj) noexcept
 {
     // todo 此处直接强转罢，反正也没有 gc ==
     return (javsvm::jref) obj;
 }
+
+template<>
+inline javsvm::jvalue pack_to(jobject val) { return { .l = to_object(val) }; }
+
+
+#define HAS_FLAG(x, f) (((x) & (f)) == (f))
+
 
 
 /**
@@ -225,3 +232,24 @@ static javsvm::slot_t *to_args(jmethodID method, const jvalue *ap)
     }
     return args;
 }
+
+
+/**
+ * 根据传进来的 jenv 实例初始化 JNIEnv 结构体
+ * @param dst 目标结构体
+ * @param env 指定的 jenv 实例
+ * @return 成功返回 0, 失败返回 -1
+ */
+int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept;
+
+
+/**
+ * 根据传进来的 jvm 实例初始化 JavaVM 结构体
+ * @param dst 目标结构体
+ * @param jvm 指定的 jvm 实例
+ * @return 成功返回 0, 失败返回 -1
+ */
+int init_jni_vm(JNIInvokeInterface_ *dst, javsvm::jvm *jvm) noexcept;
+
+
+#endif // JAVSVM_JNI_UTILS_H
