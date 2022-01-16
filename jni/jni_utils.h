@@ -10,7 +10,6 @@
 #include "../object/jmethod.h"
 
 #include <memory>
-#include <set>
 
 template <typename T>
 static T take_from(const javsvm::jvalue &v) { }
@@ -117,7 +116,7 @@ static inline jargs_ptr make_jargs(javsvm::slot_t *p) noexcept
 /**
  * va_list 转 slot 数组
  */
-static jargs_ptr to_args(jmethodID method, va_list ap)
+static jargs_ptr to_args(jmethodID method, jobject obj, va_list ap)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
@@ -126,6 +125,11 @@ static jargs_ptr to_args(jmethodID method, va_list ap)
 
     auto args = new javsvm::slot_t[_method->args_slot];
     javsvm::jargs _args(args);
+
+    // 如果是实例函数，需要留一个位置存放 this 对象
+    if (!HAS_FLAG(_method->access_flag, javsvm::jclass_method::ACC_STATIC)) {
+        _args.next<javsvm::jref>() = to_object(obj);
+    }
 
     const auto sig = _method->sig;
     for (int i = 1; sig[i] != ')'; i ++) {
@@ -164,7 +168,7 @@ static jargs_ptr to_args(jmethodID method, va_list ap)
                 if (sig[i] == 'L') i = (int) (strchr(sig + i + 1, ';') - sig);
                 break;
             default:
-                LOGE("unknown jmethod sig: '%s'\n", sig);
+                LOGE("to_args: unknown jmethod sig: '%s'\n", sig);
                 break;
         }
     }
@@ -174,19 +178,25 @@ static jargs_ptr to_args(jmethodID method, va_list ap)
 /**
  * jvalue 数组转 slot 数组
  */
-static jargs_ptr to_args(jmethodID method, const jvalue *ap)
+static jargs_ptr to_args(jmethodID method, jobject obj, const jvalue *ap)
 {
     auto _method = (javsvm::jmethod *) method;
     if (_method == nullptr) {
         return make_jargs(nullptr);
     }
 
-    int ap_index = 0;
 
     auto args = new javsvm::slot_t[_method->args_slot];
     javsvm::jargs _args(args);
 
+    // 如果是实例函数，需要留一个位置存放 this 对象
+    if (!HAS_FLAG(_method->access_flag, javsvm::jclass_method::ACC_STATIC)) {
+        _args.next<javsvm::jref>() = to_object(obj);
+    }
+
     const auto sig = _method->sig;
+    int ap_index = 0;
+
     for (int i = 1; sig[i] != ')'; i ++) {
         switch (sig[i]) {
             case 'Z':       /* boolean */
@@ -202,16 +212,16 @@ static jargs_ptr to_args(jmethodID method, const jvalue *ap)
                 _args.next<jshort>() = ap[ap_index++].s;
                 break;
             case 'I':       /* int */
-                _args.next<jint>() =  ap[ap_index++].i;
+                _args.next<jint>() = ap[ap_index++].i;
                 break;
             case 'J':       /* long */
-                _args.next<jlong>() =  ap[ap_index++].j;
+                _args.next<jlong>() = ap[ap_index++].j;
                 break;
             case 'F':       /* float */
-                _args.next<jfloat>() =  ap[ap_index++].f;
+                _args.next<jfloat>() = ap[ap_index++].f;
                 break;
             case 'D':       /* double */
-                _args.next<jdouble>() =  ap[ap_index++].d;
+                _args.next<jdouble>() = ap[ap_index++].d;
                 break;
             case 'L':       /* object */
                 _args.next<javsvm::jref>() = to_object(ap[ap_index++].l);
@@ -223,7 +233,7 @@ static jargs_ptr to_args(jmethodID method, const jvalue *ap)
                 if (sig[i] == 'L') i = (int) (strchr(sig + i + 1, ';') - sig);
                 break;
             default:
-                LOGE("unknown jmethod sig: '%s'\n", sig);
+                LOGE("to_args: unknown jmethod sig: '%s'\n", sig);
                 break;
         }
     }

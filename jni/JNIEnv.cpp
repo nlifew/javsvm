@@ -1,6 +1,7 @@
 
 
 #include <cstdarg>
+#include <set>
 
 #include "jni.h"
 #include "jni_utils.h"
@@ -176,13 +177,15 @@ static jobject (JNICALL NewObjectA)
     if (_method == nullptr) {
         return nullptr;
     }
-    auto _args = to_args(methodID, j_args);
-    javsvm::jargs args(_args.get());
 
     auto _ret = _clazz->new_instance();
-    _method->invoke_special(_ret, args);
+    auto ret = to_object(_ret);
 
-    return to_object(_ret);
+    auto _args = to_args(methodID, ret, j_args);
+    javsvm::jargs args(_args.get());
+
+    _method->invoke_special(_ret, args);
+    return ret;
 }
 
 
@@ -197,12 +200,8 @@ static jobject (JNICALL NewObjectV)
     if (_method == nullptr) {
         return nullptr;
     }
-    auto _args = to_args(methodID, v_args);
-    javsvm::jargs args(_args.get());
 
-    auto _ret = _clazz->new_instance();
-    _method->invoke_special(_ret, args);
-
+    auto _ret = _clazz->new_instance(_method, v_args);
     return to_object(_ret);
 }
 
