@@ -260,11 +260,16 @@ jref jclass::new_instance(jmethod *m, ...) const noexcept
  * va_list 转 slot 数组
  * 调用者需要 delete[] 释放内存
  */
-static javsvm::slot_t *to_args(const char *sig, int num, va_list ap)
+static javsvm::slot_t *to_args(jmethod *method, jref obj, va_list ap)
 {
-    auto args = new javsvm::slot_t[num];
+    auto args = new javsvm::slot_t[method->args_slot];
     javsvm::jargs _args(args);
 
+//    if ((method->access_flag & jclass_method::ACC_STATIC) == 0) {
+        _args.next<jref>() = obj;
+//    }
+
+    const char *sig = method->sig;
     for (int i = 1; sig[i] != ')'; i ++) {
         switch (sig[i]) {
             case 'Z':       /* boolean */
@@ -310,11 +315,11 @@ static javsvm::slot_t *to_args(const char *sig, int num, va_list ap)
 
 jref jclass::new_instance(jmethod *m, va_list ap) const noexcept
 {
-    auto *args = to_args(m->sig, m->args_slot, ap);
+    jref obj = new_instance();
+
+    auto *args = to_args(m, obj, ap);
     std::unique_ptr<slot_t, void(*)(const slot_t *)> args_guard(
             args, [](const slot_t *ptr) { delete[] ptr; });
-
-    jref obj = new_instance();
 
     jargs _args(args);
     m->invoke_special(obj, _args);
