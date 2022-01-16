@@ -67,7 +67,7 @@ static jclass_file* open_class_file(const char *dir, const char *name)
     s.append(dir).append("/").append(name, 1, strlen(name) - 2).append(".class");
 
     if (access(s.c_str(), R_OK) != 0) {
-        LOGE("failed to open class file '%s'\n", s.c_str());
+        LOGW("failed to open class file '%s'\n", s.c_str());
         return nullptr;
     }
 
@@ -700,9 +700,9 @@ jref bootstrap_loader::new_class_object(jclass *klass)
         exit(1);
     }
 
-    java_lang_Class_init = java_lang_Class->get_method("<init>", "()V");
+    java_lang_Class_init = java_lang_Class->get_method("<init>", "(J)V");
     if (java_lang_Class_init == nullptr) {
-        LOGE("failed to find method: Ljava/lang/Class-><init>(()V)\n");
+        LOGE("failed to find method: Ljava/lang/Class-><init>((J)V)\n");
         exit(1);
     }
     // 接下来就需要遍历队列，为每个类创建 class 对象
@@ -746,7 +746,7 @@ struct class_holder
         _CHECK_NULL(java_lang_Cloneable)
         _CHECK_NULL(java_io_Serializable)
 
-        java_lang_Class_init = java_lang_Class->get_method("<init>", "()V");
+        java_lang_Class_init = java_lang_Class->get_method("<init>", "(J)V");
         _CHECK_NULL(java_lang_Class_init)
     }
 #undef _CHECK_NULL
@@ -771,7 +771,7 @@ jclass* bootstrap_loader::create_primitive_type(const char *type)
     auto *klass = m_allocator.calloc_type<jclass>();
     klass->name = name;
     klass->access_flag = jclass_file::ACC_PUBLIC | jclass_file::ACC_ABSTRACT | jclass_file::ACC_FINAL;
-    klass->object = holder.java_lang_Class->new_instance(holder.java_lang_Class_init, klass);
+    klass->object = holder.java_lang_Class->new_instance(holder.java_lang_Class_init, (jlong) klass);
 
     // 不为基本数据类型添加构造函数和类构造函数
     LOGI("primitive type '%s' created\n", type);
