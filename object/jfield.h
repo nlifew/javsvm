@@ -66,14 +66,9 @@ struct jfield
         return strcmp(o1->name, o2->name);
     }
 
-    // todo:
-    jvalue get(jref obj) { return {}; }
+    jvalue get(jref obj) const noexcept;
 
-//    jvalue get(void *values) { return jvalue {}; }
-
-    void set(jref obj, jvalue val) {  }
-
-//    void set(void *values, jvalue val) {}
+    void set(jref obj, jvalue val) const noexcept;
 };
 
 } // namespace javsvm
