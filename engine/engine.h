@@ -40,7 +40,7 @@ public:
     const slot_t *begin() const noexcept { return m_orig; }
 
     [[nodiscard]]
-    const slot_t *where() const noexcept { return m_args; }
+    int where() const noexcept { return (int) (m_args - m_orig); }
 };
 
 

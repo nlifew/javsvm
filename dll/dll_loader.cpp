@@ -123,7 +123,7 @@ void* dll_loader::load_library(const char *name)
     std::string key = std::move(trim(name));
 
     if (key.empty()) {
-        LOGI("load_library: invalid path, abort\n");
+        LOGI("load_library: empty path, abort\n");
         return nullptr;
     }
 
