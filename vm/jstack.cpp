@@ -61,13 +61,15 @@ jstack_frame& jstack::push(jmethod *m)
     int pos = m_offset;
     auto frame = calloc_type<jstack_frame>();
 
-    jclass_attr_code *code = m->entrance.code_func;
-
     frame->method = m;
-    frame->operand_stack = calloc_type<slot_t>(code->max_stack);
-    frame->variable_table = calloc_type<slot_t>(code->max_locals);
     frame->bytes = m_offset - pos;
-    frame->operand_stack_orig = frame->operand_stack;
+
+    if ((m->access_flag & jclass_method::ACC_NATIVE) == 0) {
+        jclass_attr_code *code = m->entrance.code_func;
+        frame->operand_stack = calloc_type<slot_t>(code->max_stack);
+        frame->variable_table = calloc_type<slot_t>(code->max_locals);
+        frame->operand_stack_orig = frame->operand_stack;
+    }
 
     frame->next = m_top;
     m_top = frame;
