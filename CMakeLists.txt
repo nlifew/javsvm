@@ -30,17 +30,39 @@ add_subdirectory(utils)
 add_subdirectory(dll)
 add_subdirectory(jni)
 
+add_library(
+        runtime
+        STATIC
+        runtime.cpp
+)
+
+
+find_library(
+        dl-lib
+        dl
+)
+
+
+target_link_libraries(
+        runtime
+        classloader
+        engine
+        object
+        vm
+        jni
+        class
+        dllloader
+        concurrent
+        utils
+        ${dl-lib}
+)
+
 # 测试相关的
 add_subdirectory(test)
 
 add_executable(
         main
         main.cpp
-)
-
-find_library(
-        dl-lib
-        dl
 )
 
 target_link_libraries(

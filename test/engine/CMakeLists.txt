@@ -27,3 +27,19 @@ target_link_libraries(
         test_run_java
         runtime
 )
+
+add_library(
+        test_native
+        SHARED
+        Native.cpp
+)
+
+add_executable(
+        test_run_jni
+        run_jni.cpp
+)
+
+target_link_libraries(
+        test_run_jni
+        runtime
+)
