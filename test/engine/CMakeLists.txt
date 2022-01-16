@@ -13,8 +13,8 @@ target_link_libraries(
 )
 
 add_executable(
-        test_engine
-        engine.cpp
+        test_run_java
+        run_java.cpp
 )
 
 add_executable(
@@ -24,13 +24,6 @@ add_executable(
 
 
 target_link_libraries(
-        test_engine
-        classloader
-        engine
-        object
-        vm
-        class
-        dllloader
-        concurrent
-        utils
+        test_run_java
+        runtime
 )

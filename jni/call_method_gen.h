@@ -20,7 +20,7 @@
 static return_type (JNICALL MACRO_ADD(Call, name, MethodA))
         (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args)
 {
-    auto _args = to_args(methodID, args);
+    auto _args = to_args(methodID, obj, args);
 #ifdef no_return
     call_direct_method(env, obj, methodID, _args.get());
 #else
@@ -33,7 +33,7 @@ static return_type (JNICALL MACRO_ADD(Call, name, MethodA))
 static return_type (JNICALL MACRO_ADD(Call, name, MethodV))
         (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
 {
-    auto _args = to_args(methodID, args);
+    auto _args = to_args(methodID, obj, args);
 #ifdef no_return
     call_direct_method(env, obj, methodID, _args.get());
 #else
@@ -65,9 +65,9 @@ static return_type (JNICALL MACRO_ADD(Call, name, Method))
 static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodA))
         (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue * args)
 {
-    auto _args = to_args(methodID, args);
+    auto _args = to_args(methodID, nullptr, args);
 #ifdef no_return
-    call_static_method(env, clazz, methodID, _args);
+    call_static_method(env, clazz, methodID, _args.get());
 #else
     auto _ret = call_static_method(env, clazz, methodID, _args.get());
     return take_from<return_type>(_ret);
@@ -78,9 +78,9 @@ static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodA))
 static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodV))
         (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
 {
-    auto _args = to_args(methodID, args);
+    auto _args = to_args(methodID, nullptr, args);
 #ifdef no_return
-    call_static_method(env, clazz, methodID, _args);
+    call_static_method(env, clazz, methodID, _args.get());
 #else
     auto _ret = call_static_method(env, clazz, methodID, _args.get());
     return take_from<return_type>(_ret);
@@ -110,9 +110,9 @@ static return_type (JNICALL MACRO_ADD(CallStatic, name, Method))
 static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodA))
         (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, const jvalue * args)
 {
-    auto _args = to_args(methodID, args);
+    auto _args = to_args(methodID, obj, args);
 #ifdef no_return
-    call_nonvirtual_method(env, obj, clazz, methodID, _args);
+    call_nonvirtual_method(env, obj, clazz, methodID, _args.get());
 #else
     auto _ret = call_nonvirtual_method(env, obj, clazz, methodID, _args.get());
     return take_from<return_type>(_ret);
@@ -123,9 +123,9 @@ static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodA))
 static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodV))
         (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args)
 {
-    auto _args = to_args(methodID, args);
+    auto _args = to_args(methodID, obj, args);
 #ifdef no_return
-    call_nonvirtual_method(env, obj, clazz, methodID, _args);
+    call_nonvirtual_method(env, obj, clazz, methodID, _args.get());
 #else
     auto _ret = call_nonvirtual_method(env, obj, clazz, methodID, _args.get());
     return take_from<return_type>(_ret);

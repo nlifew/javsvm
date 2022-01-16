@@ -41,7 +41,7 @@ struct class_holder
         _CHECK_NULL(java_lang_Cloneable)
         _CHECK_NULL(java_io_Serializable)
 
-        java_lang_Class_init = java_lang_Class->get_method("<init>", "()V");
+        java_lang_Class_init = java_lang_Class->get_method("<init>", "(J)V");
         _CHECK_NULL(java_lang_Class_init)
     }
 #undef _CHECK_NULL
