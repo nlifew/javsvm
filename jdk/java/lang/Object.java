@@ -36,10 +36,12 @@ package java.lang;
  */
 public class Object {
 
-    private static native void registerNatives();
-    static {
-        registerNatives();
-    }
+    /* javsvm-removed: unused */
+//    private static native void registerNatives();
+//    static {
+//        registerNatives();
+//    }
+    /* javmvm-removed: end */
 
     /**
      * Returns the runtime class of this {@code Object}. The returned
