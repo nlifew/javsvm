@@ -659,7 +659,7 @@ static JNINativeInterface_ g_native_interface = {
 
 int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept
 {
-    memcpy(dst, &g_native_interface, sizeof(JNIInvokeInterface_));
+    memcpy(dst, &g_native_interface, sizeof(JNINativeInterface_));
     dst->reserved0 = env;
     dst->reserved1 = env->jvm.jni();
     return 0;
