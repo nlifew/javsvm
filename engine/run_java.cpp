@@ -13,7 +13,7 @@
 /**
  * 真正的代码执行逻辑
  */ 
-jvalue javsvm::run_java(jmethod *me, jref _this, jargs &args)
+jvalue javsvm::run_java(jmethod *me, jref, jargs &args)
 {
     jvalue result = {0};
 
@@ -521,5 +521,6 @@ _catch:
     goto loop;
 
 finally:
+    stack.pop();
     return result;
 }
