@@ -36,12 +36,8 @@ using   jfloat      =   float;      /* 32-bit IEEE 754 */
 using   jdouble     =   double;     /* 64-bit IEEE 754 */
 using   jsize       =   jint;
 
-struct _jref_struct
-{
-    void *do_not_use_me = nullptr;
-};
 
-using jref = _jref_struct*;
+using jref = void *;
 
 
 typedef union
