@@ -8,7 +8,7 @@ using namespace javsvm;
 
 int main()
 {
-    putenv(strdup("CLASSPATH=../../../test/engine:../../../jdk"));
+    putenv(strdup("CLASSPATH=../../../test/engine:../../../jre"));
 
     LOGI("main: start\n");
 

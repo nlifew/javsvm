@@ -18,7 +18,7 @@
 
 int main() {
     chdir("..");
-    putenv(strdup("CLASSPATH=jdk/java"));
+    putenv(strdup("CLASSPATH=jre"));
 
     printf("start\n");
 //    jvm &vm = jvm::get();
