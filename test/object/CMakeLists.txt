@@ -9,12 +9,5 @@ add_executable(
 
 target_link_libraries(
         test_jobject
-        object
-        engine
-        classloader
-        vm
-        dllloader
-        class
-        concurrent
-        utils
+        runtime
 )

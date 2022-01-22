@@ -7,12 +7,11 @@
 #include <mutex>
 #include <condition_variable>
 
-#define assert_x(x) assert(x)
+#define assert_x(x) assert(x) // if (! (x)) { LOGE("assert: %d\n", __LINE__); exit(1); }
 
 
 using namespace javsvm;
 
-#define USE_RECURSIVE_LOCK 1
 
 template <typename T>
 struct lock_event
@@ -23,6 +22,8 @@ struct lock_event
     std::mutex mutex;
     volatile int owner_thread_id = INVALID_THREAD_ID;
     volatile int recursive_count = 0;
+
+    volatile int64_t magic = 0;
 
     explicit lock_event() noexcept = default;
 
@@ -121,83 +122,197 @@ using lock_event_t = lock_event<thread_id_provider>;
 
 static linked_pool<lock_event_t> lock_pool(64);
 
-static constexpr int COUNT_BIT = 15;
-static constexpr int COUNT_MASK = (1 << COUNT_BIT) - 1;
+//static constexpr int COUNT_BIT = 15;
+//static constexpr int COUNT_MASK = (1 << COUNT_BIT) - 1;
 
-int jobject::lock() noexcept
+struct flag_t
 {
-    int64_t old_value, new_value;
-    lock_event_t *lock;
-    int count;
+    static constexpr int LOCK_COUNT_MAX = (1 << 16) - 1;
+
+    enum ctl_t
+    {
+        ctl_no_lock = 0,
+        ctl_locked = 15,
+    };
+
+    ctl_t ctl = ctl_no_lock;
+    int lock_count = 0;
+    lock_event_t *lock = nullptr;
+
+    int hash = 0;
+    int gc = 0;
+
+    flag_t() noexcept = default;
+
+    flag_t(flag_t &f) noexcept = default;
+
+    flag_t(int64_t val) noexcept
+    {
+        operator=(val);
+    }
+
+    inline flag_t& operator=(int64_t val) noexcept
+    {
+        ctl = (ctl_t) (val & 15);
+
+        lock_count = (int) ((val >> 4) & 0x7FFF);
+        lock = (lock_event_t *) ((val >> 15) & ~15LL);
+
+        hash = (int) (val >> 32);
+        gc = (int) ((val >> 4) & 15);
+        return *this;
+    }
+
+    [[nodiscard]]
+    inline int64_t value() const noexcept
+    {
+        if (ctl == ctl_locked) {
+            int64_t val = ((int64_t) lock) << 15;
+            val |= lock_count << 4;
+            val |= ctl;
+            return val;
+        }
+        if (ctl == ctl_no_lock) {
+            int64_t val = ((int64_t) hash) << 32;
+            val |= gc << 4;
+            val |= ctl;
+            return val;
+        }
+        return 0;
+    }
+};
+
+
+jobject::jobject() noexcept:
+    m_flag(0)
+{
+    auto hash = (int64_t) this;
+    hash |= hash >> 32;
+
+    flag_t flag {};
+    flag.ctl = flag_t::ctl_no_lock;
+    flag.hash = (int) hash;
+
+    m_flag.store(flag.value());
+}
+
+int jobject::hash_code() noexcept
+{
+    flag_t old_flag{};
 
     for (;;) {
-        old_value = m_flag.load(std::memory_order_acquire);
-        lock = (lock_event_t*) (old_value >> COUNT_BIT);
-        count = (int) (old_value & COUNT_MASK);
+        int64_t old_value;
+        old_flag = old_value = m_flag.load();
 
-        if (count == 0) {
-            assert_x(lock == nullptr);
-            lock = &lock_pool.obtain();
-
-            // 检查 lock 指针的前 (COUNT_BIT + 1) 位是不是纯 0 或 纯 1
-            auto check = ((uint64_t) lock) >> (64 - COUNT_BIT + 1);
-            if (check != 0 && check != COUNT_MASK) {
-                LOGE("lock: 指针检查未通过 %p\n", lock);
-//                exit(1);
-                return -1;
-            }
+        if (old_flag.ctl == flag_t::ctl_no_lock) {
+            return old_flag.hash;
         }
 
-        // 判断 count 有没有发生溢出
-        if (count == COUNT_MASK) {
-            LOGE("lock: 加锁数溢出 ！！！");
-//            exit(1);
-            return -1;
-        }
+        assert_x(old_flag.lock != nullptr);
+        assert_x(old_flag.lock_count > 0 && old_flag.lock_count < flag_t::LOCK_COUNT_MAX);
 
-        new_value = (((int64_t) lock) << COUNT_BIT) + count + 1;
-
-        // 尝试 CAS 操作更新 flag. 如果成功，直接返回；否则重试
-        if (m_flag.compare_exchange_strong(old_value, new_value)) {
+        old_flag.lock_count ++;
+        if (m_flag.compare_exchange_strong(old_value, old_flag.value())) {
             break;
-        }
-        if (count == 0) {
-            lock_pool.recycle(*lock);
         }
     }
 
-    assert_x(lock != nullptr);
-    assert_x(count >= 0);
+    flag_t tmp = old_flag.lock->magic;
+    const int hash = tmp.hash;
 
-    lock->lock();
+    for (;;) {
+        int64_t old_value;
+        old_flag = old_value = m_flag.load();
+
+        assert_x(old_flag.ctl == flag_t::ctl_locked);
+        assert_x(old_flag.lock != nullptr);
+        assert_x(old_flag.lock_count >= 1);
+
+        old_flag.lock_count --;
+        if (m_flag.compare_exchange_strong(old_value, old_flag.value())) {
+            break;
+        }
+    }
+    return hash;
+}
+
+
+int jobject::lock() noexcept
+{
+    flag_t new_flag{};
+
+    for (;;) {
+        int64_t old_value;
+        flag_t old_flag = old_value = m_flag.load();
+
+        if (old_flag.ctl == flag_t::ctl_locked) {
+            assert_x(old_flag.lock != nullptr);
+            assert_x(old_flag.lock_count > 0 && old_flag.lock_count < flag_t::LOCK_COUNT_MAX);
+
+            new_flag = old_flag;
+            new_flag.lock_count ++;
+        }
+        else {
+            new_flag.ctl = flag_t::ctl_locked;
+            new_flag.lock_count = 1;
+            new_flag.lock = &lock_pool.obtain();
+            new_flag.lock->magic = old_value;
+
+            // 正常的情况: 指针高 16 位都是 0 或都是 1，低 4 位都是 0
+            auto check = ((int64_t) new_flag.lock) >> 48;
+            assert_x(check == 0 || check == 0xFFFF);
+
+            check = (int64_t) new_flag.lock;
+            assert_x((check & 15) == 0);
+        }
+
+        // 尝试 CAS 操作更新 flag. 如果成功，直接返回；否则重试
+        if (m_flag.compare_exchange_strong(old_value, new_flag.value())) {
+            break;
+        }
+        if (old_flag.ctl == flag_t::ctl_no_lock) {
+            lock_pool.recycle(*new_flag.lock);
+        }
+    }
+
+    assert_x(new_flag.ctl == flag_t::ctl_locked);
+    assert_x(new_flag.lock != nullptr);
+    assert_x(new_flag.lock_count > 0);
+
+    new_flag.lock->lock();
     return 0;
 }
 
 
 int jobject::unlock() noexcept
 {
-    int64_t old_value, new_value;
-    lock_event_t *lock;
-    int count;
-
     for (;;) {
-        old_value = m_flag.load(std::memory_order_acquire);
-        count = (int) (old_value & COUNT_MASK);
-        lock = (lock_event_t*) (old_value >> COUNT_BIT);
+        int64_t old_value;
+        flag_t old_flag = old_value = m_flag.load();
 
-        if (count == 0 || lock == nullptr || ! lock->am_i_locked()) {
+        if (old_flag.ctl != flag_t::ctl_locked || ! old_flag.lock->am_i_locked()) {
             // 说明之前没有锁住，是异常状态
             return -1;
         }
+        assert_x(old_flag.lock_count >= 1);
 
         // 当 count 为 1，说明没有任何线程尝试获取锁，需要释放掉 lock_event
-        new_value = count == 1 ? 0 : (old_value - 1);
+        int64_t new_value;
+
+        if (old_flag.lock_count == 1) {
+            new_value = old_flag.lock->magic;
+        }
+        else {
+            old_flag.lock_count --;
+            new_value = old_flag.value();
+            old_flag.lock_count ++;
+        }
 
         // CAS 操作更新 flag
         if (m_flag.compare_exchange_strong(old_value, new_value)) {
-            lock->unlock();
-            if (count == 1) {
-                lock_pool.recycle(*lock);
+            old_flag.lock->unlock();
+            if (old_flag.lock_count == 1) {
+                lock_pool.recycle(*old_flag.lock);
             }
             break;
         }
@@ -208,13 +323,13 @@ int jobject::unlock() noexcept
 
 static inline lock_event_t *am_i_locked(int64_t value) noexcept
 {
-    auto lock = (lock_event_t *) (value >> COUNT_BIT);
-    auto count = (int) (value & COUNT_MASK);
+    flag_t flag = value;
 
-    if (count == 0 || lock == nullptr || ! lock->am_i_locked()) {
+    if (flag.ctl != flag_t::ctl_locked || ! flag.lock->am_i_locked()) {
         return nullptr;
     }
-    return lock;
+    assert_x(flag.lock_count >= 1);
+    return flag.lock;
 }
 
 int jobject::wait(long time_millis) noexcept

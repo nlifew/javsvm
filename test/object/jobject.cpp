@@ -32,6 +32,7 @@ struct lock_event
 };
 
 jobject m_lock;
+int hash = 0;
 //lock_event m_lock;
 
 std::deque<int> m_queue;
@@ -47,6 +48,7 @@ static void product()
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     for (int i = 0; i < N; i ++) {
+        assert_x(hash == m_lock.hash_code());
         LOGI("product: 生产 %d\n", i);
         assert_x(m_lock.lock() == 0);
         assert_x(m_lock.lock() == 0);
@@ -73,6 +75,7 @@ static void consumer()
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     for (int i = 0; i < N; i ++) {
+        assert_x(hash == m_lock.hash_code());
         assert_x(m_lock.lock() == 0);
         assert_x(m_lock.lock() == 0);
 
@@ -99,6 +102,10 @@ static void consumer()
 
 int main()
 {
+    LOGI("start\n");
+
+    hash = m_lock.hash_code();
+
     std::thread *threads[20];
     for (int i = 0; i < sizeof(threads) / sizeof(threads[0]); i ++) {
         threads[i] = (i & 1) ? new std::thread(product) : new std::thread(consumer);
