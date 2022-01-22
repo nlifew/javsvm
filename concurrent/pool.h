@@ -9,9 +9,8 @@
 #include <mutex>
 #include <new>
 
-#ifndef NDEBUG
 #include "../utils/log.h"
-#endif
+
 /**
  * pool.h 提供了两种常用的对象复用池，分别是基于链表实现的 linked_pool
  * 和基于数组实现的 array_pool。两种对象池都需要在构造函数里显式指定容量大小。
