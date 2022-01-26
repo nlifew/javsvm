@@ -36,7 +36,7 @@ loop:
         const int op = code.code[frame.pc];
 
         // 调试使用
-#ifndef NDEBUG
+#if 0
     LOGD("------------------------dump stack frame------------------------\n");
     LOGD("pc: %d, op: %s(%d)\n", frame.pc, ops_str[op], op);
     LOGD("variable_table(total %d):\n", code.max_locals);
@@ -396,7 +396,13 @@ loop:
                 break;
             }
             case goto_w: {
-                // todo
+                int pc = 0;
+                pc |= code.code[frame.pc + 1] << 24;
+                pc |= code.code[frame.pc + 2] << 16;
+                pc |= code.code[frame.pc + 3] << 8;
+                pc |= code.code[frame.pc + 4] ;
+                frame.pc += pc;
+                break;
             }
 
             // jsr 和 ret 指令已经被 jvm 规范禁止使用
