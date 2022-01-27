@@ -16,3 +16,13 @@ target_link_libraries(
         test_recursive_lock
         concurrent
 )
+
+add_executable(
+        test_concurrent_map
+        concurrent_map.cpp
+)
+
+target_link_libraries(
+        test_concurrent_map
+        concurrent
+)

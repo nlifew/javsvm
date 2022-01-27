@@ -5,11 +5,123 @@
 #include <unordered_map>
 #include <cstdlib>
 #include <shared_mutex>
-
+#include <type_traits>
 
 namespace javsvm
 {
 
+template <
+        typename Key,
+        typename Value,
+        typename Lock,
+        typename Hash,
+        typename Comp,
+        typename Alloc
+>
+struct concurrent_segment
+{
+    using lock_type = Lock;
+    using bucket_type = std::unordered_map<Key, Value, Hash, Comp, Alloc>;
+
+private:
+    lock_type m_lock;
+    bucket_type m_bucket;
+public:
+    concurrent_segment() = default;
+    ~concurrent_segment() = default;
+
+    concurrent_segment(const concurrent_segment &o) noexcept
+    {
+        std::shared_lock lck(o.m_lock);
+        m_bucket = o.m_bucket;
+    }
+
+    concurrent_segment& operator=(const concurrent_segment &o) noexcept
+    {
+        std::unique_lock wr_lck(m_lock);
+        std::shared_lock rd_lck(o.m_lock);
+        m_bucket = o.m_bucket;
+        return *this;
+    }
+
+    const Value* get(const Key &key) noexcept
+    {
+        std::shared_lock lck(m_lock);
+        const auto& it = m_bucket.find(key);
+        return it == m_bucket.end() ? nullptr : &(it->second);
+    }
+
+    bool contains_key(const Key &key) const noexcept
+    {
+        std::shared_lock<Lock> lck(m_lock);
+        return m_bucket.find(key) == m_bucket.end();
+    }
+
+    [[nodiscard]]
+    bool empty() const noexcept
+    {
+        std::shared_lock<Lock> lck(m_lock);
+        return m_bucket.empty();
+    }
+
+    [[nodiscard]]
+    int size() const noexcept
+    {
+        std::shared_lock<Lock> lck(m_lock);
+        return m_bucket.size();
+    }
+
+    Value& put(const Key &key, const Value &value) noexcept
+    {
+        std::unique_lock<Lock> lck(m_lock);
+        return m_bucket[key] = value;
+    }
+
+    void remove(const Key &key) noexcept
+    {
+        std::unique_lock<Lock> lck(m_lock);
+        m_bucket.erase(key);
+    }
+
+    void clear() noexcept
+    {
+        std::unique_lock<Lock> lck(m_lock);
+        m_bucket.clear();
+    }
+
+    template <typename Func>
+    Value& put_if_absent(const Key& key, Func func) noexcept
+    {
+        {
+            std::shared_lock<Lock> lck(m_lock);
+            const auto& it = m_bucket.find(key);
+            if (it != m_bucket.end()) {
+                return it->second;
+            }
+        }
+
+        std::unique_lock<Lock> lck(m_lock);
+        const auto& it = m_bucket.find(key);
+
+        if (it != m_bucket.end()) {
+            return it->second;
+        }
+
+        return m_bucket[key] = func();
+    }
+
+    template<typename T>
+    bool lookup(T t)
+    {
+        std::shared_lock lck(m_lock);
+        for (const auto &it : m_bucket) {
+            if (! t(it)) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
 
 
 template <
@@ -22,105 +134,9 @@ template <
     >
 class concurrent_map
 {
+    using segment = concurrent_segment<Key, Value, Lock, Hash, Comp, Alloc>;
 private:
-
-    class segment 
-    {
-    private:
-        Lock m_lock;
-        std::unordered_map<Key, Value, Hash, Comp, Alloc> m_bucket;
     
-    public:
-        explicit segment() = default;
-        ~segment() = default;
-
-/*
-        segment(const segment& o)
-        {
-            operator=(o);
-        }
-
-        segment& operator=(const segment& o)
-        {
-            m_lock.lock();
-            o.m_lock.lock();
-
-            m_segment = o.m_segment;
-
-            o.m_lock.unlock();
-            m_lock.unlock();
-
-            return *this;
-        }
-*/
-        const Value* get(const Key &key) noexcept
-        {
-            std::shared_lock lck(m_lock);
-            const auto& it = m_bucket.find(key);
-            return it == m_bucket.end() ? nullptr : &(it->second);
-        }
-
-        bool contains(const Key &key) const noexcept
-        {
-            std::shared_lock<Lock> lck(m_lock);
-            return m_bucket.find(key) == m_bucket.end();
-        }
-        
-        [[nodiscard]]
-        bool empty() const noexcept
-        {
-            std::shared_lock<Lock> lck(m_lock);
-            return m_bucket.empty();
-        }
-
-        [[nodiscard]]
-        int size() const noexcept
-        {
-            std::shared_lock<Lock> lck(m_lock);
-            return m_bucket.size();
-        }
-
-        Value& put(const Key &key, const Value &value) noexcept
-        {
-            std::unique_lock<Lock> lck(m_lock);
-            return m_bucket[key] = value;
-        }
-
-        void remove(const Key &key) noexcept
-        {
-            std::unique_lock<Lock> lck(m_lock);
-            m_bucket.erase(key);
-        }
-        
-        void clear() noexcept
-        {
-            std::unique_lock<Lock> lck(m_lock);
-            m_bucket.clear();
-        }
-
-        template <typename Func>
-        Value& put_if_absent(const Key& key, Func func) noexcept
-        {
-            {
-                std::shared_lock<Lock> lck(m_lock);
-                const auto& it = m_bucket.find(key);
-                if (it != m_bucket.end()) {
-                    return it->second;
-                }
-            }
-            
-            std::unique_lock<Lock> lck(m_lock);
-            const auto& it = m_bucket.find(key);
-
-            if (it != m_bucket.end()) {
-                return it->second;
-            }
-
-            return m_bucket[key] = func();
-        }
-    };
-
-
     const int m_segment_count;
 
     segment *m_segment;
@@ -147,7 +163,6 @@ private:
 
 public:
 
-    using concurrent_map_t = concurrent_map<Key, Value, Lock, Hash, Comp, Alloc>;
 
     explicit concurrent_map(int segment_count = 4) : 
         m_segment_count(segment_size_for(segment_count)),
@@ -155,8 +170,8 @@ public:
     {
     }
 
-    concurrent_map(const concurrent_map_t&) = delete;
-    concurrent_map_t& operator=(const concurrent_map_t&) = delete;
+    concurrent_map(const concurrent_map&) = delete;
+    concurrent_map& operator=(const concurrent_map&) = delete;
 
 
     ~concurrent_map()
@@ -219,6 +234,16 @@ public:
     {
         for (int i = 0; i < m_segment_count; i ++) {
             m_segment[i].clear();
+        }
+    }
+
+    template<typename T>
+    void lookup(T t) const noexcept
+    {
+        for (int i = 0; i < m_segment_count; i ++) {
+            if (! m_segment[i].lookup(t)) {
+                break;
+            }
         }
     }
 };
