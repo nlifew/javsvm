@@ -142,7 +142,9 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
     bool synchronized = false;
 
     if ((access_flag & jclass_method::ACC_SYNCHRONIZED) != 0
-            || strcmp(method->name, "<cinit>") == 0) {
+            /* || strcmp(method->name, "<cinit>") == 0 */) { // [1]
+
+        // [1]. 不处理 <cinit>，jclass 自己会处理
         synchronized = true;
         jvm::get().heap.lock(ref)->lock();
     }
@@ -170,9 +172,12 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
 }
 
 
-// 最简单的实现，忽略了 synchronized 和空指针检查，仅仅为了快速测试
+
 jvalue jmethod::invoke_static(jargs &args)
 {
+    if (clazz->invoke_cinit() < 0) {
+        return { 0 };
+    }
     return lock_and_run(this, clazz->object, args);
 }
 

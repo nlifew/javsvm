@@ -124,6 +124,7 @@ static jargs_ptr to_args(jmethodID method, jobject obj, va_list ap)
     }
 
     auto args = new javsvm::slot_t[_method->args_slot];
+    memset(args, 0, sizeof(javsvm::slot_t) * _method->args_slot);
     javsvm::jargs _args(args);
 
     // 如果是实例函数，需要留一个位置存放 this 对象

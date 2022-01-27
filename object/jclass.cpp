@@ -148,7 +148,7 @@ bool jclass::is_instance(jref ref) noexcept
     return false;
 }
 
-bool jclass::is_assign_from(jclass *sub) const noexcept
+bool jclass::is_assign_from(jclass *sub) noexcept
 {
     if (sub == nullptr) {
         return false;
@@ -156,6 +156,7 @@ bool jclass::is_assign_from(jclass *sub) const noexcept
     const auto pt = sub->parent_tree;
     for (int i = 0, z = sub->parent_tree_size; i < z; i ++) {
         if (pt[i] == this) {
+            sub->cached_parent = this;
             return true;
         }
     }
@@ -236,8 +237,12 @@ jclass *jclass::load_class(const char *name)
 }
 
 
-jref jclass::new_instance() const noexcept
+jref jclass::new_instance() noexcept
 {
+    if (invoke_cinit() < 0) {
+        return nullptr;
+    }
+
     auto &heap = jvm::get().heap;
     jref ref = heap.malloc_bytes(object_size);
 
@@ -247,7 +252,7 @@ jref jclass::new_instance() const noexcept
 }
 
 
-jref jclass::new_instance(jmethod *m, ...) const noexcept
+jref jclass::new_instance(jmethod *m, ...) noexcept
 {
     va_list ap;
     va_start(ap, m);
@@ -263,6 +268,8 @@ jref jclass::new_instance(jmethod *m, ...) const noexcept
 static javsvm::slot_t *to_args(jmethod *method, jref obj, va_list ap)
 {
     auto args = new javsvm::slot_t[method->args_slot];
+    memset(args, 0, sizeof(slot_t) * method->args_slot);
+
     javsvm::jargs _args(args);
 
 //    if ((method->access_flag & jclass_method::ACC_STATIC) == 0) {
@@ -313,7 +320,7 @@ static javsvm::slot_t *to_args(jmethod *method, jref obj, va_list ap)
     return args;
 }
 
-jref jclass::new_instance(jmethod *m, va_list ap) const noexcept
+jref jclass::new_instance(jmethod *m, va_list ap) noexcept
 {
     jref obj = new_instance();
 
@@ -324,4 +331,186 @@ jref jclass::new_instance(jmethod *m, va_list ap) const noexcept
     jargs _args(args);
     m->invoke_special(obj, _args);
     return obj;
+}
+
+
+int jclass::invoke_cinit() noexcept
+{
+//    LOGD("invoke_cinit: start with %s\n", name);
+    if (cinit == INIT_DONE) {
+//        LOGD("invoke_cinit: <cinit> has been invoked, nothing to do\n");
+        return 1;
+    }
+    if (cinit == INIT_FAILED) {
+//        LOGW("invoke_cinit: <cinit> invoke failed\n");
+        return -1;
+    }
+
+
+    LOGD("invoke_cinit: start with %s\n", name);
+
+    // 接下来无非两种状态，正在初始化和尚未初始化。对于前者，常见于多线程操作:
+    // 比如线程 A 在执行 <cinit> 时线程调度出去(或者执行了耗时操作)，线程 B 尝试创建此类的实例，此时
+    // 我们必须阻塞线程 B，直到线程 A 执行完成。还有一种就是父类在 <cinit> 里创建子类的对象时，子类
+    // 先检查父类，也会遇到正在初始化的情况。
+
+    // 先锁住类
+    // NOTE: 正常情况下类对象 object 是绝对不可能为 nullptr 的，但我们也要考虑到 object 和 class 类加载时的特殊情况
+    // java.lang.Object 类在加载时会创建一个 java.lang.Class 的伴随对象，也就是调用 java.lang.Class 的构造函数。
+    // 后者又会调 Object 的 cinit，但 Object 类此时还没有完成初始化，因此锁住类时一定会出错
+    jobject_ptr ptr = jvm::get().heap.lock(object);
+
+
+    LOGD("invoke_cinit: lock on the Class object\n");
+    if (ptr != nullptr) {
+        auto ok = ptr->lock();
+        assert(ok == 0);
+    }
+
+    std::unique_ptr<jclass, void (*) (const jclass *)> lock_guard(this, [](const jclass *clz) {
+        auto ptr = jvm::get().heap.lock(clz->object);
+        if (ptr != nullptr) {
+            auto ok = ptr->unlock();
+            assert(ok == 0);
+        }
+    });
+
+    // double check
+    switch (cinit) {
+        case DOING_INIT: {
+            // 这种情况也就是上面所说的父类调子类。放行
+            LOGD("invoke_cinit: <cinit> is invoking, just take a chance\n");
+            return 1;
+        }
+        case INIT_DONE: {
+            LOGD("invoke_cinit: <cinit> has been invoked, nothing to do\n");
+            return 1;
+        }
+        case INIT_FAILED: {
+            LOGW("invoke_cinit: <cinit> invoke failed\n");
+            return -1;
+        }
+        case NOT_INITED: // nothing to do
+            break;
+    }
+
+    // 不用的指针及时释放
+    ptr.reset();
+    return do_invoke_cinit();
+}
+
+
+static inline int get_constant_value(jclass_attr_constant *attr, jclass_const_pool &pool, jvalue *ret) noexcept
+{
+    jclass_const *const_value = pool.child_at(attr->constant_value_index - 1);
+
+    switch (const_value->tag) {
+        case jclass_const_int::TAG: {
+            u4 i = ((jclass_const_int *)const_value)->bytes;
+            ret->i = *(int *)&i;
+            return 0;
+        }
+        case jclass_const_float::TAG: {
+            u4 f = ((jclass_const_float *)const_value)->bytes;
+            ret->f = *(jfloat *)&f;
+            return 0;
+        }
+        case jclass_const_long::TAG: {
+            u8 l = ((::jclass_const_long *)const_value)->bytes;
+            ret->j = *(jlong *)&l;
+            return 0;
+        }
+        case jclass_const_double::TAG: {
+            u8 d = ((jclass_const_double *)const_value)->bytes;
+            ret->d = *(jdouble *)&d;
+            return 0;
+        }
+        case jclass_const_string::TAG: {
+            // 这里比较复杂，因为要创建出一个新的 java.lang.String 对象
+            auto *s = ((jclass_const_string *) const_value);
+            auto *utf8 = pool.cast<jclass_const_utf8>(s->index);
+            ret->l = jvm::get().string.find_or_new((char *)utf8->bytes);
+            return 0;
+        }
+        default:
+            LOGD("get_constant_value: ignore unknown const_value_tag %d\n", const_value->tag);
+            return -1;
+    }
+}
+
+
+int jclass::do_invoke_cinit() noexcept
+{
+    cinit = DOING_INIT;
+
+    // 递归调用父类的
+    for (jclass *i = super_class; i; i = i->super_class) {
+        LOGD("invoke_cinit: super class %s\n", i->name);
+        if (i->invoke_cinit() < 0) {
+            LOGE("invoke_cinit: something bad occurred\n");
+            cinit = INIT_FAILED;
+            return -1;
+        }
+    }
+    // 接口类
+    for (int i = 0; i < interface_num; i ++) {
+        auto &interface = interfaces[i];
+        LOGD("invoke_cinit: interface class %s\n", interface->name);
+        if (interface->invoke_cinit() < 0) {
+            LOGE("invoke_cinit: something bad occurred\n");
+            cinit = INIT_FAILED;
+            return -1;
+        }
+    }
+
+    // 处理常量字段
+    LOGD("invoke_cinit: layout constant fields: %d\n", field_table_size);
+    jclass_const_pool &pool = class_file->constant_pool;
+    for (int i = 0; i < field_table_size; i++) {
+        jfield *field = field_tables + i;
+        jclass_field *src = field->orig;
+
+        LOGD("invoke_cinit: layout constant fields: %s\n", field->name);
+        jvalue val;
+
+        for (int j = 0, z = src->attributes_count; j < z; j++) {
+            auto attr = src->attributes[j]->cast<jclass_attr_constant>();
+            if (attr == nullptr) {
+                continue;
+            }
+            if (get_constant_value(attr, pool, &val) == 0) {
+                field->set(nullptr, val);
+            }
+        }
+    }
+
+    // 创建常量有可能失败，检查下
+    if (check_exception() != nullptr) {
+        LOGE("invoke_cinit: failed to create constant value\n");
+        cinit = javsvm::jclass::INIT_FAILED;
+        return -1;
+    }
+
+
+    jmethod *m = get_static_method("<clinit>", "()V");
+    if (m != nullptr) {
+        LOGI("invoke_cinit: <cinit> found, invoke\n");
+        jargs args(nullptr);
+        m->invoke_static(args);
+
+        if (check_exception() != nullptr) {
+            // 坏了，有异常发生
+            LOGE("invoke_cinit: something bad occurred\n");
+            cinit = javsvm::jclass::INIT_FAILED;
+            return -1;
+        }
+    }
+    else {
+        LOGD("invoke_cinit: <cinit> NOT found, ignore\n");
+    }
+
+
+    LOGD("invoke_cinit: congratulations, class '%s' done\n", name);
+    cinit = javsvm::jclass::INIT_DONE;
+    return 0;
 }

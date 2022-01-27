@@ -88,6 +88,10 @@ jvalue jfield::get(jref obj) const noexcept
 {
     if ((access_flag & jclass_field::ACC_STATIC) != 0) {
         // 静态函数，访问类内存
+        // 先检查这个类有没有被初始化
+        if (clazz->invoke_cinit() < 0) {
+            return { 0 };
+        }
         return get0((char*) clazz->data + mem_offset, mem_size);
     }
 
@@ -117,6 +121,10 @@ void jfield::set(jref obj, jvalue val) const noexcept
 {
     if ((access_flag & jclass_field::ACC_STATIC) != 0) {
         // 静态函数，访问类内存
+        // 先检查这个类有没有被初始化
+        if (clazz->invoke_cinit() < 0) {
+            return;
+        }
         set0((char*) clazz->data + mem_offset, val, mem_size);
         return;
     }
