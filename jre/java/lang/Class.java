@@ -357,4 +357,8 @@ public final class Class<T> implements Serializable, GenericDeclaration, Type, A
     public AnnotatedType[] getAnnotatedInterfaces() {
         throw new UnsupportedOperationException("getAnnotatedInterfaces()");
     }
+
+    // public boolean desiredAssertionStatus() {
+    //     return false;
+    // }
 }
