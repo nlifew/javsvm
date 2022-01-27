@@ -215,6 +215,7 @@ void jarray::set_array_region(jref array, jsize start, jint len, const void *buf
              start, len, length);
         exit(1);
     }
+#ifndef NDEBUG
     LOGD("set array region: start [%d], len [%d], buff [%d]\n", start, len, *(int*) buff);
     LOGD("array length [%d], ele_size [%d]\n", length, ele_size);
 
@@ -227,9 +228,9 @@ void jarray::set_array_region(jref array, jsize start, jint len, const void *buf
     }
     s.append("]\n");
     LOGI("%s", s.c_str());
-
+#endif
     memcpy(((char*) values) + ele_size * start, buff, ele_size * len);
-
+#ifndef NDEBUG
     s.clear();
     s.append("[");
     for (int i = 0; i < length; i ++) {
@@ -238,8 +239,8 @@ void jarray::set_array_region(jref array, jsize start, jint len, const void *buf
     }
     s.append("]\n");
     LOGI("%s", s.c_str());
-
     LOGI("set array region end\n");
+#endif
 }
 
 

@@ -10,6 +10,26 @@
 #include "opsdef.h"
 #include "opslib.h"
 
+
+static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_attr_code &code) noexcept
+{
+    LOGD("\n------------------------dump stack frame------------------------\n");
+    LOGD("method: %s->%s%s\n", me->clazz->name, me->name, me->sig);
+    LOGD("pc: %d, op: %s(%d)\n", frame.pc, ops_str[op], op);
+    LOGD("variable_table(total %d):\n", code.max_locals);
+    for (int i = 0; i < code.max_locals; i ++) {
+        LOGD("\t\t[%d/%d]: %#llx\n", i, code.max_locals, frame.variable_table[i]);
+    }
+    int stack_depth = (int) (frame.operand_stack - frame.operand_stack_orig);
+    LOGD("operand_stack(cur %d, max %d):\n", stack_depth, code.max_stack);
+    for (int i = 0; i < stack_depth; i ++) {
+        LOGD("\t\t[%d/%d]: %#llx\n", i, stack_depth, *(frame.operand_stack - i - 1));
+    }
+    LOGD("------------------------------end-------------------------------\n");
+}
+
+
+
 /**
  * 真正的代码执行逻辑
  */ 
@@ -36,19 +56,8 @@ loop:
         const int op = code.code[frame.pc];
 
         // 调试使用
-#if 0
-    LOGD("------------------------dump stack frame------------------------\n");
-    LOGD("pc: %d, op: %s(%d)\n", frame.pc, ops_str[op], op);
-    LOGD("variable_table(total %d):\n", code.max_locals);
-    for (int i = 0; i < code.max_locals; i ++) {
-        LOGD("\t\t[%d/%d]: %#llx\n", i, code.max_locals, frame.variable_table[i]);
-    }
-    int stack_depth = (int) (frame.operand_stack - frame.operand_stack_orig);
-    LOGD("operand_stack(cur %d, max %d):\n", stack_depth, code.max_stack);
-    for (int i = 0; i < stack_depth; i ++) {
-        LOGD("\t\t[%d/%d]: %#llx\n", i, stack_depth, *(frame.operand_stack - i - 1));
-    }
-    LOGD("------------------------------end-------------------------------\n");
+#ifndef NDEBUG
+        dump_frame_info(me, frame, op, code);
 #endif
 
     /**

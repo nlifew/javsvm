@@ -168,7 +168,7 @@ public:
         } while (! m_value.compare_exchange_strong(last_value, new_value));
 
 
-        LOGD("recycle: 循环 %d 次 (直接回收)\n", loop_count);
+        LOGD("recycle: 循环 %d 次 (复用回收)\n", loop_count);
 
         return true;
     }
