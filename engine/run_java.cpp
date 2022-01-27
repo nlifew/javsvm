@@ -383,8 +383,8 @@ loop:
             case ifeq: ifT<jint, std::equal_to<jint>>(frame, code); break;
             case ifne: ifT<jint, std::not_equal_to<jint>>(frame, code); break;
             case iflt: ifT<jint, std::less<jint>>(frame, code); break;
-            case ifge: ifT<jint, std::greater<jint>>(frame, code); break;
-            case ifgt: ifT<jint, std::greater_equal<jint>>(frame, code); break;
+            case ifge: ifT<jint, std::greater_equal<jint>>(frame, code); break;
+            case ifgt: ifT<jint, std::greater<jint>>(frame, code); break;
             case ifle: ifT<jint, std::less_equal<jint>>(frame, code); break;
             case ifnull: ifT<jref, ref_equ>(frame, code); break;
             case ifnonnull: ifT<jref, ref_not_equ>(frame, code); break;
