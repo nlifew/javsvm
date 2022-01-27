@@ -7,43 +7,53 @@
 using namespace javsvm;
 
 
-static void calculate_field_size(const char *sig, int *p_mem_size, int *p_slot_num)
+static inline void calculate_field_size(jfield *field) noexcept
 {
-    int slot_num = 0;
-    int mem_size = 0;
-
-    switch (sig[0]) {
+    switch (field->sig[0]) {
         case 'Z':       /* boolean */
+            field->type = javsvm::jfield::BOOLEAN;
+            field->mem_size = 1;
+            break;
         case 'B':       /* byte */
-            mem_size = 1;
-            slot_num = 1;
+            field->type = javsvm::jfield::BYTE;
+            field->mem_size = 1;
             break;
         case 'C':       /* char */
+            field->type = javsvm::jfield::CHAR;
+            field->mem_size = 2;
+            break;
         case 'S':       /* short */
-            mem_size = 2;
-            slot_num = 1;
+            field->type = javsvm::jfield::SHORT;
+            field->mem_size = 2;
             break;
         case 'I':       /* int */
+            field->type = javsvm::jfield::INT;
+            field->mem_size = 4;
+            break;
+        case 'J':       /* long */
+            field->type = javsvm::jfield::LONG;
+            field->mem_size = 8;
+            break;
         case 'F':       /* float */
-            mem_size = 4;
-            slot_num = 1;
+            field->type = javsvm::jfield::FLOAT;
+            field->mem_size = 4;
             break;
         case 'D':       /* double */
-        case 'J':       /* long */
-            mem_size = 8;
-            slot_num = 2;
+            field->type = javsvm::jfield::DOUBLE;
+            field->mem_size = 8;
+            break;
+        case 'L':       /* object */
+            field->type = javsvm::jfield::OBJECT;
+            field->mem_size = sizeof(slot_t);
             break;
         case '[':       /* array */
-        case 'L':       /* object */
-            mem_size = sizeof(slot_t);
-            slot_num = 1;
+            field->type = javsvm::jfield::ARRAY;
+            field->mem_size = sizeof(slot_t);
             break;
         default:
-            LOGE("calculate_field_size: unknown field sig : %s\n", sig);
+            LOGE("calculate_field_size: unknown field sig : %s\n", field->sig);
             break;
     }
-    *p_slot_num = slot_num;
-    *p_mem_size = mem_size;
 }
 
 
@@ -55,7 +65,7 @@ void jfield::bind(jclass *_clazz, jclass_file *cls, int index)
     name = (char *)cls->constant_pool.cast<jclass_const_utf8>(orig->name_index)->bytes;
     sig = (char *)cls->constant_pool.cast<jclass_const_utf8>(orig->descriptor_index)->bytes;
 
-    calculate_field_size(sig, &mem_size, &slot_num);
+    calculate_field_size(this);
 }
 
 

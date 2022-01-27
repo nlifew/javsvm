@@ -330,6 +330,24 @@ static inline void lookup_table(jstack_frame &frame, jclass_attr_code &code)
     }
 }
 
+
+static inline jclass *get_class(int index, jclass_const_pool &pool)
+{
+    auto *class_info = pool.cast<jclass_const_class>(index);
+    if (class_info->extra == nullptr) {
+        auto *class_name = pool.cast<jclass_const_utf8>(class_info->index);
+
+        class_info->extra = jclass::load_class((char *) class_name->bytes);
+        
+        if (class_info->extra == nullptr) {
+            LOGE("can't find class [%s]\n", class_name->bytes);
+            exit(1);
+        }
+    }
+    return (jclass*) class_info->extra;
+}
+
+
 static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
 {
     auto *const_value = pool.child_at(idx - 1);
@@ -368,24 +386,6 @@ static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
             break;
     }
 }
-
-static inline jclass *get_class(int index, jclass_const_pool &pool)
-{
-    auto *class_info = pool.cast<jclass_const_class>(index);
-    if (class_info->extra == nullptr) {
-        auto *class_name = pool.cast<jclass_const_utf8>(class_info->index);
-
-        class_info->extra = jclass::load_class((char *) class_name->bytes);
-        
-        if (class_info->extra == nullptr) {
-            LOGE("can't find class [%s]\n", class_name->bytes);
-            exit(1);
-        }
-    }
-    return (jclass*) class_info->extra;
-}
-
-
 
 
 struct static_method
@@ -540,13 +540,21 @@ static inline void put_field(jstack_frame &frame,
 
     jfield *field = get_field<Field>(idx, pool);
 
-    jvalue val = { 0 };
-    switch (field->slot_num) {
-        case 0: break;
-        case 1: val.i = frame.pop_param<jint>(); break;
-        case 2: val.j = frame.pop_param<jlong>(); break;
-        default: LOGE("pop_jvalue: unknown slot_num: %d\n", field->slot_num);
+    jvalue val;
+
+    switch (field->type) {
+        case jfield::flat_type::BOOLEAN:    val.z = frame.pop_param<jboolean>();    break;
+        case jfield::flat_type::BYTE:       val.b = frame.pop_param<jbyte>();       break;
+        case jfield::flat_type::CHAR:       val.c = frame.pop_param<jchar>();       break;
+        case jfield::flat_type::SHORT:      val.s = frame.pop_param<jshort>();      break;
+        case jfield::flat_type::INT:        val.i = frame.pop_param<jint>();        break;
+        case jfield::flat_type::LONG:       val.j = frame.pop_param<jlong>();       break;
+        case jfield::flat_type::FLOAT:      val.f = frame.pop_param<jfloat>();      break;
+        case jfield::flat_type::DOUBLE:     val.d = frame.pop_param<jdouble>();     break;
+        case jfield::flat_type::OBJECT:
+        case jfield::flat_type::ARRAY:      val.l = frame.pop_param<jref>();        break;
     }
+
     jref obj = Field::STATIC ? nullptr : frame.pop_param<jref>();
 
     field->set(obj, val);
@@ -567,13 +575,18 @@ static inline void get_field(jstack_frame &frame,
 
     jvalue val = field->get(obj);
 
-    switch (field->slot_num) {
-        case 0: break;
-        case 1: frame.push_param<jint>(val.i); break;
-        case 2: frame.push_param<jlong>(val.j); break;
-        default: LOGE("pop_jvalue: unknown slot_num: %d\n", field->slot_num);
+    switch (field->type) {
+        case jfield::BOOLEAN:   frame.push_param<jboolean>(val.z);  break;
+        case jfield::BYTE:      frame.push_param<jbyte>(val.b);     break;
+        case jfield::CHAR:      frame.push_param<jchar>(val.c);     break;
+        case jfield::SHORT:     frame.push_param<jshort>(val.s);    break;
+        case jfield::INT:       frame.push_param<jint>(val.i);      break;
+        case jfield::LONG:      frame.push_param<jlong>(val.j);     break;
+        case jfield::FLOAT:     frame.push_param<jfloat>(val.f);    break;
+        case jfield::DOUBLE:    frame.push_param<jdouble>(val.d);   break;
+        case jfield::OBJECT:
+        case jfield::ARRAY:     frame.push_param<jref>(val.l);      break;
     }
-
     frame.pc += 3;
 }
 
