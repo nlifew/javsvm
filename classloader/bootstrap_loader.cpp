@@ -381,14 +381,21 @@ void bootstrap_loader::gen_method_table(jclass *klass, jclass_file *cls)
  */
 void bootstrap_loader::copy_super_vtable(jclass *klass)
 {
-    std::vector<jmethod*> table;
+    struct Comparator {
+        bool operator()(const jmethod *m1, const jmethod *m2) const noexcept {
+            return jmethod::compare_to(m1, m2) < 0;
+        }
+    };
+
+    std::set<jmethod*, Comparator> vtable;
+
     jclass *super_class = klass->super_class;
 
     // 复制从父类继承过来的虚函数表
     if (super_class != nullptr) {
-        int z = super_class->vtable_size;
-        table.resize(z);
-        memcpy(&table[0], super_class->vtable, z * sizeof(jmethod *));
+        for (int i = 0, z = super_class->vtable_size; i < z; ++i) {
+            vtable.insert(super_class->vtable[i]);
+        }
     }
 
     // 遍历所有的虚函数，并添加到虚函数表
@@ -397,31 +404,16 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
         if (! it->is_virtual) {
             continue;
         }
-        // 二分查找，判断该虚函数是否出现在了父表中
-        // 因为虚函数表的建立是在函数表建立之后，因此也是有序的
-        int index = -1;
-        if (super_class != nullptr) {
-             int (*cmp)(jmethod* const*, jmethod* const*) = [](jmethod* const *p, jmethod* const *q) -> int {
-                return jmethod::compare_to(*p, *q);
-            };
-            index = arrays::binary_search<jmethod*>(it, &table[0], super_class->vtable_size, cmp);
-        }
-        if (index == -1) {
-            // 新增的虚函数，添加到父虚函数表的后面
-            it->index_in_table = (int) table.size();
-            table.push_back(it);
-        }
-        else {
-            // 重写父类的虚函数，覆盖在相应位置
-            table[index] = it;
-        }
+        vtable.insert(it);
     }
 
     // 生成新的虚函数表
-    int z = (int) table.size();
+    int i = 0, z = (int) vtable.size();
     klass->vtable_size = z;
     klass->vtable = m_allocator.calloc_type<jmethod *>(z);
-    memcpy(klass->vtable, &table[0], sizeof(jmethod*) * z);
+    for (auto it : vtable) {
+        klass->vtable[i ++] = it;
+    }
 }
 
 /**
@@ -593,71 +585,6 @@ void bootstrap_loader::layout_direct_fields(jclass *klass)
     // size = ((size - 1) | 7) + 1;
     klass->object_size = size;
 }
-
-
-
-//static jvalue get_constant_value(jclass_attr_constant *attr, jclass_const_pool &pool)
-//{
-//    jclass_const *const_value = pool.child_at(attr->constant_value_index - 1);
-//    jvalue value = {0};
-//
-//    switch (const_value->tag) {
-//        case jclass_const_int::TAG: {
-//            u4 i = ((jclass_const_int *)const_value)->bytes;
-//            value.i = *(int *)&i;
-//            break;
-//        }
-//        case jclass_const_float::TAG: {
-//            u4 f = ((jclass_const_float *)const_value)->bytes;
-//            value.f = *(jfloat *)&f;
-//            break;
-//        }
-//        case jclass_const_long::TAG: {
-//            u8 l = ((::jclass_const_long *)const_value)->bytes;
-//            value.j = *(jlong *)&l;
-//            break;
-//        }
-//        case jclass_const_double::TAG: {
-//            u8 d = ((jclass_const_double *)const_value)->bytes;
-//            value.d = *(jdouble *)&d;
-//            break;
-//        }
-//        case jclass_const_string::TAG: {
-//            // 这里比较复杂，因为要创建出一个新的 java.lang.String 对象
-//            auto *s = ((jclass_const_string *) attr);
-//            auto *utf8 = pool.cast<jclass_const_utf8>(s->index);
-//            value.l = jvm::get().string_pool().find_or_new((char *)utf8->bytes);
-//            break;
-//        }
-//        default:
-//            LOGE("unknown const_value_tag %d\n", const_value->tag);
-//            break;
-//    }
-//    return value;
-//}
-
-
-/**
- * 遍历 class 中所有 static 字段，如果是常量则初始化
- */ 
-//void bootstrap_loader::init_const_field(jclass *klass)
-//{
-//    jclass_const_pool &pool = klass->class_file->constant_pool;
-//
-//    for (int i = 0; i < klass->field_table_size; i++) {
-//        jfield *it = klass->field_tables + i;
-//        jclass_field *src = it->orig;
-//
-//        for (int j = 0, z = src->attributes_count; j < z; j++) {
-//            auto attr = src->attributes[j]->cast<jclass_attr_constant>();
-//            if (attr != nullptr) {
-//                //todo: 设置常量值
-////                it->set(nullptr, get_constant_value(attr, pool));
-//                break;
-//            }
-//        }
-//    }
-//}
 
 
 jref bootstrap_loader::new_class_object(jclass *klass)
