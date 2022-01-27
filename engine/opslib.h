@@ -381,6 +381,10 @@ static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
             frame.push_param<jref>(ref);
             break;
         }
+        case jclass_const_class::TAG: {
+            frame.push_param<jref>(get_class(idx, pool));
+            break;
+        }
         default:
             LOGE("unknown const_value_tag %d\n", const_value->tag);
             break;
