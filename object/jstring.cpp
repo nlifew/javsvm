@@ -17,7 +17,7 @@ static jclass *java_lang_String = nullptr;
 //static jmethod *java_lang_String_init = nullptr;
 static jmethod *java_lang_String_init2 = nullptr;
 
-bool bind_java_class()
+static bool bind_java_class()
 {
     // 直接使用 bootstrap_loader 加载
     bootstrap_loader &loader = jvm::get().bootstrap_loader;
@@ -56,7 +56,7 @@ jref jstring::new_string(const wchar_t * str) noexcept
     jref chars_array = m_jvm.array.new_char_array(chars_len);
     m_jvm.array.set_char_array_region(chars_array, 0, chars_len, (jchar *) str);
 
-    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, 0, chars_array);
+    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, 0, chars_len);
     return obj;
 }
 
