@@ -4,6 +4,7 @@
 #define JAVSVM_JSTRING_H
 
 #include "../utils/global.h"
+#include "../concurrent/recursive_lock.h"
 #include "../concurrent/concurrent_map.h"
 
 #include <string>
@@ -16,7 +17,7 @@ struct jvm;
 class jstring
 {
 private:
-    concurrent_map<std::string, jref> m_cache;
+    concurrent_map<std::string, jref, recursive_lock> m_cache;
 
     // std::shared_mutex m_lock;
     // std::unordered_map<std::wstring, jref> m_cache;
