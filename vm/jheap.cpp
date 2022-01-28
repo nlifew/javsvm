@@ -11,16 +11,13 @@
 using namespace javsvm;
 
 
+
 jobject_ptr jheap::lock(jref ref)
 {
     auto *ptr = (jobject *) ref;
     return jobject_ptr(*this, ptr);
 }
 
-
-void jheap::unlock(jobject *ptr)
-{
-}
 
 bool jheap::is_nullptr(jref ref)
 {
