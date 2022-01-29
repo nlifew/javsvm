@@ -22,7 +22,7 @@ add_executable(
         concurrent_map.cpp
 )
 
-target_link_libraries(
-        test_concurrent_map
-        concurrent
+add_executable(
+        test_concurrent_set
+        concurrent_set.cpp
 )
