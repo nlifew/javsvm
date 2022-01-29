@@ -29,6 +29,7 @@ add_subdirectory(engine)
 add_subdirectory(utils)
 add_subdirectory(dll)
 add_subdirectory(jni)
+add_subdirectory(gc)
 
 add_library(
         runtime
@@ -46,6 +47,7 @@ find_library(
 target_link_libraries(
         runtime
         classloader
+        gc
         engine
         object
         vm
