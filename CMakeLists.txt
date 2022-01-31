@@ -38,25 +38,19 @@ add_library(
 )
 
 
-find_library(
-        dl-lib
-        dl
-)
-
 
 target_link_libraries(
         runtime
         classloader
-        gc
         engine
         object
+        gc
         vm
         jni
         class
         dllloader
         concurrent
         utils
-        ${dl-lib}
 )
 
 # 测试相关的
