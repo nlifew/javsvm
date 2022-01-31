@@ -3,6 +3,7 @@
 #include "jfield.h"
 #include "../object/jclass.h"
 #include "../engine/engine.h"
+#include "../vm/jvm.h"
 
 using namespace javsvm;
 

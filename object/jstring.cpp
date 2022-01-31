@@ -6,6 +6,7 @@
 #include "jclass.h"
 #include "jmethod.h"
 #include "jfield.h"
+#include "../vm/jvm.h"
 #include "../utils/strings.h"
 
 using namespace javsvm;

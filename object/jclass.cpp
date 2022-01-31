@@ -4,17 +4,10 @@
 #include "jfield.h"
 #include "jmethod.h"
 #include "../engine/engine.h"
+#include "../vm/jvm.h"
 
-//#include <class/jclass_file.h>
-//#include <engine/engine.h>
-//#include <memory>
-
-
-// #include "classloader/bootstrap_loader.h"
 
 using namespace javsvm;
-
-
 
 
 jfield* jclass::get_field(const char *_name, const char *_sig) const noexcept
@@ -244,11 +237,7 @@ jref jclass::new_instance() noexcept
     }
 
     auto &heap = jvm::get().heap;
-    jref ref = heap.malloc_bytes(object_size);
-
-    auto ptr = heap.lock(ref);
-    ptr->klass = const_cast<jclass*>(this);
-    return ref;
+    return heap.alloc(this);
 }
 
 

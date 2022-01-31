@@ -8,8 +8,9 @@
 #include <functional> /* std::equal_to, std::less */
 
 #include "opsdef.h"
-#include "opslib.h"
 
+#include "../vm/jvm.h"
+#include "opslib.h"
 
 static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_attr_code &code) noexcept
 {

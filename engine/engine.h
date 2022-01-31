@@ -80,8 +80,9 @@ void throw_throwable(jref ref) noexcept;
 void throw_exp(const char *class_name, const char *msg);
 
 /**
- * 创建并抛出一个不会被捕获的错误(Error)，用于展示堆栈并退出虚拟机
- * 和 throw_exp 不同，当 java 堆已经耗尽时，会尝试从保留的安全区中创建对象。
+ * 创建并抛出一个不会被捕获的错误(Error)，用于展示堆栈并退出虚拟机.
+ * 和 throw_exp 不同，异常对象会在保留的安全区中创建，因此即使 java 堆已经耗尽也可以抛出。
+ * 但保留区域很小（只有一个页），如果安全区也不够用则会退出虚拟机。
  */
 void throw_err(const char *class_name, const void *msg);
 

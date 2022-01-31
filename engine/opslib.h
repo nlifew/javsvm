@@ -382,7 +382,7 @@ static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
             break;
         }
         case jclass_const_class::TAG: {
-            frame.push_param<jref>(get_class(idx, pool));
+            frame.push_param<jref>(get_class(idx, pool)->object);
             break;
         }
         default:

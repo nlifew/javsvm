@@ -9,6 +9,7 @@
 
 #include "../object/jfield.h"
 #include "../utils/strings.h"
+#include "../vm/jvm.h"
 
 #include "access_field.h"
 #include "access_array.h"
@@ -175,6 +176,12 @@ static jobject (JNICALL NewObjectA)
     }
     auto _method = (javsvm::jmethod *) methodID;
     if (_method == nullptr) {
+        return nullptr;
+    }
+
+    // 如果是抽象类，抛出异常
+    if (HAS_FLAG(_method->access_flag, javsvm::jclass_method::ACC_ABSTRACT)) {
+        javsvm::throw_exp("java/lang/InstantiationException", "");
         return nullptr;
     }
 

@@ -248,6 +248,10 @@ static jargs_ptr to_args(jmethodID method, jobject obj, const jvalue *ap)
  * @param env 指定的 jenv 实例
  * @return 成功返回 0, 失败返回 -1
  */
+namespace javsvm {
+    class jenv;
+    class jvm;
+}
 int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept;
 
 

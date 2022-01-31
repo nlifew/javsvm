@@ -4,6 +4,7 @@
 #include "jclass.h"
 #include "jobject.h"
 #include "../engine/engine.h"
+#include "../vm/jvm.h"
 
 using namespace javsvm;
 

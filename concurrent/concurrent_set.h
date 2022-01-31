@@ -122,9 +122,8 @@ private:
 public:
     explicit concurrent_set(int node_count = 4) noexcept:
         m_node_count(node_count),
-        m_node(new node_type[node_count])
+        m_node(new node_type[size_for(node_count)])
     {
-
     }
 
     concurrent_set(const concurrent_set&) = delete;
@@ -161,6 +160,7 @@ public:
         }
     }
 
+    [[nodiscard]]
     int size() const noexcept
     {
         int _size = 0;
@@ -169,6 +169,7 @@ public:
         }
     }
 
+    [[nodiscard]]
     bool empty() const noexcept
     {
         for (int i = 0; i < m_node_count; ++i) {

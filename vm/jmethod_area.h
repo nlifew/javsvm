@@ -29,11 +29,6 @@ public:
 
     void *malloc_bytes(int len);
 
-    template<typename T>
-    T* malloc_type(int n = 1)
-    {
-        return (T*) malloc_bytes(sizeof(T) * n);
-    }
 
     template<typename T>
     T* calloc_type()

@@ -3,8 +3,9 @@
 #ifndef JAVSVM_STRINGS_H
 #define JAVSVM_STRINGS_H
 
-#include <cstring>
-#include <cstdlib>
+//#include <cstring>
+//#include <cstdlib>
+#include <string>
 
 namespace javsvm
 {

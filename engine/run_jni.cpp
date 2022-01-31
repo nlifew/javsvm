@@ -5,6 +5,7 @@
 
 #include "engine.h"
 #include "jnilib.h"
+#include "../vm/jvm.h"
 #include "../jni/jni.h"
 #include "../jni/jni_utils.h"
 

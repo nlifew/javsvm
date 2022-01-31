@@ -37,7 +37,12 @@ using   jdouble     =   double;     /* 64-bit IEEE 754 */
 using   jsize       =   jint;
 
 
-using jref = void *;
+struct _jref_struct
+{
+    void *do_not_use_me = nullptr;
+};
+
+using jref = _jref_struct*;
 
 
 typedef union
