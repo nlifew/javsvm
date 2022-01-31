@@ -8,6 +8,7 @@
 #include "../object/jfield.h"
 #include "../vm/jvm.h"
 #include "../utils/arrays.h"
+#include "../gc/gc_root.h"
 
 #include <sys/stat.h>
 #include <vector>
@@ -25,6 +26,7 @@ using namespace javsvm;
 
 
 bootstrap_loader::bootstrap_loader(jvm &mem) noexcept :
+        m_jvm(mem),
         m_allocator(mem.method_area)
 {
 }
@@ -314,7 +316,7 @@ jclass* bootstrap_loader::prepare_class(jclass_file *cls)
     gen_field_table(klass, cls);
     layout_static_fields(klass);
     layout_direct_fields(klass);
-    // init_const_field(klass, cls);
+    collect_extra_info(klass);
 
     return klass;
 }
@@ -473,8 +475,8 @@ void bootstrap_loader::layout_static_fields(jclass *klass)
 
     // 8 字节对齐
     // size = ((size - 1) | 7) + 1;
-    klass->class_size = size;
-    klass->data = m_allocator.malloc_bytes(size);
+    klass->data = (char*) m_allocator.malloc_bytes(size);
+    memset(klass->data, 0, size);
 }
 
 
@@ -585,6 +587,39 @@ void bootstrap_loader::layout_direct_fields(jclass *klass)
     // size = ((size - 1) | 7) + 1;
     klass->object_size = size;
 }
+
+void bootstrap_loader::collect_extra_info(jclass *klass)
+{
+    // 遍历所有的字段，收集引用类型的字段
+//    std::vector<jfield*> queue;
+
+    for (int i = 0, z = klass->field_table_size; i < z; i ++) {
+        auto *field = klass->field_tables + i;
+        if (field->sig[0] != '[' && field->sig[0] != 'L') {
+            continue;
+        }
+        if ((field->access_flag & jclass_field::ACC_STATIC) != 0) {
+            gc_root::static_field_pool().add((jref*) (klass->data + field->mem_offset));
+        }
+//        else {
+//            queue.push_back(field);
+//        }
+    }
+//    int z = (int) queue.size();
+//    klass->direct_object_field_num = z;
+//    klass->direct_object_fields = m_allocator.calloc_type<jfield*>(z);
+//    for (int i = 0; i < z; ++i) {
+//        klass->direct_object_fields[i] = queue[i];
+//    }
+
+    // finalize()
+    auto *finalize = klass->get_virtual_method("finalize", "()V");
+    if (finalize != nullptr && strcmp(finalize->clazz->name, "java/lang/Object") != 0) {
+        klass->flag |= jclass::FLAG_FINALIZE;
+    }
+}
+
+
 
 
 jref bootstrap_loader::new_class_object(jclass *klass)

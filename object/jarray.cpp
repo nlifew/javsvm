@@ -15,46 +15,6 @@
 using namespace javsvm;
 
 
-struct class_holder
-{
-    jclass *java_lang_Object = nullptr;
-    jclass *java_lang_Class = nullptr;
-    jmethod *java_lang_Class_init = nullptr;
-    jclass *java_lang_Cloneable = nullptr;
-    jclass *java_io_Serializable = nullptr;
-
-#define _CHECK_NULL(x)  \
-    if (x == nullptr) { \
-        LOGE("field [%s] of class_holder is null\n", #x); \
-        exit(1);        \
-    }
-
-    explicit class_holder(bootstrap_loader &loader) noexcept
-    {
-        java_lang_Object = loader.load_class("java/lang/Object");
-        java_lang_Class = loader.load_class("java/lang/Class");
-        java_lang_Cloneable = loader.load_class("java/lang/Cloneable");
-        java_io_Serializable = loader.load_class("java/io/Serializable");
-
-        _CHECK_NULL(java_lang_Object)
-        _CHECK_NULL(java_lang_Class)
-        _CHECK_NULL(java_lang_Cloneable)
-        _CHECK_NULL(java_io_Serializable)
-
-        java_lang_Class_init = java_lang_Class->get_method("<init>", "(J)V");
-        _CHECK_NULL(java_lang_Class_init)
-    }
-#undef _CHECK_NULL
-
-    [[nodiscard]]
-    jref new_class() const noexcept { return java_lang_Class->new_instance();  }
-};
-
-static class_holder &get_class_holder(bootstrap_loader &loader) {
-    static class_holder instance(loader);
-    return instance;
-}
-
 jsize jarray::get_array_length(jref array)
 {
     auto obj = m_jvm.heap.lock(array);
@@ -64,22 +24,6 @@ jsize jarray::get_array_length(jref array)
         exit(1);
     }
     return ((jsize *)(obj->values))[0];
-}
-
-static jclass* create_primitive_type(const char *type, jvm &vm)
-{
-    LOGI("create primitive type '%s'\n", type);
-
-    auto &holder = get_class_holder(vm.bootstrap_loader);
-
-    auto *klass = vm.method_area.calloc_type<jclass>();
-    klass->name = type;
-    klass->access_flag = jclass_file::ACC_PUBLIC | jclass_file::ACC_ABSTRACT | jclass_file::ACC_FINAL;
-    klass->object = holder.new_class();
-
-    // 不为基本数据类型添加构造函数和类构造函数
-    LOGI("primitive type '%s' created\n", type);
-    return klass;
 }
 
 jref jarray::new_type_array(const char *type, int length, int ele_size)
@@ -98,10 +42,10 @@ jref jarray::new_type_array(const char *type, int length, int ele_size)
         exit(1);
     }
 
-    jref ref = m_jvm.heap.malloc_bytes(length * ele_size + 2 * (int) sizeof(jint));
+    jref ref = m_jvm.heap.alloc(klass, length * ele_size + 2 * (int) sizeof(jint));
     jobject_ptr obj = m_jvm.heap.lock(ref);
 
-    obj->klass = klass;
+//    obj->klass = klass;
     ((jint *)(obj->values))[0] = length;
     ((jint *)(obj->values))[1] = ele_size;
     return ref;
@@ -165,10 +109,10 @@ jref jarray::new_object_array(jclass *klass, int length)
         exit(1);
     }
 
-    jref ref = m_jvm.heap.malloc_bytes(length * ele_size + 2 * (int) sizeof(jint));
+    jref ref = m_jvm.heap.alloc(klass, length * ele_size + 2 * (int) sizeof(jint));
     jobject_ptr obj = m_jvm.heap.lock(ref);
 
-    obj->klass = klass;
+//    obj->klass = klass;
     ((jint *)(obj->values))[0] = length;
     ((jint *)(obj->values))[1] = ele_size;
     return ref;

@@ -46,6 +46,9 @@ private:
      */
     jmethod_area &m_allocator;
 
+
+    jvm &m_jvm;
+
     /**
      * 保证 .class 文件内容是合法的，可靠的
      */ 
@@ -89,6 +92,11 @@ private:
      * 创建出和 klass 对应的 java 层对象 (java.lang.Class 类的实例)
      */
     jref new_class_object(jclass *klass);
+
+    /**
+     * 收集额外信息
+     */
+    void collect_extra_info(jclass *klass);
 
     /**
      * 加载数组类型。jvm 要求数组的类加载器和其包裹类型必须是同一个类加载器，

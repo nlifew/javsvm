@@ -4,4 +4,6 @@ add_library(
         gc
         STATIC
         gc_root.cpp
+        gc_thread.cpp
+        safety_point.cpp
 )

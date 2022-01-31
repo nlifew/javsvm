@@ -43,15 +43,15 @@ namespace javsvm
 class gc_root
 {
 public:
-    using ref_map = concurrent_set<gc_root*>;
+    using ref_set = concurrent_set<gc_root*>;
 
-    using field_map = concurrent_set<jref*>;
+    using static_field_set = concurrent_set<jref*>;
 private:
 
     /**
      * 全局 GcRoot 池。所有的 GcRoot 实例都保存在这里，以便 gc 线程遍历
      */
-    static ref_map s_ref_pool;
+    static ref_set s_ref_pool;
 
     /**
      * 静态字段池。所有类的所有静态引用类型的字段都会存放在这里，由类加载器
@@ -59,16 +59,16 @@ private:
      * 虚拟机目前不支持类卸载，每个静态字段的地址都是确定的。为了避免多余的内存寻址，
      * 我们将其设置成 jref*，这样直接取对象就得到了 jref，而不是 jfield.get()
      */
-    static field_map s_field_pool;
+    static static_field_set s_field_pool;
 
     jref m_ptr = nullptr;
 
 public:
-    static inline const ref_map& ref_pool() noexcept { return s_ref_pool; }
-    static inline field_map& field_pool() noexcept { return s_field_pool; }
+    static const ref_set& ref_pool() noexcept { return s_ref_pool; }
+    static static_field_set& static_field_pool() noexcept { return s_field_pool; }
 
 
-    gc_root(jref ref = nullptr) noexcept
+    explicit gc_root(jref ref = nullptr) noexcept
     {
         m_ptr = ref;
         s_ref_pool.add(this);

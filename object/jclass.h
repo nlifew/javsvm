@@ -4,7 +4,6 @@
 #define JAVSVM_JCLASS_H
 
 #include "../utils/global.h"
-#include "../vm/jvm.h"
 #include "jobject.h"
 namespace javsvm
 {
@@ -16,6 +15,12 @@ struct jmethod;
 struct jclass
 {
     /**
+     * 表示这个类重写了 java.lang.Object#finalize() 函数
+     */
+    static constexpr int FLAG_FINALIZE = 1;
+
+
+    /**
      * 使用调用者的类加载器加载新的类
      */
     static jclass *load_class(const char *name);
@@ -25,11 +30,13 @@ struct jclass
      * 获取 java 层的 Class 对象在本地的指针
      * 如果失败返回 nullptr
      */
-     static jclass *of(jref obj) noexcept;
+    static jclass *of(jref obj) noexcept;
 
     const char *name = nullptr;
     u4 access_flag = 0;
     jclass_file *class_file = nullptr;
+
+    u4 flag = 0;
 
     jref object = nullptr;
     jref loader = nullptr;
@@ -40,7 +47,6 @@ struct jclass
     jclass **interfaces = nullptr;
     int interface_num = 0;
 
-    int class_size = 0;
     int object_size = 0;
 
     jfield *field_tables = nullptr;
@@ -52,12 +58,15 @@ struct jclass
     jmethod **vtable = nullptr;
     int vtable_size = 0;
 
-    void *data = nullptr;
+    char *data = nullptr;
 
 
     int parent_tree_size = 0;
     jclass **parent_tree = nullptr;
     jclass *cached_parent = nullptr;
+
+//    jfield **direct_object_fields = nullptr;
+//    int direct_object_field_num = 0;
 
 private:
     /**
