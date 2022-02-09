@@ -7,6 +7,7 @@
 
 #include <unordered_set>
 #include <shared_mutex>
+#include "../utils/numbers.h"
 
 namespace javsvm
 {
@@ -82,6 +83,16 @@ public:
         std::unique_lock<lock_type> lck(m_lock);
         m_bucket.clear();
     }
+
+    template<typename T>
+    bool lookup(const T &t) const noexcept
+    {
+        std::shared_lock lck(m_lock);
+        for (const auto &it : m_bucket) {
+            if (! t(it)) return false;
+        }
+        return true;
+    }
 };
 
 
@@ -100,10 +111,10 @@ private:
     const int m_node_count;
     node_type *m_node;
 
-    inline node_type& node_of(const E& val) const noexcept
+    inline node_type& node_of(const E& e) const noexcept
     {
-        size_t hash = Hash().operator()(val);
-        hash ^= (hash >> 32);
+        size_t val = Hash().operator()(e);
+        size_t hash = numbers::hash(val);
         return m_node[hash & (m_node_count - 1)];
     }
 
@@ -178,6 +189,14 @@ public:
             }
         }
         return true;
+    }
+
+    template<typename T>
+    void lookup(const T &t) const noexcept
+    {
+        for (int i = 0; i < m_node_count; ++i) {
+            if (! m_node[i].lookup(t)) break;
+        }
     }
 };
 

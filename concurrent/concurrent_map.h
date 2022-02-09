@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <shared_mutex>
 #include <type_traits>
+#include "../utils/numbers.h"
 
 namespace javsvm
 {
@@ -111,7 +112,7 @@ public:
     }
 
     template<typename T>
-    bool lookup(T t)
+    bool lookup(const T &t)
     {
         std::shared_lock lck(m_lock);
         for (const auto &it : m_bucket) {
@@ -143,9 +144,8 @@ private:
 
     segment& segment_of(const Key &key) const noexcept
     {
-        size_t hash = Hash().operator()(key);
-        hash ^= (hash >> 32);
-
+        size_t val = Hash().operator()(key);
+        size_t hash = numbers::hash(val);
         return m_segment[hash & (m_segment_count - 1)];
     }
 
@@ -238,7 +238,7 @@ public:
     }
 
     template<typename T>
-    void lookup(T t) const noexcept
+    void lookup(const T &t) const noexcept
     {
         for (int i = 0; i < m_segment_count; i ++) {
             if (! m_segment[i].lookup(t)) {

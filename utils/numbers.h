@@ -77,6 +77,33 @@ struct numbers
         return tmp;
     }
 
+    /**
+     * 这个函数用来对数字进行散列，以期望得到比较平均的值
+     * 设置这个函数是因为 std::hash 在计算纯数字时，会直接返回，不会做进一步的处理.
+     * 大多数情况下这个设计不会有问题，但对于指针做 key 的 concurrent_map，情况就不一样了.
+     * 指针相比于纯数字有个特性，它会对齐到某个内存边界，这就导致指针的低几位经常都是 0,
+     * 这样在访问 segment 时，就会总是访问到同一个 segment，导致多线程性能下降。
+     *
+     * 比如 0x1234567890，0x1234567880, 0x1234567870, 0x1234567860，
+     * 在 segment 数少于 16 时，(ptr & 15) 总是等于 0
+     *
+     * 下面这个仅仅是非常简陋的实现，如果有更好的方案，可以随时修改之。
+     *
+     * @param val 输入的值
+     * @return hash
+     */
+    inline static int hash(size_t val) noexcept
+    {
+        size_t hash = val;
+        hash ^= (val >> 1);
+        hash ^= (val >> 2);
+        hash ^= (val >> 4);
+        hash ^= (val >> 8);
+        hash ^= (val >> 16);
+        hash ^= (val >> 32);
+        return (int) (hash ^ (hash >> 16));
+    }
+
     // template <typename T>
     // static T reverse_endian(T t)
     // {
