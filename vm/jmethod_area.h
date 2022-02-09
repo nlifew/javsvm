@@ -27,6 +27,11 @@ public:
 
     ~jmethod_area();
 
+    /**
+     * 申请一块长度为 len 的内存
+     * @param len 需要的大小，单位是字节。为 0 时返回 nullptr
+     * @return 成功时返回指针，失败退出虚拟机。保证返回的指针对齐到 8 字节
+     */
     void *malloc_bytes(int len);
 
 
@@ -40,6 +45,8 @@ public:
     template<typename T>
     T* calloc_type(int n)
     {
+        if (n == 0) return nullptr;
+
         T* ptr = (T*) malloc_bytes(sizeof(T) * n + sizeof(int));
         return ::new(ptr)T[n];
     }

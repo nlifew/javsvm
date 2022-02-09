@@ -5,6 +5,8 @@
 #include "../object/jclass.h"
 #include "../utils/log.h"
 
+#include <assert.h>
+
 using namespace javsvm;
 
 
@@ -26,8 +28,8 @@ jmethod_area::~jmethod_area()
  */
 void* jmethod_area::malloc_bytes(int bytes)
 {
-    // 需要先把大小按照 4 字节对齐
-    // bytes = ((bytes - 1) | 3) + 1;
+    // 需要先把大小按照 8 字节对齐
+     bytes = ((bytes - 1) | 7) + 1;
 
     if (bytes == 0) {
         return nullptr;
@@ -38,7 +40,12 @@ void* jmethod_area::malloc_bytes(int bytes)
         PLOGE("fatal: failed to malloc %d bytes from jmethod_area, [%d/%d]\n", bytes, end - bytes, m_capacity);
         exit(1);
     }
-    return m_buff + end - bytes;
+    void *result = m_buff + end - bytes;
+
+    // 保证分配出去的指针满足 8 字节对齐
+    assert((((uint64_t) result) & 7) == 0);
+
+    return result;
 }
 //
 //int jmethod_area::save()
