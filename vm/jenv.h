@@ -4,18 +4,15 @@
 #define JAVSVM_JENV_H
 
 #include "jstack.h"
-#include <cstring>
 
 namespace javsvm
 {
-
 class jvm;
 
 class jenv
 {
 private:
-
-    explicit jenv(jvm& vm) noexcept;
+    explicit jenv(jvm *vm) noexcept;
 
     friend class jvm;
 

@@ -94,7 +94,7 @@ public:
 
     int size() const noexcept
     {
-        auto value = m_value.load(std::memory_order_acquire);
+        auto value = m_value.load();
         return (int) (value & 0xFF);
     }
 
@@ -111,7 +111,7 @@ public:
 
             loop_count ++;
 
-            last_value = m_value.load(std::memory_order_acquire);
+            last_value = m_value.load();
             int size = (int) (last_value & 0xFF);
 
             // 如果对象池为空，直接构造新节点
@@ -148,7 +148,7 @@ public:
             loop_count ++;
 
 
-            last_value = m_value.load(std::memory_order_acquire);
+            last_value = m_value.load();
             int size = (int) (last_value & 0xFF);
 
             // 如果缓存池已经满了，销毁掉这个对象
@@ -182,11 +182,7 @@ public:
         int loop_count = 0;
 
         while (true) {
-
-
-            loop_count ++;
-
-            last_value = m_value.load(std::memory_order_acquire);
+            last_value = m_value.load();
             int size = (int) (last_value & 0xFF);
 
             // 如果对象池为空，直接返回
@@ -196,6 +192,7 @@ public:
 
                 return;
             }
+            loop_count ++;
 
             // 不为空，寻找下个节点，并更新数据
             node = (linked_pool_node<T> *) (last_value >> 8);

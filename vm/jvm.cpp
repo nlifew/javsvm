@@ -36,68 +36,113 @@ jvm::jvm() noexcept :
     jni->vm.functions = &jni->interface;
 }
 
+jvm::~jvm() noexcept
+{
+    wait_for();
+}
+
+
 void *jvm::jni() const noexcept
 {
     return &((jni_reserved *) m_jni_reserved)->vm;
 }
 
-jvm &jvm::get() noexcept
-{
-    static jvm m;
-    return m;
-}
 
 
 struct env_wrapper
 {
+    jvm *inited = nullptr;
+    jvm::attach_info attach_info{};
     char buff[sizeof(jenv)]{};
-    bool inited = false;
 };
 
-static inline env_wrapper &get_env(const jvm *) noexcept
-{
-    thread_local env_wrapper w;
-    return w;
-}
 
-jenv *jvm::env(int) const noexcept
+thread_local env_wrapper local_env;
+
+
+jenv *jvm::test() const noexcept
 {
-    auto &e = get_env(this);
-    return e.inited ? (jenv*) e.buff : nullptr;
+    (void) this; // suppress static warning
+    return local_env.inited ? (jenv*) local_env.buff : nullptr;
 }
 
 
 jenv& jvm::env() const noexcept
 {
-    auto &e = get_env(this);
-    if (! e.inited) {
+    (void) this; // suppress static warning
+
+    if (! local_env.inited) {
         LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
         exit(1);
     }
-    return *(jenv*) e.buff;
+    return *(jenv*) local_env.buff;
 }
 
+jvm::attach_info jvm::DEFAULT_ATTACH_INFO = {
+        .is_daemon = false,
+        .vm = nullptr,
+};
 
-jenv& jvm::attach() noexcept
+jenv& jvm::attach(jvm::attach_info &attach_info) noexcept
 {
-    auto &e = get_env(this);
-    if (e.inited) {
+    if (local_env.inited) {
         LOGE("you can call jvm::attach() only once on one thread\n");
         exit(1);
     }
-    new (e.buff) jenv(*this);
-    e.inited = true;
-    return *(jenv*) e.buff;
+    auto *env = new (local_env.buff) jenv(this);
+    local_env.attach_info = attach_info;
+    local_env.inited = this;
+
+    const pthread_t tid = pthread_self();
+
+    std::lock_guard lck(m_mutex);
+    if (attach_info.is_daemon) {
+        // 移除占位 pthread_t
+        m_threads.erase(tid);
+        if (m_threads.empty()) {
+            m_cond.notify_one();
+        }
+    }
+    else {
+        m_threads.insert(tid);
+    }
+    return *env;
 }
 
-void jvm::detach() const noexcept
+
+void jvm::detach() noexcept
 {
-    auto &e = get_env(this);
-    if (! e.inited) {
+    if (! local_env.inited) {
         LOGE("this thread has not attached to a jenv instance, call jvm::attach() before\n");
         exit(1);
     }
-    ((jenv *) e.buff)->~jenv();
-    e.inited = false;
+
+    ((jenv *) local_env.buff)->~jenv();
+    local_env.inited = nullptr;
+
+    if (! local_env.attach_info.is_daemon) {
+        std::lock_guard lck(m_mutex);
+        m_threads.erase(pthread_self());
+        if (m_threads.empty()) {
+            m_cond.notify_one();
+        }
+    }
 }
 
+void jvm::placeholder(pthread_t tid) noexcept
+{
+    std::lock_guard lck(m_mutex);
+    m_threads.insert(tid);
+}
+
+void jvm::wait_for() noexcept
+{
+    if (m_threads.empty()) { // 是线程安全的
+        return;
+    }
+
+    std::unique_lock lck(m_mutex);
+    while (! m_threads.empty()) {
+        m_cond.wait(lck);
+    }
+}

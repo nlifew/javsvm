@@ -63,14 +63,5 @@ add_executable(
 
 target_link_libraries(
         main
-        jni
-        engine
-        classloader
-        object
-        vm
-        concurrent
-        class
-        dllloader
-        utils
-        ${dl-lib}
+        runtime
 )

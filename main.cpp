@@ -4,35 +4,28 @@
 #include <unistd.h>
 
 #include "vm/jvm.h"
-#include "object/jobject.h"
-#include "object/jclass.h"
-#include "object/jfield.h"
-#include "object/jmethod.h"
-#include "object/jarray.h"
-#include "engine/engine.h"
-#include "dll/dll_loader.h"
 
-#include <thread>
-#include <queue>
+using namespace javsvm;
 
-
+/**
+ * main 函数主要逻辑:
+ * a) 解析命令行参数，得到 Main 类的类名
+ * b) 设置 classpath，加载 java/lang/Object 类
+ * c) jvm::get().attach()
+ * d) 绑定 jni 函数
+ * e) 运行 java 代码
+ * f) jvm::get().detach() & jvm::get().wait_for()
+ */
 int main() {
     chdir("..");
     putenv(strdup("CLASSPATH=jre"));
-
     printf("start\n");
-//    jvm &vm = jvm::get();
-//    vm.attach();
+
+    auto &vm = jvm::get();
+    vm.attach();
 
 
-#if 0
-    dll_loader loader;
-    void *dll = loader.load_library("home/whoami/../../../../../../../Users/./././edz/desktop//////main.dylib");
-    auto add = loader.find_symbol<int(*)(int, int)>("add", dll);
-
-    if (add) {
-        printf("call add() %d\n", add(2, 3));
-    }
-#endif
+    vm.detach();
+    vm.wait_for();
     return 0;
 }

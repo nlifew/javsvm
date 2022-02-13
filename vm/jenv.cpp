@@ -18,8 +18,8 @@ struct jni_reserved
     JNIEnv_ env;
 };
 
-jenv::jenv(javsvm::jvm &vm) noexcept:
-    jvm(vm),
+jenv::jenv(javsvm::jvm *vm) noexcept:
+    jvm(*vm),
     thread_id(thread_id_factory.fetch_add(1)),
     m_jni_reserved()
 {
