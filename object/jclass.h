@@ -58,6 +58,9 @@ struct jclass
     jmethod **vtable = nullptr;
     int vtable_size = 0;
 
+    jmethod **itable = nullptr;
+    int itable_size = 0;
+
     char *data = nullptr;
 
 
@@ -95,6 +98,7 @@ public:
     jmethod *get_method(const char *_name, const char *_sig) const noexcept;
     jmethod *get_static_method(const char *_name, const char *_sig) const noexcept;
     jmethod *get_virtual_method(const char *_name, const char *_sig) const noexcept;
+    jmethod *get_interface_method(const char *_name, const char *_sig) const noexcept;
 
     /**
      * 判断后面的对象是否是当前 class 的子类
@@ -134,13 +138,22 @@ public:
 
 
     /**
-     * 检查 <cinit> 函数的执行状态。如果没有执行过，则开始向父类递归地执行;
+     * 检查 <clinit> 函数的执行状态。如果没有执行过，则开始向父类递归地执行;
      * 已经执行过的话不会有任何影响
      * @return 已经执行过返回一个正数，没有执行过且执行完没有异常，返回 0;
      * 失败返回 -1
      */
      [[nodiscard]]
-     int invoke_cinit() noexcept;
+     int invoke_cinit() noexcept
+    {
+        if (cinit == INIT_DONE) {
+            return 1;
+        }
+        if (cinit == INIT_FAILED) {
+            return -1;
+        }
+        return do_invoke_cinit();
+    }
 };
 } // namespace javsvm
 

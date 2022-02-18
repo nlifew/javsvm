@@ -69,34 +69,58 @@ jmethod* jclass::get_method(const char *_name, const char *_sig) const noexcept
     m.name = _name;
     m.sig = _sig;
 
-    for (const jclass *klass = this; klass; klass = klass->super_class) {
-        using cmp_t = int (*)(const void *, const void *);
+    using cmp_t = int (*)(const void *, const void *);
 
-        void *result = bsearch(&m, klass->method_tables,
-                               klass->method_table_size,
-                               sizeof(jmethod),
-                               (cmp_t)jmethod::compare_to);
-        if (result != nullptr) {
-            return (jmethod *)result;
+    // 如果当前类不是接口类，递归查询父类
+    if ((access_flag & jclass_file::ACC_INTERFACE) == 0) {
+        for (const jclass *klass = this; klass; klass = klass->super_class) {
+            void *result = bsearch(&m, klass->method_tables,
+                                   klass->method_table_size,
+                                   sizeof(jmethod),
+                                   (cmp_t)jmethod::compare_to);
+            if (result != nullptr) {
+                return (jmethod *)result;
+            }
         }
     }
 
-    return nullptr;
+    // 查询接口函数表
+    return get_interface_method(_name, _sig);
 }
 
 jmethod* jclass::get_virtual_method(const char *_name, const char *_sig) const noexcept
 {
+    /*
+     * 由于是虚函数表是无序的，我们并不能通过二分查找的方式搜索虚函数表
+     * 至于接口函数表，由于某些虚函数并不属于接口，肯定不行
+     * 所以就剩下两种方式：
+     * 1. 线性遍历 vtable
+     * 2. 递归向父类查找，好处是可以使用二分查找
+     */
+    auto *m = get_method(_name, _sig);
+    if (m != nullptr && m->is_virtual) {
+        return m;
+    }
+    return nullptr;
+}
+
+jmethod *jclass::get_interface_method(const char *_name, const char *_sig) const noexcept
+{
+    // 直接查找接口函数表
     jmethod m, *p_method = &m;
     m.name = _name;
     m.sig = _sig;
 
-    void *result = bsearch(&p_method, vtable, vtable_size, sizeof(jmethod*),
+    void *result = bsearch(&p_method, itable, itable_size, sizeof(jmethod*),
                            [](const void *_p1, const void *_p2) -> int {
-        auto p1 = (jmethod **)_p1;
-        auto p2 = (jmethod **)_p2;
-        return jmethod::compare_to(*p1, *p2);
-    });
-    return result == nullptr ? nullptr : *(jmethod **)result;
+                               auto p1 = (jmethod **)_p1;
+                               auto p2 = (jmethod **)_p2;
+                               return jmethod::compare_to(*p1, *p2);
+                           });
+    if (result != nullptr) {
+        return *(jmethod **) result;
+    }
+    return nullptr;
 }
 
 
@@ -112,12 +136,18 @@ jmethod *jclass::get_static_method(const char *_name, const char *_sig) const no
 
 bool jclass::is_instance(jref ref) noexcept
 {
-    auto ptr = jvm::get().heap.lock(ref);
-    if (ptr == nullptr) {
+    auto ptr = jheap::cast(ref);
+    return ptr != nullptr && is_assign_from(ptr->klass);
+}
+
+bool jclass::is_assign_from(jclass *sub) noexcept
+{
+    if (sub == nullptr) {
         return false;
     }
-    const auto *s = ptr->klass;
-    const auto *t = this;
+
+    const jclass *s = sub;
+    const jclass *t = this;
     if (s == t || s->cached_parent == t) {
         return true;
     }
@@ -134,21 +164,6 @@ bool jclass::is_instance(jref ref) noexcept
     // 遍历 s 的继承树，线性查找 t
     for (int i = 0, z = s->parent_tree_size; i < z; i ++) {
         if (s->parent_tree[i] == t) {
-            ptr->klass->cached_parent = this;
-            return true;
-        }
-    }
-    return false;
-}
-
-bool jclass::is_assign_from(jclass *sub) noexcept
-{
-    if (sub == nullptr) {
-        return false;
-    }
-    const auto pt = sub->parent_tree;
-    for (int i = 0, z = sub->parent_tree_size; i < z; i ++) {
-        if (pt[i] == this) {
             sub->cached_parent = this;
             return true;
         }
@@ -323,71 +338,6 @@ jref jclass::new_instance(jmethod *m, va_list ap) noexcept
 }
 
 
-int jclass::invoke_cinit() noexcept
-{
-//    LOGD("invoke_cinit: start with %s\n", name);
-    if (cinit == INIT_DONE) {
-//        LOGD("invoke_cinit: <cinit> has been invoked, nothing to do\n");
-        return 1;
-    }
-    if (cinit == INIT_FAILED) {
-//        LOGW("invoke_cinit: <cinit> invoke failed\n");
-        return -1;
-    }
-
-
-    LOGD("invoke_cinit: start with %s\n", name);
-
-    // 接下来无非两种状态，正在初始化和尚未初始化。对于前者，常见于多线程操作:
-    // 比如线程 A 在执行 <cinit> 时线程调度出去(或者执行了耗时操作)，线程 B 尝试创建此类的实例，此时
-    // 我们必须阻塞线程 B，直到线程 A 执行完成。还有一种就是父类在 <cinit> 里创建子类的对象时，子类
-    // 先检查父类，也会遇到正在初始化的情况。
-
-    // 先锁住类
-    // NOTE: 正常情况下类对象 object 是绝对不可能为 nullptr 的，但我们也要考虑到 object 和 class 类加载时的特殊情况
-    // java.lang.Object 类在加载时会创建一个 java.lang.Class 的伴随对象，也就是调用 java.lang.Class 的构造函数。
-    // 后者又会调 Object 的 cinit，但 Object 类此时还没有完成初始化，因此锁住类时一定会出错
-    jobject_ptr ptr = jvm::get().heap.lock(object);
-
-
-    LOGD("invoke_cinit: lock on the Class object\n");
-    if (ptr != nullptr) {
-        auto ok = ptr->lock();
-        assert(ok == 0);
-    }
-
-    std::unique_ptr<jclass, void (*) (const jclass *)> lock_guard(this, [](const jclass *clz) {
-        auto ptr = jvm::get().heap.lock(clz->object);
-        if (ptr != nullptr) {
-            auto ok = ptr->unlock();
-            assert(ok == 0);
-        }
-    });
-
-    // double check
-    switch (cinit) {
-        case DOING_INIT: {
-            // 这种情况也就是上面所说的父类调子类。放行
-            LOGD("invoke_cinit: <cinit> is invoking, just take a chance\n");
-            return 1;
-        }
-        case INIT_DONE: {
-            LOGD("invoke_cinit: <cinit> has been invoked, nothing to do\n");
-            return 1;
-        }
-        case INIT_FAILED: {
-            LOGW("invoke_cinit: <cinit> invoke failed\n");
-            return -1;
-        }
-        case NOT_INITED: // nothing to do
-            break;
-    }
-
-    // 不用的指针及时释放
-    ptr.reset();
-    return do_invoke_cinit();
-}
-
 
 static inline int get_constant_value(jclass_attr_constant *attr, jclass_const_pool &pool, jvalue *ret) noexcept
 {
@@ -430,6 +380,56 @@ static inline int get_constant_value(jclass_attr_constant *attr, jclass_const_po
 
 int jclass::do_invoke_cinit() noexcept
 {
+
+    LOGD("invoke_cinit: start with %s\n", name);
+
+    // 接下来无非两种状态，正在初始化和尚未初始化。对于前者，常见于多线程操作:
+    // 比如线程 A 在执行 <clinit> 时线程调度出去(或者执行了耗时操作)，线程 B 尝试创建此类的实例，此时
+    // 我们必须阻塞线程 B，直到线程 A 执行完成。还有一种就是父类在 <clinit> 里创建子类的对象时，子类
+    // 先检查父类，也会遇到正在初始化的情况。
+
+    // 先锁住类
+    // NOTE: 正常情况下类对象 object 是绝对不可能为 nullptr 的，但我们也要考虑到 object 和 class 类加载时的特殊情况
+    // java.lang.Object 类在加载时会创建一个 java.lang.Class 的伴随对象，也就是调用 java.lang.Class 的构造函数。
+    // 后者又会调 Object 的 clinit，但 Object 类此时还没有完成初始化，因此锁住类时一定会出错
+    jobject_ptr ptr = jvm::get().heap.lock(object);
+
+    LOGD("invoke_cinit: lock on the Class object\n");
+    if (ptr != nullptr) {
+        auto ok = ptr->lock();
+        assert(ok == 0);
+    }
+
+    std::unique_ptr<jclass, void (*) (const jclass *)> lock_guard(this, [](const jclass *clz) {
+        auto ptr = jvm::get().heap.lock(clz->object);
+        if (ptr != nullptr) {
+            auto ok = ptr->unlock();
+            assert(ok == 0);
+        }
+    });
+
+    // double check
+    switch (cinit) {
+        case DOING_INIT: {
+            // 这种情况也就是上面所说的父类调子类。放行
+            LOGD("invoke_cinit: <cinit> is invoking, just take a chance\n");
+            return 1;
+        }
+        case INIT_DONE: {
+            LOGD("invoke_cinit: <cinit> has been invoked, nothing to do\n");
+            return 1;
+        }
+        case INIT_FAILED: {
+            LOGW("invoke_cinit: <cinit> invoke failed\n");
+            return -1;
+        }
+        case NOT_INITED: // 走下面的逻辑
+            break;
+    }
+
+    // 不用的指针及时释放
+    ptr.reset();
+
     cinit = DOING_INIT;
 
     // 递归调用父类的

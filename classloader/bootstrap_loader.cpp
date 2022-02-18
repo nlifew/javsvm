@@ -1,3 +1,6 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
+#pragma ide diagnostic ignored "DanglingPointer"
 
 
 #include "bootstrap_loader.h"
@@ -12,10 +15,10 @@
 
 #include <sys/stat.h>
 #include <vector>
-#include <shared_mutex>
 #include <memory>
 #include <unistd.h>
 #include <set>
+
 
 #ifndef _MAX_PATH
 #define _MAX_PATH 255
@@ -372,50 +375,151 @@ void bootstrap_loader::gen_method_table(jclass *klass, jclass_file *cls)
 
     qsort(klass->method_tables, klass->method_table_size, sizeof(jmethod),
           (int(*)(const void*, const void*)) jmethod::compare_to);
-
-    for (int i = 0; i < klass->method_table_size; i ++) {
-        klass->method_tables[i].index_in_table = i;
-    }
 }
 
+
+
 /**
- * 拷贝父类的虚函数表，并将覆盖掉的函数指向自己 
+ * 创建虚函数表和接口函数表
  */
 void bootstrap_loader::copy_super_vtable(jclass *klass)
 {
-    struct Comparator {
+#define IS_ABSTRACT(x) (((x) & jclass_method::ACC_ABSTRACT) != 0)
+    struct Comparator
+    {
         bool operator()(const jmethod *m1, const jmethod *m2) const noexcept {
             return jmethod::compare_to(m1, m2) < 0;
         }
     };
 
-    std::set<jmethod*, Comparator> vtable;
+    if ((klass->access_flag & jclass_file::ACC_INTERFACE) != 0) {
+        /*
+         * 如果这个类是个接口，事实上我们没有必要为其创建虚函数表和接口函数表
+         * 因为在合法的字节码中，来自接口的函数一定是通过 invoke-interface 方式调用的，
+         * 这种方式会在其 *实现类（一定是非抽象类）* 中查询接口函数表，*接口类* 中的虚函数表和接口函数表
+         * 实际上都没有用到。但我们还是选择性地为其创建了接口函数表，仅仅是为了加载非抽象类时能更快一些。
+         *
+         * 需要注意的是，如果子接口和父接口中含有相同的函数，按照以下逻辑逻辑：
+         * 1. 如果子接口和父接口的函数都是抽象的（非 default 接口），子类覆盖父类的
+         * 2. 如果子接口和父接口的函数都不是抽象的（default 接口），子类覆盖父类的
+         * 3. default 接口函数覆盖非 default 接口函数
+         */
+        std::set<jmethod*, Comparator> itable;
+        // 遍历所有的父接口
+        for (int i = 0, z = klass->interface_num; i < z; i ++) {
+            auto *interface = klass->interfaces[i];
+            for (int j = 0, y = interface->itable_size; j < y; j ++) {
+                auto *method = interface->itable[j];
+                auto old = itable.find(method);
+                if (old == itable.end() || IS_ABSTRACT((*old)->access_flag)) {
+                    itable.insert(method);
+                }
+                else {
+                    // 父接口们不可能含有相同的两个 default 函数
+                    assert(IS_ABSTRACT(method->access_flag));
+                }
+            }
+        }
+        // 遍历自己的函数表，寻找虚函数
+        for (int i = 0, z = klass->method_table_size; i < z; i ++) {
+            auto *method = klass->method_tables + i;
+            if (!method->is_virtual) continue;
 
-    jclass *super_class = klass->super_class;
+            auto old = itable.find(method);
+            if (old == itable.end() || IS_ABSTRACT((*old)->access_flag) || ! IS_ABSTRACT(method->access_flag)) {
+                itable.insert(method);
+            }
+        }
+        // 更新 itable
+        int i = 0;
+        klass->itable_size = itable.size();
+        klass->itable = m_allocator.calloc_type<jmethod*>(itable.size());
+        for (const auto &it : itable) {
+            klass->itable[i ++] = it;
+        }
+        return;
+    }
+    /*
+     * 对于非接口类，需要先后处理虚函数表 vtable 和接口函数表 itable
+     * 虚函数表的生成比较简单，就是先拷贝一份父类的虚函数表，然后遍历当前类的函数表，寻找虚函数。
+     * 如果虚函数在父虚函数表中出现过，说明是重载函数，在表中替换掉父类的；反之则添加到虚函数表的最后面。
+     * 需要注意的是，虚函数表是无序的，只是为了 invoke-virtual 时随机访问能相当快。无序也就意味着不能使用
+     * 二分查找的方式加快搜索速度。
+     * 至于接口函数表，基本和接口类相同，只是最后多了一步: 遍历虚函数表，将接口函数表中的相同函数替换掉。
+     * 比如类 ArrayList 继承自 Object，含有 hashCode() 的实现，接口 List 也包含了 hashCode(),
+     * 此时肯定是要用前者替换掉后者的。
+     */
 
-    // 复制从父类继承过来的虚函数表
+    std::set<jmethod*, Comparator> super_vtable;
+    std::vector<jmethod*> vtable;
+
+    // 先将父类的虚函数表放进 set 中，方便快速索引
+    auto *super_class = klass->super_class;
     if (super_class != nullptr) {
-        for (int i = 0, z = super_class->vtable_size; i < z; ++i) {
-            vtable.insert(super_class->vtable[i]);
+        int n = super_class->vtable_size;
+        vtable.reserve(n + klass->method_table_size);
+        for (int i = 0; i < n; i ++) {
+            auto *method = super_class->vtable[i];
+            super_vtable.insert(method);
+            vtable.push_back(method);
         }
     }
 
-    // 遍历所有的虚函数，并添加到虚函数表
-    for (int i = 0, z = klass->method_table_size; i < z; i++) {
-        auto it = klass->method_tables + i;
-        if (! it->is_virtual) {
-            continue;
+    // 遍历函数表，寻找虚函数
+    for (int i = 0, z = klass->method_table_size; i < z; i ++) {
+        auto *method = klass->method_tables + i;
+        if (!method->is_virtual) continue;
+
+        auto old = super_vtable.find(method);
+        if (old == super_vtable.end()) {
+            method->index_in_table = vtable.size();
+            vtable.push_back(method);
         }
-        vtable.insert(it);
+        else {
+            auto idx = (*old)->index_in_table;
+            method->index_in_table = idx;
+            vtable[idx] = method;
+        }
+    }
+    // 更新 vtable
+    klass->vtable_size = vtable.size();
+    klass->vtable = m_allocator.calloc_type<jmethod*>(vtable.size());
+    memcpy(klass->vtable, &vtable[0], sizeof(jmethod*) * vtable.size());
+
+    // 处理 itable
+    std::set<jmethod*, Comparator> itable;
+    // 遍历所有的父接口
+    for (int i = 0, z = klass->interface_num; i < z; i ++) {
+        auto *interface = klass->interfaces[i];
+        for (int j = 0, y = interface->itable_size; j < y; j ++) {
+            auto *method = interface->itable[j];
+            auto old = itable.find(method);
+            if (old == itable.end() || IS_ABSTRACT((*old)->access_flag)) {
+                itable.insert(method);
+            }
+            else {
+                // 父接口们不可能含有相同的两个 default 函数
+                assert(IS_ABSTRACT(method->access_flag));
+            }
+        }
+    }
+    // 遍历虚函数表，替换接口函数表中的同类项
+    for (const auto &it : vtable) {
+        if (itable.find(it) != itable.end()) {
+            itable.insert(it);
+        }
     }
 
-    // 生成新的虚函数表
-    int i = 0, z = (int) vtable.size();
-    klass->vtable_size = z;
-    klass->vtable = m_allocator.calloc_type<jmethod *>(z);
-    for (auto it : vtable) {
-        klass->vtable[i ++] = it;
+    // 更新 itable
+    {
+        int i = 0;
+        klass->itable_size = itable.size();
+        klass->itable = m_allocator.calloc_type<jmethod*>(itable.size());
+        for (const auto &it : itable) {
+            klass->itable[i ++] = it;
+        }
     }
+#undef IS_ABSTRACT
 }
 
 /**
@@ -522,10 +626,6 @@ void bootstrap_loader::layout_static_fields(jclass *klass)
 //};
 
 
-static inline int align_8(int size) noexcept
-{
-    return ((size - 1) | 7) + 1;
-}
 
 /**
  * 遍历 static 中所有的非 static 字段，并按照顺序摆放在一起
@@ -533,7 +633,7 @@ static inline int align_8(int size) noexcept
  */ 
 void bootstrap_loader::layout_direct_fields(jclass *klass)
 {
-    int size = klass->super_class ? align_8(klass->super_class->object_size) : 0;
+    int size = klass->super_class ? align<8>(klass->super_class->object_size) : 0;
 
     if (klass->field_table_size == 0) {
         klass->object_size = size;
@@ -598,12 +698,10 @@ void bootstrap_loader::collect_extra_info(jclass *klass)
         if (field->sig[0] != '[' && field->sig[0] != 'L') {
             continue;
         }
-        if ((field->access_flag & jclass_field::ACC_STATIC) != 0) {
-            gc_root::static_field_pool().add((jref*) (klass->data + field->mem_offset));
+        if ((field->access_flag & jclass_field::ACC_STATIC) == 0) {
+            continue;
         }
-//        else {
-//            queue.push_back(field);
-//        }
+        gc_root::static_field_pool().add((jref*) (klass->data + field->mem_offset));
     }
 //    int z = (int) queue.size();
 //    klass->direct_object_field_num = z;
@@ -819,3 +917,6 @@ jclass *bootstrap_loader::load_array_type(const std::string &type_s)
     LOGI("load array type '%s' finish, result is '%s'\n", type, component_type->name);
     return component_type;
 }
+
+#pragma clang diagnostic pop
+//#pragma clang diagnostic pop
