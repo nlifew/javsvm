@@ -58,17 +58,26 @@ typedef union
     jref        l;
 } jvalue;
 
-    
+template <int size, typename T>
+static inline T align(T in) noexcept
+{
+    static_assert((size & (size - 1)) == 0);
+    return ((in - 1) | (size - 1)) + 1;
+}
+
+
 template <typename T>
 static int _slotof() { return (((sizeof(T) - 1) | 3) + 1) >> 2; }
 
 template <>
- int _slotof<jref>() { return 1; }
+int _slotof<jref>() { return 1; }
 
 template <>
 int _slotof<void>() { return 0; }
 
 #define slotof(T) _slotof<T>()
+
+#define INLINE __attribute__((always_inline))
 }
 
 #endif //JAVSVM_GLOBAL_H

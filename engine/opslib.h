@@ -263,11 +263,7 @@ struct ref_equ
 {
     bool operator()(const jref &a, const jref &b)
     {
-        auto &heap = jvm::get().heap;
-        auto a_ptr = heap.lock(a);
-        auto b_ptr = heap.lock(b);
-        std::atomic_signal_fence(std::memory_order_release);
-        return a_ptr == b_ptr;
+        return jheap::equals(a, b);
     }
 };
 
@@ -275,11 +271,7 @@ struct ref_not_equ
 {
     bool operator()(const jref &a, const jref &b)
     {
-        auto &heap = jvm::get().heap;
-        auto a_ptr = heap.lock(a);
-        auto b_ptr = heap.lock(b);
-        std::atomic_signal_fence(std::memory_order_release);
-        return a_ptr != b_ptr;
+        return ! jheap::equals(a, b);
     }
 };
 
@@ -420,7 +412,7 @@ struct interface_method
 {
     jmethod* operator()(jclass *klass, const char *name, const char *type) const noexcept
     {
-        return klass->get_virtual_method(name, type);
+        return klass->get_interface_method(name, type);
     }
     jvalue operator()(jmethod *m, jargs &args) const noexcept
     {

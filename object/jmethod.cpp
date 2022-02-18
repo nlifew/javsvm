@@ -145,7 +145,7 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
     if ((access_flag & jclass_method::ACC_SYNCHRONIZED) != 0
             /* || strcmp(method->name, "<cinit>") == 0 */) { // [1]
 
-        // [1]. 不处理 <cinit>，jclass 自己会处理
+        // [1]. 不处理 <clinit>，jclass 自己会处理
         synchronized = true;
         jvm::get().heap.lock(ref)->lock();
     }
@@ -185,7 +185,7 @@ jvalue jmethod::invoke_static(jargs &args)
 
 jvalue jmethod::invoke_special(jref ref, jargs &args)
 {
-    auto object = jvm::get().heap.lock(ref);
+    auto object = jheap::cast(ref);
 
     // 检查是否是空指针对象
     if (object == nullptr) {
@@ -193,16 +193,13 @@ jvalue jmethod::invoke_special(jref ref, jargs &args)
         exit(1);
     }
 
-    // 释放 jobject 指针
-    object.reset();
-
     return lock_and_run(this, ref, args);
 }
 
 
 jvalue jmethod::invoke_virtual(jref ref, jargs &args) const
 {
-    auto object = jvm::get().heap.lock(ref);
+    auto object = jheap::cast(ref);
 
     // 检查是否是空指针对象
     if (object == nullptr) {
@@ -211,10 +208,9 @@ jvalue jmethod::invoke_virtual(jref ref, jargs &args) const
     }
 
     // 获取函数的真正实现
+    assert(index_in_table >= 0 && index_in_table <= object->klass->vtable_size);
     auto _this = object->klass->vtable[index_in_table];
-
-    // 释放 jobject 指针
-    object.reset();
+    assert(jmethod::compare_to(this, _this) == 0);
 
     return lock_and_run(_this, ref, args);
 }
@@ -223,8 +219,7 @@ jvalue jmethod::invoke_virtual(jref ref, jargs &args) const
 jvalue jmethod::invoke_interface(jref ref, jargs &args)
 {
     // 锁住堆内存，获取真实的 jobject 指针
-    auto object = jvm::get().heap.lock(ref);
-
+    auto object = jheap::cast(ref);
 
     // 检查是否是空指针对象
     if (object == nullptr) {
@@ -235,10 +230,8 @@ jvalue jmethod::invoke_interface(jref ref, jargs &args)
     // 获取函数的真正实现
     jmethod *_this = object->klass == clazz ?
             this :
-            object->klass->get_virtual_method(name, sig);
-
-    // 释放 jobject 指针
-    object.reset();
+            object->klass->get_interface_method(name, sig);
+    assert(jmethod::compare_to(this, _this) == 0);
 
     return lock_and_run(_this, ref, args);
 }
