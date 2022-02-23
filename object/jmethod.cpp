@@ -176,7 +176,7 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
 
 jvalue jmethod::invoke_static(jargs &args)
 {
-    if (clazz->invoke_cinit() < 0) {
+    if (clazz->invoke_clinit() < 0) {
         return { 0 };
     }
     return lock_and_run(this, clazz->object, args);
