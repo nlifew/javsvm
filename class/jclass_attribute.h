@@ -21,7 +21,7 @@ struct jclass_attribute
     static jclass_attribute* read_from(input_stream&, jclass_const_pool&);
 
     template <typename T>
-    T* cast()
+    inline T* cast() const noexcept
     {
         auto utf8 = pool->cast<jclass_const_utf8>(attribute_name_index);
         return utf8 && strcmp((char *)utf8->bytes, T::NAME) == 0 ? (T *)this : nullptr;

@@ -468,9 +468,10 @@ static inline void invoke_method(jstack_frame &frame,
     jmethod *m = get_method<Method>(idx, pool);
     jargs args(frame.operand_stack -= m->args_slot);
 
+    frame.operand_ref_stack -= m->args_slot;
+
     jvalue val = Method().operator()(m, args);
 
-//    frame.operand_stack -= m->args_slot;
 
     switch (m->return_slot) {
         case 0: break;

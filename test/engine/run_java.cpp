@@ -3,6 +3,7 @@
 //
 #include "vm/jvm.h"
 #include "object/jclass.h"
+#include "object/jmethod.h"
 #include "engine/engine.h"
 #include "utils/log.h"
 
@@ -27,7 +28,7 @@ static void sort(jmethod *method)
     *(jref*) (args + 3) = nullptr;
 
     jargs args_w(args);
-    run_java(method, nullptr, args_w);
+    method->invoke_static(args_w);
 
     memset(array_int, 0, sizeof(int) * 10);
     vm.array.get_array_region(array, 0, 10, array_int);

@@ -36,7 +36,7 @@ static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_att
  */ 
 jvalue javsvm::run_java(jmethod *me, jref, jargs &args)
 {
-    jvalue result = {0};
+    jvalue result;
 
     // 创建栈帧并初始化
     jstack &stack = jvm::get().env().stack;
@@ -101,15 +101,15 @@ loop:
                 frame.pc += 1;
                 break;
             case bipush: {
-                u1 val = code.code[frame.pc + 1];
-                frame.push_param(val);
+                int val = code.code[frame.pc + 1];
+                frame.push_param((jbyte)(val & 0xFF));
                 frame.pc += 2;
                 break;
             }
             case sipush: {
-                u2 val = code.code[frame.pc + 1] << 8;
+                int val = code.code[frame.pc + 1] << 8;
                 val |= code.code[frame.pc + 2];
-                frame.push_param(val);
+                frame.push_param((jshort) (val & 0xFFFF));
                 frame.pc += 3;
                 break;
             }
@@ -128,20 +128,22 @@ loop:
                 break;
             }
             case iload: 
-            case fload: 
+            case fload: {
+                int idx = code.code[frame.pc + 1];
+                frame.load_param<jint>(idx);
+                frame.pc += 2;
+                break;
+            }
             case aload: {
                 int idx = code.code[frame.pc + 1];
-                frame.operand_stack[0] = frame.variable_table[idx];
-                frame.operand_stack += 1;
+                frame.load_param<jref>(idx);
                 frame.pc += 2;
                 break;
             }
             case lload:
             case dload: {
                 int idx = code.code[frame.pc + 1];
-                frame.operand_stack[0] = frame.variable_table[idx];
-                frame.operand_stack[1] = frame.variable_table[idx + 1];
-                frame.operand_stack += 2;
+                frame.load_param<jlong>(idx);
                 frame.pc += 2;
                 break;
             }
@@ -149,42 +151,35 @@ loop:
             case iload_1:
             case iload_2:
             case iload_3:
-                frame.operand_stack[0] = frame.variable_table[op - 26];
-                frame.operand_stack += 1;
+                frame.load_param<jint>(op - 26);
                 frame.pc += 1;
                 break;
             case lload_0:
             case lload_1:
             case lload_2:
             case lload_3:
-                frame.operand_stack[0] = frame.variable_table[op - 30];
-                frame.operand_stack[1] = frame.variable_table[op - 29];
-                frame.operand_stack += 2;
+                frame.load_param<jlong>(op - 30);
                 frame.pc += 1;
                 break;
             case fload_0:
             case fload_1:
             case fload_2:
             case fload_3:
-                frame.operand_stack[0] = frame.variable_table[op - 34];
-                frame.operand_stack += 1;
+                frame.load_param<jfloat>(op - 34);
                 frame.pc += 1;
                 break;
             case dload_0:
             case dload_1:
             case dload_2:
             case dload_3:
-                frame.operand_stack[0] = frame.variable_table[op - 38];
-                frame.operand_stack[1] = frame.variable_table[op - 37];
-                frame.operand_stack += 2;
+                frame.load_param<jdouble>(op - 38);
                 frame.pc += 1;
                 break;
             case aload_0:
             case aload_1:
             case aload_2:
             case aload_3:
-                frame.operand_stack[0] = frame.variable_table[op - 42];
-                frame.operand_stack += 1;
+                frame.load_param<jref>(op - 42);
                 frame.pc += 1;
                 break;
 
@@ -198,20 +193,22 @@ loop:
             case saload: getT<jshort>(frame); break;
 
             case istore: 
-            case fstore: 
+            case fstore: {
+                int idx = code.code[frame.pc + 1];
+                frame.store_param<jint>(idx);
+                frame.pc += 2;
+                break;
+            }
             case astore: {
                 int idx = code.code[frame.pc + 1];
-                frame.variable_table[idx] = frame.operand_stack[-1];
-                frame.operand_stack -= 1;
+                frame.store_param<jref>(idx);
                 frame.pc += 2;
                 break;
             }
             case lstore: 
             case dstore: {
                 int idx = code.code[frame.pc + 1];
-                frame.variable_table[idx] = frame.operand_stack[-2];
-                frame.variable_table[idx + 1] = frame.operand_stack[-1];
-                frame.operand_stack -= 2;
+                frame.store_param<jlong>(idx);
                 frame.pc += 2;
                 break;
             }
@@ -219,42 +216,35 @@ loop:
             case istore_1:
             case istore_2:
             case istore_3:
-                frame.variable_table[op - 59] = frame.operand_stack[-1];
-                frame.operand_stack -= 1;
+                frame.store_param<jint>(op - 59);
                 frame.pc += 1;
                 break;
             case lstore_0:
             case lstore_1:
             case lstore_2:
             case lstore_3:
-                frame.variable_table[op - 63] = frame.operand_stack[-2];
-                frame.variable_table[op - 62] = frame.operand_stack[-1];
-                frame.operand_stack -= 2;
+                frame.store_param<jlong>(op - 63);
                 frame.pc += 1;
                 break;
             case fstore_0:
             case fstore_1:
             case fstore_2:
             case fstore_3:
-                frame.variable_table[op - 67] = frame.operand_stack[-1];
-                frame.operand_stack -= 1;
+                frame.store_param<jfloat>(op - 67);
                 frame.pc += 1;
                 break;
             case dstore_0:
             case dstore_1:
             case dstore_2:
             case dstore_3:
-                frame.variable_table[op - 71] = frame.operand_stack[-2];
-                frame.variable_table[op - 70] = frame.operand_stack[-1];
-                frame.operand_stack -= 2;
+                frame.store_param<jdouble>(op - 71);
                 frame.pc += 1;
                 break;
             case astore_0:
             case astore_1:
             case astore_2:
             case astore_3:
-                frame.variable_table[op - 75] = frame.operand_stack[-1];
-                frame.operand_stack -= 1;
+                frame.store_param<jref>(op - 75);
                 frame.pc += 1;
                 break;
 
@@ -269,37 +259,52 @@ loop:
             case pop:
             case pop2:
                 frame.operand_stack -= op - 86;
+                frame.operand_ref_stack -= op - 86;
                 frame.pc += 1;
                 break;
             case dup_x2:
                 frame.operand_stack[2] = frame.operand_stack[-1];
+                frame.operand_ref_stack[2] = frame.operand_ref_stack[-1];
                 [[fallthrough]];
             case dup_x1:
                 frame.operand_stack[1] = frame.operand_stack[-1];
+                frame.operand_ref_stack[1] = frame.operand_ref_stack[-1];
                 [[fallthrough]];
             case dup:
                 frame.operand_stack[0] = frame.operand_stack[-1];
+                frame.operand_ref_stack[0] = frame.operand_ref_stack[-1];
                 frame.operand_stack += op - 88;
+                frame.operand_ref_stack += op - 88;
                 frame.pc += 1;
                 break;
             case dup2_x2:
                 frame.operand_stack[4] = frame.operand_stack[-2];
                 frame.operand_stack[5] = frame.operand_stack[-1];
+                frame.operand_ref_stack[4] = frame.operand_ref_stack[-2];
+                frame.operand_ref_stack[5] = frame.operand_ref_stack[-1];
                 [[fallthrough]];
             case dup2_x1:
                 frame.operand_stack[2] = frame.operand_stack[-2];
                 frame.operand_stack[3] = frame.operand_stack[-1];
+                frame.operand_ref_stack[2] = frame.operand_ref_stack[-2];
+                frame.operand_ref_stack[3] = frame.operand_ref_stack[-1];
                 [[fallthrough]];
             case dup2:
                 frame.operand_stack[0] = frame.operand_stack[-2];
                 frame.operand_stack[1] = frame.operand_stack[-1];
+                frame.operand_ref_stack[0] = frame.operand_ref_stack[-2];
+                frame.operand_ref_stack[1] = frame.operand_ref_stack[-1];
                 frame.operand_stack += (op - 91) << 1;
+                frame.operand_ref_stack += (op - 91) << 1;
                 frame.pc += 1;
                 break;
             case swap: {
                 slot_t _swap = frame.operand_stack[-1];
                 frame.operand_stack[-1] = frame.operand_stack[-2];
                 frame.operand_stack[-2] = _swap;
+                u1 _swap2 = frame.operand_ref_stack[-1];
+                frame.operand_ref_stack[-1] = frame.operand_ref_stack[-2];
+                frame.operand_ref_stack[-2] = _swap2;
                 frame.pc += 1;
                 break;
             }
@@ -427,7 +432,7 @@ loop:
             case freturn: result.f = frame.pop_param<jfloat>(); goto finally;
             case dreturn: result.d = frame.pop_param<jdouble>(); goto finally;
             case areturn: result.l = frame.pop_param<jref>(); goto finally;
-            case _return: goto finally;
+            case _return: result.j = 0; goto finally;
 
             // 下面的指令不需要加入空检查和类初始化检查的逻辑，jfield 和 jmethod 中会有真实的逻辑
             case getstatic:
@@ -490,7 +495,7 @@ loop:
 
             case monitorenter: {
                 jref ref = frame.pop_param<jref>();
-                auto ptr = jvm::get().heap.lock(ref);
+                auto ptr = jheap::cast(ref);
                 if (ptr == nullptr) {
                     throw_exp("java/lang/NullPointerException", "monitorenter");
                 }
@@ -502,7 +507,7 @@ loop:
             }
             case monitorexit: {
                 jref ref = frame.pop_param<jref>();
-                auto ptr = jvm::get().heap.lock(ref);
+                auto ptr = jheap::cast(ref);
                 if (ptr == nullptr) {
                     throw_exp("java/lang/NullPointerException", "monitorenter");
                 }
@@ -529,7 +534,9 @@ _catch:
         // 没有异常发生，说明当前函数并不支持处理该异常，直接返回
         goto finally;
     }
-    frame.operand_stack = frame.operand_stack_orig;
+    // 清空操作数栈
+    frame.reset_operand_stack();
+
     frame.pc = frame.exp_handler_pc;
     frame.push_param<jref>(frame.exp);
     frame.exp_handler_pc = 0;
