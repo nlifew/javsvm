@@ -6,9 +6,8 @@
 #include <cstdio>
 
 extern "C"
-void calljni64(const void *addr, int ret_type, void *ret,
-               const int64_t *x, int stack_len, const void *stack,
-               int fargc, const int *fargctl, const uint64_t *fargv);
+int64_t calljni64(const void *addr, int ret_type, const int64_t *x,
+               double *f, int stack_len, const void *stack);
 
 extern "C"
 double func(char ch, short st, int in, int64_t l, float f, double d,
@@ -26,13 +25,25 @@ double func(char ch, short st, int in, int64_t l, float f, double d,
 #endif
 }
 
+static double f2d(float f) noexcept
+{
+    double d;
+    *(float *) &d = f;
+    return d;
+}
 
 
 int main(int argc, const char *argv[])
 {
 
-    int64_t x[] = {
+    int64_t x[8] = {
             1, 2, 3, 4, 5, 6, 7, 8,
+    };
+    double d[16] = {
+            f2d(1.0F), 0.9, f2d(1.1F), 0.8,
+            f2d(1.2F), 0.7, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0
     };
 
     struct {
@@ -42,26 +53,14 @@ int main(int argc, const char *argv[])
         int64_t l = 12;
     } arg;
 
-    int fargctl[] = {
-            0, 1, 0, 1, 0, 1
-    };
-    uint64_t fargv[6];
-    *(float *) (fargv + 0) = 1.0F;
-    *(double *) (fargv + 1) = 0.9;
-    *(float *) (fargv + 2) = 1.1F;
-    *(double *) (fargv + 3) = 0.8;
-    *(float *) (fargv + 4) = 1.2F;
-    *(double *) (fargv + 5) = 0.7;
+     int64_t ret_buff = calljni64(
+             (void*) &func, 3,
+              x, d, sizeof(arg), &arg);
 
-    double ret = 0;
-    calljni64((void*) &func, 3, &ret,
-              x, sizeof(arg), &arg,
-              sizeof(fargv) / sizeof(fargv[0]), fargctl, fargv);
-
-    double a = ret;
+    double a = *(double *) &ret_buff;
     double b = func(1, 2, 3, 4, 1.0F, 0.9,
                     5, 6, 7, 8, 1.1F, 0.8,
                     9, 10, 11, 12, 1.2F, 0.7);
 
-    printf("%d\n", a == b);
+    printf("%f, %f, %d\n", a, b, a == b);
 }
