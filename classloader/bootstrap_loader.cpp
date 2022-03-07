@@ -1,6 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "misc-no-recursion"
-#pragma ide diagnostic ignored "DanglingPointer"
 
 
 #include "bootstrap_loader.h"
@@ -26,6 +23,9 @@
 
 using namespace javsvm;
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
+#pragma ide diagnostic ignored "DanglingPointer"
 
 
 bootstrap_loader::bootstrap_loader(jvm &mem) noexcept :
@@ -482,9 +482,12 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
         }
     }
     // 更新 vtable
-    klass->vtable_size = vtable.size();
-    klass->vtable = m_allocator.calloc_type<jmethod*>(vtable.size());
-    memcpy(klass->vtable, &vtable[0], sizeof(jmethod*) * vtable.size());
+    {
+        int z = (int) vtable.size();
+        klass->vtable_size = z;
+        klass->vtable = m_allocator.calloc_type<jmethod*>(z);
+        memcpy(klass->vtable, &vtable[0], sizeof(jmethod*) * z);
+    }
 
     // 处理 itable
     std::set<jmethod*, Comparator> itable;
@@ -512,9 +515,9 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
 
     // 更新 itable
     {
-        int i = 0;
-        klass->itable_size = itable.size();
-        klass->itable = m_allocator.calloc_type<jmethod*>(itable.size());
+        int i = 0, z = (int) itable.size();
+        klass->itable_size = z;
+        klass->itable = m_allocator.calloc_type<jmethod*>(z);
         for (const auto &it : itable) {
             klass->itable[i ++] = it;
         }
@@ -688,32 +691,57 @@ void bootstrap_loader::layout_direct_fields(jclass *klass)
     klass->object_size = size;
 }
 
-void bootstrap_loader::collect_extra_info(jclass *klass)
+
+static inline jmethod* find_finalize(jclass *klass) noexcept
 {
-    // 遍历所有的字段，收集引用类型的字段
-//    std::vector<jfield*> queue;
+    jmethod m = { .name = "finalize", .sig = "()V" };
+    using cmp_t = int(*)(const void*, const void*);
+    return (jmethod *) bsearch(&m,klass->method_tables,
+                          klass->method_table_size,sizeof(jmethod),
+                          (cmp_t) jmethod::compare_to);
+}
+
+void bootstrap_loader::collect_extra_info(jclass *klass) noexcept
+{
+    // 虚拟机应当知道对象的哪个位置存放着引用
+    std::vector<int> ref_table;
+    ref_table.reserve(klass->field_table_size);
 
     for (int i = 0, z = klass->field_table_size; i < z; i ++) {
         auto *field = klass->field_tables + i;
-        if (field->sig[0] != '[' && field->sig[0] != 'L') {
+        if (field->sig[0] != 'L' && field->sig[0] != '[') {
             continue;
         }
         if ((field->access_flag & jclass_field::ACC_STATIC) == 0) {
-            continue;
+            ref_table.push_back(field->mem_offset);
         }
-        gc_root::static_field_pool().add((jref*) (klass->data + field->mem_offset));
+        else {
+            // 静态字段作为 GcRoot
+            gc_root::static_field_pool.add((jref*) (klass->data + field->mem_offset));
+        }
     }
-//    int z = (int) queue.size();
-//    klass->direct_object_field_num = z;
-//    klass->direct_object_fields = m_allocator.calloc_type<jfield*>(z);
-//    for (int i = 0; i < z; ++i) {
-//        klass->direct_object_fields[i] = queue[i];
-//    }
+    {
+        int z = (int) ref_table.size();
+        klass->ref_tables = m_allocator.calloc_type<int>(z);
+        klass->ref_table_size = z;
+        memcpy(klass->ref_tables, &ref_table[0], z * sizeof(int));
+    }
 
-    // finalize()
-    auto *finalize = klass->get_virtual_method("finalize", "()V");
-    if (finalize != nullptr && strcmp(finalize->clazz->name, "java/lang/Object") != 0) {
-        klass->flag |= jclass::FLAG_FINALIZE;
+    // 判断此类是否重写了 Ljava/lang/Object->finalize()V,
+    // 堆和 gc 需要这个标志做特殊处理
+    if ((klass->access_flag & jclass_file::ACC_ABSTRACT) != 0) {
+        jclass *super = klass->super_class;
+        if (super == nullptr) {
+            // nothing to do
+        }
+        else if ((super->access_flag & jclass_file::ACC_FINALIZE) != 0) {
+            // 父类重写了，子类理所当然也要重写
+            klass->access_flag |= jclass_file::ACC_FINALIZE;
+        }
+        else if (find_finalize(klass) != nullptr) {
+            // 如果函数表里找到了 finalize(), 添加 flag
+            klass->access_flag |= jclass_file::ACC_FINALIZE;
+        }
     }
 }
 
@@ -830,6 +858,7 @@ jclass* bootstrap_loader::create_primitive_type(const char *type)
 
     auto *klass = m_allocator.calloc_type<jclass>();
     klass->name = name;
+    klass->clinit = jclass::INIT_DONE;
     klass->access_flag = jclass_file::ACC_PUBLIC | jclass_file::ACC_ABSTRACT | jclass_file::ACC_FINAL;
     klass->object = holder.java_lang_Class->new_instance(holder.java_lang_Class_init, (jlong) klass);
 
@@ -896,6 +925,7 @@ jclass *bootstrap_loader::load_array_type(const std::string &type_s)
         auto *klass = create_primitive_type(type + i);
         klass->super_class = holder.java_lang_Object;
         klass->component_type = component_type;
+        klass->clinit = jclass::INIT_DONE;
 
         // 数组类型要实现 java.io.Serializable 和 java.lang.Cloneable 接口
         // 但不需要真正创建 jmethod
@@ -919,4 +949,3 @@ jclass *bootstrap_loader::load_array_type(const std::string &type_s)
 }
 
 #pragma clang diagnostic pop
-//#pragma clang diagnostic pop

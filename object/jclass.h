@@ -15,12 +15,6 @@ struct jmethod;
 struct jclass
 {
     /**
-     * 表示这个类重写了 java.lang.Object#finalize() 函数
-     */
-    static constexpr int FLAG_FINALIZE = 1;
-
-
-    /**
      * 使用调用者的类加载器加载新的类
      */
     static jclass *load_class(const char *name);
@@ -36,8 +30,6 @@ struct jclass
     u4 access_flag = 0;
     jclass_file *class_file = nullptr;
 
-    u4 flag = 0;
-
     jref object = nullptr;
     jref loader = nullptr;
 
@@ -51,6 +43,9 @@ struct jclass
 
     jfield *field_tables = nullptr;
     int field_table_size = 0;
+
+    int *ref_tables = nullptr;
+    int ref_table_size = 0;
 
     jmethod *method_tables = nullptr;
     int method_table_size = 0;
@@ -71,25 +66,25 @@ struct jclass
 //    jfield **direct_object_fields = nullptr;
 //    int direct_object_field_num = 0;
 
-private:
+
     /**
-     * 表示 static 块，即 <cinit> 函数的执行状态。目前分为 3 种，尚未初始化，正在初始化，初始化完成，初始化失败
+     * 表示 static 块，即 <clinit> 函数的执行状态。目前分为 3 种，尚未初始化，正在初始化，初始化完成，初始化失败
      *
-     * 根据虚拟机规范，在执行以下字节码前，必须先检查类的状态，保证 <cinit> 已经 *正确* 执行过
+     * 根据虚拟机规范，在执行以下字节码前，必须先检查类的状态，保证 <clinit> 已经 *正确* 执行过
      * new, getstatic, putstatic, invokestatic
-     * 调用者不应该直接访问 cinit 枚举类或 cinit 字段，而是通过检查 invoke_cinit() 的返回值判断是否成功。
+     * 调用者不应该直接访问 clinit 枚举类或 clinit 字段，而是通过检查 invoke_clinit() 的返回值判断是否成功。
      * 一旦失败，虚拟机应该尽快走异常逻辑。
      */
-    enum cinit {
+    enum clinit_t {
         NOT_INITED = 0,
         DOING_INIT = 1,
         INIT_DONE = 2,
         INIT_FAILED = -1,
     };
 
-    volatile enum cinit cinit = NOT_INITED;
-
-    int do_invoke_cinit() noexcept;
+    volatile enum clinit_t clinit = NOT_INITED;
+private:
+    int do_invoke_clinit() noexcept;
 
 public:
     jfield *get_field(const char *_name, const char *_sig) const noexcept;
@@ -108,12 +103,12 @@ public:
     /**
      * 判断后面的类是否是当前 class 的子类
      */
-     bool is_assign_from(jclass *sub) noexcept;
+    bool is_assign_from(jclass *sub) noexcept;
 
-     /**
-      * 分配内存，创建对象，但不执行构造函数
-      * @return jref
-      */
+    /**
+     * 分配内存，创建对象，但不执行构造函数
+     * @return jref
+     */
     [[nodiscard]]
     jref new_instance() noexcept;
 
@@ -143,16 +138,16 @@ public:
      * @return 已经执行过返回一个正数，没有执行过且执行完没有异常，返回 0;
      * 失败返回 -1
      */
-     [[nodiscard]]
-     int invoke_cinit() noexcept
+    [[nodiscard]]
+    int invoke_clinit() noexcept
     {
-        if (cinit == INIT_DONE) {
+        if (clinit == INIT_DONE) {
             return 1;
         }
-        if (cinit == INIT_FAILED) {
+        if (clinit == INIT_FAILED) {
             return -1;
         }
-        return do_invoke_cinit();
+        return do_invoke_clinit();
     }
 };
 } // namespace javsvm

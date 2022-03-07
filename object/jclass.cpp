@@ -207,7 +207,7 @@ jclass *jclass::load_class(const char *name)
     }
     // 找到栈顶的类的加载器
     auto loader = stack_frame->method->clazz->loader;
-    auto loader_ptr = vm.heap.lock(loader);
+    auto loader_ptr = jheap::cast(loader);
 
     // 如果栈顶函数的类加载器为 null，使用系统类加载器
     if (loader_ptr == nullptr) {
@@ -217,7 +217,7 @@ jclass *jclass::load_class(const char *name)
     if (java_lang_ClassLoader_loadClass == nullptr) {
         java_lang_ClassLoader_loadClass = loader_ptr->klass->get_virtual_method("findClass", "(Ljava/lang/String;)Ljava/lang/Class;");
     }
-    loader_ptr.reset(); // 不用的指针及时释放
+//    loader_ptr.reset(); // 不用的指针及时释放
 
     // 走到这里需要调用 java 层的 Class<?> ClassLoader.loadClass(String) 函数
     slot_t buff[2];
@@ -229,7 +229,7 @@ jclass *jclass::load_class(const char *name)
     jargs args(buff);
     jvalue val = java_lang_ClassLoader_loadClass->invoke_virtual(loader, args);
 
-    auto class_ptr = vm.heap.lock(val.l);
+    auto class_ptr = jheap::cast(val.l);
     if (class_ptr == nullptr) {
         // 加载失败了，直接返回
         return nullptr;
@@ -247,7 +247,7 @@ jclass *jclass::load_class(const char *name)
 
 jref jclass::new_instance() noexcept
 {
-    if (invoke_cinit() < 0) {
+    if (invoke_clinit() < 0) {
         return nullptr;
     }
 
@@ -372,16 +372,16 @@ static inline int get_constant_value(jclass_attr_constant *attr, jclass_const_po
             return 0;
         }
         default:
-            LOGD("get_constant_value: ignore unknown const_value_tag %d\n", const_value->tag);
-            return -1;
+            LOGE("get_constant_value: ignore unknown const_value_tag %d\n", const_value->tag);
+            exit(1);
     }
 }
 
 
-int jclass::do_invoke_cinit() noexcept
+int jclass::do_invoke_clinit() noexcept
 {
 
-    LOGD("invoke_cinit: start with %s\n", name);
+//    LOGD("invoke_clinit: start with %s\n", name);
 
     // 接下来无非两种状态，正在初始化和尚未初始化。对于前者，常见于多线程操作:
     // 比如线程 A 在执行 <clinit> 时线程调度出去(或者执行了耗时操作)，线程 B 尝试创建此类的实例，此时
@@ -392,74 +392,62 @@ int jclass::do_invoke_cinit() noexcept
     // NOTE: 正常情况下类对象 object 是绝对不可能为 nullptr 的，但我们也要考虑到 object 和 class 类加载时的特殊情况
     // java.lang.Object 类在加载时会创建一个 java.lang.Class 的伴随对象，也就是调用 java.lang.Class 的构造函数。
     // 后者又会调 Object 的 clinit，但 Object 类此时还没有完成初始化，因此锁住类时一定会出错
-    jobject_ptr ptr = jvm::get().heap.lock(object);
+    jobject *ptr = jheap::cast(object);
 
-    LOGD("invoke_cinit: lock on the Class object\n");
+//    LOGD("invoke_clinit: lock on the Class object\n");
     if (ptr != nullptr) {
         auto ok = ptr->lock();
         assert(ok == 0);
     }
 
-    std::unique_ptr<jclass, void (*) (const jclass *)> lock_guard(this, [](const jclass *clz) {
-        auto ptr = jvm::get().heap.lock(clz->object);
-        if (ptr != nullptr) {
-            auto ok = ptr->unlock();
-            assert(ok == 0);
-        }
-    });
-
     // double check
-    switch (cinit) {
+    switch (clinit) {
         case DOING_INIT: {
             // 这种情况也就是上面所说的父类调子类。放行
-            LOGD("invoke_cinit: <cinit> is invoking, just take a chance\n");
+//            LOGD("invoke_clinit: <clinit> is invoking, just take a chance\n");
             return 1;
         }
         case INIT_DONE: {
-            LOGD("invoke_cinit: <cinit> has been invoked, nothing to do\n");
+//            LOGD("invoke_clinit: <clinit> has been invoked, nothing to do\n");
             return 1;
         }
         case INIT_FAILED: {
-            LOGW("invoke_cinit: <cinit> invoke failed\n");
+//            LOGW("invoke_clinit: <clinit> invoke failed\n");
             return -1;
         }
         case NOT_INITED: // 走下面的逻辑
             break;
     }
 
-    // 不用的指针及时释放
-    ptr.reset();
-
-    cinit = DOING_INIT;
+    clinit = DOING_INIT;
 
     // 递归调用父类的
     for (jclass *i = super_class; i; i = i->super_class) {
-        LOGD("invoke_cinit: super class %s\n", i->name);
-        if (i->invoke_cinit() < 0) {
-            LOGE("invoke_cinit: something bad occurred\n");
-            cinit = INIT_FAILED;
+//        LOGD("invoke_clinit: super class %s\n", i->name);
+        if (i->invoke_clinit() < 0) {
+//            LOGE("invoke_clinit: something bad occurred\n");
+            clinit = INIT_FAILED;
             return -1;
         }
     }
     // 接口类
     for (int i = 0; i < interface_num; i ++) {
         auto &interface = interfaces[i];
-        LOGD("invoke_cinit: interface class %s\n", interface->name);
-        if (interface->invoke_cinit() < 0) {
-            LOGE("invoke_cinit: something bad occurred\n");
-            cinit = INIT_FAILED;
+//        LOGD("invoke_clinit: interface class %s\n", interface->name);
+        if (interface->invoke_clinit() < 0) {
+//            LOGE("invoke_clinit: something bad occurred\n");
+            clinit = INIT_FAILED;
             return -1;
         }
     }
 
     // 处理常量字段
-    LOGD("invoke_cinit: layout constant fields: %d\n", field_table_size);
+//    LOGD("invoke_clinit: layout constant fields: %d\n", field_table_size);
     jclass_const_pool &pool = class_file->constant_pool;
     for (int i = 0; i < field_table_size; i++) {
         jfield *field = field_tables + i;
         jclass_field *src = field->orig;
 
-        LOGD("invoke_cinit: layout constant fields: %s\n", field->name);
         jvalue val;
 
         for (int j = 0, z = src->attributes_count; j < z; j++) {
@@ -467,39 +455,38 @@ int jclass::do_invoke_cinit() noexcept
             if (attr == nullptr) {
                 continue;
             }
-            if (get_constant_value(attr, pool, &val) == 0) {
-                field->set(nullptr, val);
-            }
+//            LOGD("invoke_clinit: layout constant fields: %s\n", field->name);
+            field->set(nullptr, val);
         }
     }
 
     // 创建常量有可能失败，检查下
     if (check_exception() != nullptr) {
-        LOGE("invoke_cinit: failed to create constant value\n");
-        cinit = javsvm::jclass::INIT_FAILED;
+        LOGE("invoke_clinit: failed to create constant value\n");
+        clinit = javsvm::jclass::INIT_FAILED;
         return -1;
     }
 
 
     jmethod *m = get_static_method("<clinit>", "()V");
     if (m != nullptr) {
-        LOGI("invoke_cinit: <cinit> found, invoke\n");
+//        LOGI("invoke_clinit: <clinit> found, invoke\n");
         jargs args(nullptr);
         m->invoke_static(args);
 
         if (check_exception() != nullptr) {
             // 坏了，有异常发生
-            LOGE("invoke_cinit: something bad occurred\n");
-            cinit = javsvm::jclass::INIT_FAILED;
+            LOGE("invoke_clinit: something bad occurred\n");
+            clinit = javsvm::jclass::INIT_FAILED;
             return -1;
         }
     }
     else {
-        LOGD("invoke_cinit: <cinit> NOT found, ignore\n");
+//        LOGD("invoke_clinit: <clinit> NOT found, ignore\n");
     }
 
 
-    LOGD("invoke_cinit: congratulations, class '%s' done\n", name);
-    cinit = javsvm::jclass::INIT_DONE;
+//    LOGD("invoke_clinit: congratulations, class '%s' done\n\n", name);
+    clinit = javsvm::jclass::INIT_DONE;
     return 0;
 }

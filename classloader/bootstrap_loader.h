@@ -96,7 +96,7 @@ private:
     /**
      * 收集额外信息
      */
-    void collect_extra_info(jclass *klass);
+    void collect_extra_info(jclass *klass) noexcept;
 
     /**
      * 加载数组类型。jvm 要求数组的类加载器和其包裹类型必须是同一个类加载器，

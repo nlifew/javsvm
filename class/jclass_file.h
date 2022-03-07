@@ -32,6 +32,12 @@ struct jclass_file
     static constexpr u4 ACC_ENUM        = 0x4000;
     static constexpr u4 ACC_MODULE      = 0x8000;
 
+    /**
+     * 下面的 access flag 是 .class 文件未使用，但我们在运行时需要的
+     */
+     static constexpr u4 ACC_FINALIZE = 0x0002;
+
+
     jclass_header header;
     jclass_const_pool constant_pool;
 
