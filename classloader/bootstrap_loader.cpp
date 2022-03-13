@@ -35,17 +35,25 @@ bootstrap_loader::bootstrap_loader(jvm &mem) noexcept :
 }
 
 
-static inline std::string trim(const char *name) noexcept
-{
-    std::string name_s(name);
 
-    // 规范 java 类名。如果输入的不是数组类型，末尾又没有 ';'，自动添加 'L' 和 ';'
-    if (name[0] != '[' && name[name_s.size() - 1] != ';') {
-        name_s.insert(0, "L").append(";");
-    }
-    return name_s;
-}
+//static inline std::string trim(const char *name) noexcept
+//{
+//    std::string name_s(name);
+//
+//    // 规范 java 类名。如果输入的不是数组类型，末尾又没有 ';'，自动添加 'L' 和 ';'
+//    if (name[0] != '[' && name[name_s.size() - 1] != ';') {
+//        name_s.insert(0, "L").append(";");
+//    }
+//    return name_s;
+//}
 
+
+
+
+
+
+
+#if 0
 jclass *bootstrap_loader::find_class(const char *name) noexcept
 {
     std::string name_s = std::move(trim(name));
@@ -61,7 +69,7 @@ jclass *bootstrap_loader::find_class(const char *name) noexcept
     }
     return nullptr;
 }
-
+#endif
 
 /**
  * 打开磁盘上的 .class 文件
@@ -69,7 +77,7 @@ jclass *bootstrap_loader::find_class(const char *name) noexcept
 static jclass_file* open_class_file(const char *dir, const char *name)
 {
     std::string s;
-    s.append(dir).append("/").append(name, 1, strlen(name) - 2).append(".class");
+    s.append(dir).append("/").append(name).append(".class");
 
     if (access(s.c_str(), R_OK) != 0) {
         LOGW("failed to open class file '%s'\n", s.c_str());
@@ -193,13 +201,24 @@ jclass_file* bootstrap_loader::open_jar_file(const char *jar, const char *name)
 
 
 
+
+static bool is_primitive_type(const std::string &name) noexcept
+{
+    static std::set<std::string> key_set = {
+            "boolean", "byte", "char", "short",
+            "int", "long", "float", "double"
+    };
+    return key_set.find(name) != key_set.end();
+}
+
+
 jclass* bootstrap_loader::load_class(const char *name) noexcept
 {
     LOGI("load class '%s'...\n", name);
 
-    // 规范 java 类名
-    std::string name_s = std::move(trim(name));
-
+//    // 规范 java 类名
+//    std::string name_s = std::move(trim(name));
+    std::string name_s = name;
 
     {
         std::shared_lock rd_lock(m_lock);
@@ -220,36 +239,35 @@ jclass* bootstrap_loader::load_class(const char *name) noexcept
         }
     }
 
+
     // 如果是数组类型，走另外一条分支
-    if (name[0] == '[') {
-        return load_array_type(name_s);
+    if (is_primitive_type(name)) {
+        return create_primitive_type(name);
     }
 
+    if (name[0] == '[') {
+        return load_array_type(name);
+    }
+
+    jclass *klass;
     // 先寻找相应的 .class 文件，如果没找到，或者 .class 文件解析失败，返回 nullptr
     jclass_file *cls = find_class_file(name_s.c_str());
-    if (cls == nullptr) {
-        LOGI("can't find class '%s'\n", name);
+    if (cls == nullptr || (klass = prepare_class(cls)) == nullptr) {
+        LOGI("can't find class '%s'\n", name_s.c_str());
         return nullptr;
     }
 
-    // 既然 .class 文件解析成功，接下来就没有回头路了。只要失败，整个虚拟机直接退出。
-    // 虽然当前的类 X 加载失败，但其父类，父父类都可能加载成功而进入缓存池，我们不希望这些
-    // 数据影响下一次加载过程。另外，jmethod_area 将已分配的内存回收进内存池目前也是没有实现的。
-    jclass *klass = prepare_class(cls);
-    if (klass == nullptr) {
-        PLOGE("failed to load class '%s'，restore memory pointer\n", name);
-        exit(1);
-    }
-
-    LOGI("class '%s' load success, store to map\n", name);
-    m_classes[name_s] = klass;
+    LOGI("class '%s' load success, store to map\n", name_s.c_str());
+    m_classes[name] = klass;
 
     // 准备创建对应的 java 层对象
     new_class_object(klass);
 
-    LOGI("class '%s' load finish\n", name);
+    LOGI("class '%s' load finish\n", name_s.c_str());
     return klass;
 }
+
+
 
 
 static char *get_class_name(jclass_file *cls, int index)
@@ -729,7 +747,7 @@ void bootstrap_loader::collect_extra_info(jclass *klass) noexcept
 
     // 判断此类是否重写了 Ljava/lang/Object->finalize()V,
     // 堆和 gc 需要这个标志做特殊处理
-    if ((klass->access_flag & jclass_file::ACC_ABSTRACT) != 0) {
+    if ((klass->access_flag & jclass_file::ACC_INTERFACE) == 0) {
         jclass *super = klass->super_class;
         if (super == nullptr) {
             // nothing to do
@@ -801,7 +819,7 @@ jref bootstrap_loader::new_class_object(jclass *klass)
         jref ref = java_lang_Class->new_instance(java_lang_Class_init, (jlong) klass);
         it->object = ref;
     }
-    return klass->object;
+    return klass->object.get();
 }
 
 
@@ -811,8 +829,6 @@ jref bootstrap_loader::new_class_object(jclass *klass)
 struct class_holder
 {
     jclass *java_lang_Object = nullptr;
-    jclass *java_lang_Class = nullptr;
-    jmethod *java_lang_Class_init = nullptr;
     jclass *java_lang_Cloneable = nullptr;
     jclass *java_io_Serializable = nullptr;
 
@@ -825,17 +841,12 @@ struct class_holder
     explicit class_holder(bootstrap_loader &loader) noexcept
     {
         java_lang_Object = loader.load_class("java/lang/Object");
-        java_lang_Class = loader.load_class("java/lang/Class");
         java_lang_Cloneable = loader.load_class("java/lang/Cloneable");
         java_io_Serializable = loader.load_class("java/io/Serializable");
 
         _CHECK_NULL(java_lang_Object)
-        _CHECK_NULL(java_lang_Class)
         _CHECK_NULL(java_lang_Cloneable)
         _CHECK_NULL(java_io_Serializable)
-
-        java_lang_Class_init = java_lang_Class->get_method("<init>", "(J)V");
-        _CHECK_NULL(java_lang_Class_init)
     }
 #undef _CHECK_NULL
 };
@@ -846,31 +857,29 @@ static class_holder &get_class_holder(bootstrap_loader *loader) {
 }
 
 
-jclass* bootstrap_loader::create_primitive_type(const char *type)
+jclass* bootstrap_loader::create_primitive_type(const std::string &type) noexcept
 {
-    LOGI("create primitive type '%s'\n", type);
+    LOGI("create primitive type '%s'\n", type.c_str());
 
-    int name_len = (int) strlen(type);
-    char *name = m_allocator.calloc_type<char>(name_len + 1);
-    memcpy(name, type, name_len + 1);
-
-    auto &holder = get_class_holder(this);
+    char *name = m_allocator.calloc_type<char>(type.size() + 1);
+    memcpy(name, type.c_str(), type.size() + 1);
 
     auto *klass = m_allocator.calloc_type<jclass>();
     klass->name = name;
     klass->clinit = jclass::INIT_DONE;
     klass->access_flag = jclass_file::ACC_PUBLIC | jclass_file::ACC_ABSTRACT | jclass_file::ACC_FINAL;
-    klass->object = holder.java_lang_Class->new_instance(holder.java_lang_Class_init, (jlong) klass);
+
+    new_class_object(klass);
+    m_classes[type] = klass;
 
     // 不为基本数据类型添加构造函数和类构造函数
-    LOGI("primitive type '%s' created\n", type);
+    LOGI("primitive type '%s' created\n", type.c_str());
     return klass;
 }
 
-
-jclass *bootstrap_loader::load_array_type(const std::string &type_s)
+jclass *bootstrap_loader::load_array_type(const std::string &name)
 {
-    const char *type = type_s.c_str();
+    const char *type = name.c_str();
     LOGI("loading array type '%s'\n", type);
 
     // 数组要包裹的类型
@@ -880,27 +889,31 @@ jclass *bootstrap_loader::load_array_type(const std::string &type_s)
     auto it = m_classes.find(NAME);         \
     if (it == m_classes.end()) {            \
         component_type = create_primitive_type(NAME); \
-        m_classes[NAME] = component_type;   \
     }                                       \
     else {                                  \
         component_type = it->second;        \
     }
 
     // 创建最内层的包裹类
-    const int index = (int) type_s.find_last_of('[') + 1; // type_s.find_last_not_of('[');
+    const auto index = name.find_last_of('[') + 1; // type_s.find_last_not_of('[');
 
-    switch (type[index]) {
+    switch (name[index]) {
         case 'Z': { FIND_OR_CREATE_PRIMITIVE_TYPE("boolean")    break; }
-        case 'B': { FIND_OR_CREATE_PRIMITIVE_TYPE("type")       break; }
+        case 'B': { FIND_OR_CREATE_PRIMITIVE_TYPE("byte")       break; }
         case 'C': { FIND_OR_CREATE_PRIMITIVE_TYPE("char")       break; }
         case 'S': { FIND_OR_CREATE_PRIMITIVE_TYPE("short")      break; }
         case 'I': { FIND_OR_CREATE_PRIMITIVE_TYPE("int")        break; }
         case 'J': { FIND_OR_CREATE_PRIMITIVE_TYPE("long")       break; }
         case 'F': { FIND_OR_CREATE_PRIMITIVE_TYPE("float")      break; }
         case 'D': { FIND_OR_CREATE_PRIMITIVE_TYPE("double")     break; }
-        default: {
-            component_type = load_class(type + index);
+        case 'L': {
+            std::string sub = name.substr(index + 1, name.size() - index - 2);
+            component_type = load_class(sub.c_str());
             break;
+        }
+        default: {
+            LOGE("unknown array type: %s\n", type);
+            exit(1);
         }
     }
 #undef FIND_OR_CREATE_PRIMITIVE_TYPE
@@ -914,14 +927,14 @@ jclass *bootstrap_loader::load_array_type(const std::string &type_s)
     auto &holder = get_class_holder(this);
 
     // 从最内层开始遍历，逐渐生成每个数组类
-    for (int i = index - 1; i >= 0; --i) {
+    for (int i = (int) index - 1; i >= 0; --i) {
         // 检查缓存，如果发现该数组类已经被加载过，忽略掉
         auto it = m_classes.find(type + i);
         if (it != m_classes.end()) {
-            LOGI("[%d/%d]: type '%s' of array '%s' found in cache, continue\n", i + 1, index, type + i, type);
+            LOGI("[%d/%lu]: type '%s' of array '%s' found in cache, continue\n", i + 1, index, type + i, type);
             continue;
         }
-        LOGI("[%d/%d]: create type '%s' of array '%s'\n", i + 1, index, type + i, type);
+        LOGI("[%d/%lu]: create type '%s' of array '%s'\n", i + 1, index, type + i, type);
         auto *klass = create_primitive_type(type + i);
         klass->super_class = holder.java_lang_Object;
         klass->component_type = component_type;
@@ -944,7 +957,7 @@ jclass *bootstrap_loader::load_array_type(const std::string &type_s)
         m_classes[type + i] = klass;
         component_type = klass;
     }
-    LOGI("load array type '%s' finish, result is '%s'\n", type, component_type->name);
+    LOGI("load array type '%s' finish, result is '%s'\n", name.c_str(), component_type->name);
     return component_type;
 }
 

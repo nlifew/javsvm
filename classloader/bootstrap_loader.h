@@ -55,7 +55,7 @@ private:
     // jclass *verify_class(jclass_file *);
 
     /**
-     * 分配类变量，并给其赋初值
+     * 真正的加载工作
      */
     jclass *prepare_class(jclass_file *cls);
 
@@ -104,7 +104,7 @@ private:
      */
      jclass *load_array_type(const std::string &s);
 
-     jclass *create_primitive_type(const char *name);
+     jclass *create_primitive_type(const std::string &name) noexcept;
 
 public:
     explicit bootstrap_loader(jvm& mem) noexcept;
@@ -123,7 +123,7 @@ public:
      * 在缓存池中查找已加载的类
      * @return 未找到则返回 nullptr，不会触发加载动作
      */
-    jclass *find_class(const char *name) noexcept;
+//    jclass *find_class(const char *name) noexcept;
 };
 
 } // namespace javsvm
