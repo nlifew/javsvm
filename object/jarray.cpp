@@ -6,8 +6,6 @@
 #include "jclass.h"
 
 #include "../vm/jvm.h"
-#include "../utils/log.h"
-#include "../class/jclass_file.h"
 
 #include <tuple>
 #include <unordered_map>
@@ -15,9 +13,11 @@
 using namespace javsvm;
 
 
-jsize jarray::get_array_length(jref array)
+jsize jarray::get_array_length(jref array) const noexcept
 {
-    auto obj = m_jvm.heap.lock(array);
+    (void) this;
+
+    auto obj = jheap::cast(array);
     if (obj == nullptr) {
         // todo: throw null pointer exception
         LOGE("NullPointerException occurred when access the length of array\n");
@@ -26,7 +26,7 @@ jsize jarray::get_array_length(jref array)
     return ((jsize *)(obj->values))[0];
 }
 
-jref jarray::new_type_array(const char *type, int length, int ele_size)
+jref jarray::new_type_array(const char *type, int length, int ele_size) noexcept
 {
     if (length < 0) {
         // todo: 抛出到 java 层
@@ -43,7 +43,7 @@ jref jarray::new_type_array(const char *type, int length, int ele_size)
     }
 
     jref ref = m_jvm.heap.alloc(klass, length * ele_size + 2 * (int) sizeof(jint));
-    jobject_ptr obj = m_jvm.heap.lock(ref);
+    jobject* obj = jheap::cast(ref);
 
 //    obj->klass = klass;
     ((jint *)(obj->values))[0] = length;
@@ -110,7 +110,7 @@ jref jarray::new_object_array(jclass *klass, int length)
     }
 
     jref ref = m_jvm.heap.alloc(klass, length * ele_size + 2 * (int) sizeof(jint));
-    jobject_ptr obj = m_jvm.heap.lock(ref);
+    jobject *obj = javsvm::jheap::cast(ref);
 
 //    obj->klass = klass;
     ((jint *)(obj->values))[0] = length;
@@ -118,9 +118,11 @@ jref jarray::new_object_array(jclass *klass, int length)
     return ref;
 }
 
-void jarray::get_array_region(jref array, jsize start, jint len, void *buff)
+void jarray::get_array_region(jref array, jsize start, jint len, void *buff) const noexcept
 {
-    auto obj = m_jvm.heap.lock(array);
+    (void) this;
+
+    auto obj = jheap::cast(array);
     if (obj == nullptr) {
         // todo: throw null pointer exception
         LOGE("NullPointerException occurred when get array region\n");
@@ -140,12 +142,14 @@ void jarray::get_array_region(jref array, jsize start, jint len, void *buff)
     memcpy(buff, ((char*) values) + ele_size * start, ele_size * len);
 }
 
-void jarray::set_array_region(jref array, jsize start, jint len, const void *buff)
+void jarray::set_array_region(jref array, jsize start, jint len, const void *buff) const noexcept
 {
-    auto obj = m_jvm.heap.lock(array);
+    (void) this;
+
+    auto obj = jheap::cast(array);
     if (obj == nullptr) {
         // todo: throw null pointer exception
-        LOGE("NullPointerException occurred when get array region\n");
+        LOGE("NullPointerException occurred when sets array region\n");
         exit(1);
     }
 
@@ -192,8 +196,11 @@ void *jarray::storage_of(jobject_ptr &obj) noexcept
 {
     if (obj == nullptr) {
         // todo: throw null pointer exception
-        LOGE("NullPointerException occurred when get array region\n");
+        LOGE("NullPointerException occurred when access the storage of region\n");
         exit(1);
     }
     return ((jsize *)(obj->values)) + 2;
 }
+
+
+

@@ -4,6 +4,7 @@
 #define JAVSVM_JARRAY_H
 
 #include "../utils/global.h"
+#include "jobject.h"
 #include "../concurrent/recursive_lock.h"
 
 #include <unordered_map>
@@ -22,16 +23,30 @@ class jarray
 private:
     jvm &m_jvm;
 
-    jref new_type_array(const char *type, int length, int ele_size);
+    jref new_type_array(const char *type, int length, int ele_size) noexcept;
 public:
-    void get_array_region(jref array, jsize start, jint len, void *buff);
+    void get_array_region(jref array, jsize start, jint len, void *buff) const noexcept;
 
-    void set_array_region(jref array, jsize start, jint len, const void *buff);
+    void set_array_region(jref array, jsize start, jint len, const void *buff) const noexcept;
 
     /**
      * 获取数组存储元素的起始地址
      */
     static void *storage_of(jobject_ptr &ptr) noexcept;
+
+    static inline void *storage_of(jobject *array, int *len, int *ele_size) noexcept
+    {
+        auto *data = (jsize *)(array->values);
+        *len = data[0];
+        *ele_size = data[1];
+        return &data[2];
+    }
+
+    static inline int size_of(jobject *array) noexcept
+    {
+        auto *data = (jsize *)(array->values);
+        return data[0] * data[1] + (int) sizeof(jsize) * 2;
+    }
 
 public:
     explicit jarray(jvm &vm) noexcept :
@@ -41,7 +56,7 @@ public:
     jarray(const jarray&) = delete;
     jarray& operator=(const jarray&) = delete;
 
-    jsize get_array_length(jref array);
+    jsize get_array_length(jref array) const noexcept;
 
     jref new_boolean_array(int length) { return new_type_array("[Z", length, sizeof(jboolean)); }
 

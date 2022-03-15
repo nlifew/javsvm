@@ -67,7 +67,7 @@ static inline T align(T in) noexcept
 
 
 template <typename T>
-static int _slotof() { return (((sizeof(T) - 1) | 3) + 1) >> 2; }
+static int _slotof() { return align<4>(sizeof(T)) >> 2; }
 
 template <>
 int _slotof<jref>() { return 1; }

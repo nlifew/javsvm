@@ -50,7 +50,7 @@ public:
  * NOTE: run_java 只会执行函数，不会做任何多余的工作。包括但不限于
  * 抽象函数检查，obj 是否为 null，参数列表是否匹配，上锁等。
  */
-jvalue run_java(jmethod *m, jref obj, jargs &args);
+jvalue run_java(jmethod *m, jref lock, jargs &args);
 
 /**
  * 运行某个 jni 函数
