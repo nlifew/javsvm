@@ -18,19 +18,24 @@ private:
      * 当最低 4 位为以下情况时:
      *
      * 1. 0x00 (0b0000)
-     * 即大多数普通对象的状态。高 32 位表示 hashCode 值，低 5 - 8 位为 gc 年龄
+     * 即大多数普通对象的状态。高 31 位表示 hashCode 值，低 5 - 32 位为该对象大小
      *
      * 2. 0xFF (0b1111)
      * 表示当前这个对象正在被锁住。最高位即符号位表示 lock_event 指针的前 16 位填充数据，接下来的 44 位为指针数据
      * 15 位表示尝试等待锁的线程数，4 位固定为 0xFF
      */
-    std::atomic<int64_t> m_flag;
+    std::atomic<int64_t> m_flag { 0 };
+
+    int64_t magic() noexcept;
 public:
 
-    jobject() noexcept;
+    explicit jobject(int size) noexcept;
 
     jclass *klass = nullptr;
     char values[0];
+
+
+    int size() noexcept;
 
     /**
      * 获取该对象的 hashCode 值

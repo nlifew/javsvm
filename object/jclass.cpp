@@ -207,7 +207,7 @@ jclass *jclass::load_class(const char *name)
     }
     // 找到栈顶的类的加载器
     auto loader = stack_frame->method->clazz->loader;
-    auto loader_ptr = jheap::cast(loader);
+    auto loader_ptr = jheap::cast(loader.get());
 
     // 如果栈顶函数的类加载器为 null，使用系统类加载器
     if (loader_ptr == nullptr) {
@@ -223,11 +223,11 @@ jclass *jclass::load_class(const char *name)
     slot_t buff[2];
     memset(buff, 0, sizeof(buff));
 
-    buff[0] = (slot_t) loader;
+    buff[0] = (slot_t) loader.get();
     buff[1] = (slot_t) vm.string.find_or_new(name);
 
     jargs args(buff);
-    jvalue val = java_lang_ClassLoader_loadClass->invoke_virtual(loader, args);
+    jvalue val = java_lang_ClassLoader_loadClass->invoke_virtual(loader.get(), args);
 
     auto class_ptr = jheap::cast(val.l);
     if (class_ptr == nullptr) {
@@ -377,6 +377,23 @@ static inline int get_constant_value(jclass_attr_constant *attr, jclass_const_po
     }
 }
 
+template <typename Con, typename Des>
+struct guard
+{
+private:
+    const Con& m_con;
+    const Des& m_des;
+public:
+    explicit guard(const Con& con, const Des& des) noexcept:
+        m_con(con), m_des(des)
+    {
+        m_con();
+    }
+    ~guard() noexcept
+    {
+        m_des();
+    }
+};
 
 int jclass::do_invoke_clinit() noexcept
 {
@@ -392,13 +409,19 @@ int jclass::do_invoke_clinit() noexcept
     // NOTE: 正常情况下类对象 object 是绝对不可能为 nullptr 的，但我们也要考虑到 object 和 class 类加载时的特殊情况
     // java.lang.Object 类在加载时会创建一个 java.lang.Class 的伴随对象，也就是调用 java.lang.Class 的构造函数。
     // 后者又会调 Object 的 clinit，但 Object 类此时还没有完成初始化，因此锁住类时一定会出错
-    jobject *ptr = jheap::cast(object);
 
 //    LOGD("invoke_clinit: lock on the Class object\n");
-    if (ptr != nullptr) {
-        auto ok = ptr->lock();
-        assert(ok == 0);
-    }
+    guard lock_guard([this] {
+        if (object != nullptr) {
+            auto ok = jheap::cast(object.get())->lock();
+            assert(ok == 0);
+        }
+    },[this] {
+        if (object != nullptr) {
+            auto ok = jheap::cast(object.get())->unlock();
+            assert(ok == 0);
+        }
+    });
 
     // double check
     switch (clinit) {
@@ -421,15 +444,18 @@ int jclass::do_invoke_clinit() noexcept
 
     clinit = DOING_INIT;
 
-    // 递归调用父类的
-    for (jclass *i = super_class; i; i = i->super_class) {
+    // 非接口类需要递归调用父类的
+    if ((access_flag & jclass_file::ACC_INTERFACE) == 0) {
+        for (jclass *i = super_class; i; i = i->super_class) {
 //        LOGD("invoke_clinit: super class %s\n", i->name);
-        if (i->invoke_clinit() < 0) {
+            if (i->invoke_clinit() < 0) {
 //            LOGE("invoke_clinit: something bad occurred\n");
-            clinit = INIT_FAILED;
-            return -1;
+                clinit = INIT_FAILED;
+                return -1;
+            }
         }
     }
+
     // 接口类
     for (int i = 0; i < interface_num; i ++) {
         auto &interface = interfaces[i];
@@ -469,7 +495,7 @@ int jclass::do_invoke_clinit() noexcept
 
 
     jmethod *m = get_static_method("<clinit>", "()V");
-    if (m != nullptr) {
+    if (m != nullptr && m->clazz == this) {
 //        LOGI("invoke_clinit: <clinit> found, invoke\n");
         jargs args(nullptr);
         m->invoke_static(args);

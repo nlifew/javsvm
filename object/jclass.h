@@ -4,7 +4,8 @@
 #define JAVSVM_JCLASS_H
 
 #include "../utils/global.h"
-#include "jobject.h"
+#include "../gc/gc_root.h"
+
 namespace javsvm
 {
 
@@ -30,8 +31,8 @@ struct jclass
     u4 access_flag = 0;
     jclass_file *class_file = nullptr;
 
-    jref object = nullptr;
-    jref loader = nullptr;
+    gc_root object = nullptr;
+    gc_root loader = nullptr;
 
     jclass *component_type = nullptr;
 

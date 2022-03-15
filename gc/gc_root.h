@@ -33,7 +33,7 @@ namespace javsvm
  * 2. todo
  * 3. todo
  * 4. 在 jenv 中保存一个 gc_root 引用，指向创建的 java.lang.Thread 对象
- * 5. todo
+ * 5. 执行锁相关的指令 entermonitor, exitmonitor 时，该对象一定是栈顶元素，不需要额外考虑
  * 6. java 栈帧记录了局部变量表/操作数栈中哪个位置存的是引用
  * 7. 由类加载器负责将存放引用的地址添加到 RcRoot 集合
  * 8. todo
@@ -43,15 +43,18 @@ namespace javsvm
 class gc_root
 {
 public:
-    using ref_set = concurrent_set<gc_root*>;
+    using ref_set_type = concurrent_set<gc_root*>;
 
-    using static_field_set = concurrent_set<jref*>;
+    using static_field_set_type = concurrent_set<jref*>;
+
 private:
+    jref m_ptr = nullptr;
 
+public:
     /**
      * 全局 GcRoot 池。所有的 GcRoot 实例都保存在这里，以便 gc 线程遍历
      */
-    static ref_set s_ref_pool;
+    static ref_set_type ref_pool;
 
     /**
      * 静态字段池。所有类的所有静态引用类型的字段都会存放在这里，由类加载器
@@ -59,30 +62,24 @@ private:
      * 虚拟机目前不支持类卸载，每个静态字段的地址都是确定的。为了避免多余的内存寻址，
      * 我们将其设置成 jref*，这样直接取对象就得到了 jref，而不是 jfield.get()
      */
-    static static_field_set s_field_pool;
-
-    jref m_ptr = nullptr;
-
-public:
-    static const ref_set& ref_pool() noexcept { return s_ref_pool; }
-    static static_field_set& static_field_pool() noexcept { return s_field_pool; }
+    static static_field_set_type static_field_pool;
 
 
-    explicit gc_root(jref ref = nullptr) noexcept
+    gc_root(jref ref = nullptr) noexcept
     {
         m_ptr = ref;
-        s_ref_pool.add(this);
+        ref_pool.add(this);
     }
 
     gc_root(const gc_root &o) noexcept
     {
         m_ptr = o.m_ptr;
-        s_ref_pool.add(this);
+        ref_pool.add(this);
     }
 
     ~gc_root() noexcept
     {
-        s_ref_pool.remove(this);
+        ref_pool.remove(this);
     }
 
     gc_root& operator=(const gc_root &o) noexcept = default;
@@ -96,7 +93,7 @@ public:
     gc_root(gc_root &&o) noexcept
     {
         m_ptr = o.m_ptr;
-        s_ref_pool.add(this);
+        ref_pool.add(this);
     }
 
     gc_root& operator=(gc_root&& o) noexcept
@@ -119,6 +116,8 @@ public:
     jref get() const noexcept { return m_ptr; }
 
     void reset(jref ref = nullptr) noexcept { m_ptr = ref; }
+
+    jref &original() noexcept { return m_ptr; /* return *this; */ }
 };
 
 

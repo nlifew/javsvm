@@ -4,4 +4,5 @@ add_library(
         concurrent
         STATIC
         recursive_lock.cpp
+        atomic_lock.cpp
 )

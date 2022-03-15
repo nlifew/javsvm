@@ -4,6 +4,7 @@
 #define JAVSVM_JENV_H
 
 #include "jstack.h"
+#include "../gc/gc_root.h"
 
 namespace javsvm
 {
@@ -20,6 +21,11 @@ private:
      * jni 保留的
      */
     char m_jni_reserved[235 * sizeof(void*)];
+
+    /**
+     * 绑定的 java 层 Thread 对象
+     */
+    gc_root thread = nullptr;
 
 public:
     jvm& jvm;

@@ -31,7 +31,7 @@ struct lock_event
     int notify_all() noexcept { m_cond.notify_all(); return 0;}
 };
 
-jobject m_lock;
+jobject m_lock(0);
 int hash = 0;
 //lock_event m_lock;
 

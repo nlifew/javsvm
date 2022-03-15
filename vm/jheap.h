@@ -6,8 +6,10 @@
 #include <atomic>
 #include <vector>
 
+#include "../gc/gc_thread.h"
 #include "../utils/global.h"
 #include "../object/jclass.h"
+#include "../concurrent/atomic_lock.h"
 #include "../concurrent/concurrent_map.h"
 
 
@@ -70,11 +72,13 @@ class jheap {
 private:
     friend class gc_thread;
 
-    int m_max_cap = 0;
-    int m_cur_cap = 0;
+    size_t m_max_cap = 0;
+    size_t m_cur_cap = 0;
     char *m_buff = nullptr;
 
-    std::atomic<int> m_floating_ptr;
+    std::atomic<size_t> m_floating_ptr { 0 };
+public:
+    gc_thread m_gc_thread;
 
     /**
      * 使用指针碰撞法快速分配内存
@@ -94,14 +98,20 @@ private:
      *              size 是 16M, 如果成功，堆最少为 48M
      * @return 成功返回 0，否则返回 -1
      */
-    int realloc_size(int size);
+    int realloc_size(size_t size);
+
 
 
     /**
      * 如果某个类重写了 finalize() 函数，分配时
      * 会将指针记录在这里面，用于 gc 时将其放在 finalize 队列
      */
-    std::vector<jobject*> m_finalize_object;
+    std::vector<jref> m_finalize_object;
+
+    /**
+     * m_finalize_object 字段使用的锁
+     */
+    atomic_lock m_finalize_lock;
 
     /**
      * 将类和对象绑定，比如设置 klass 指针等
@@ -119,8 +129,8 @@ public:
      * 回收足够的内存时，就会抛出内存溢出错误(OutOfMemoryError)
      */
     explicit jheap(
-            int min_cap = DEFAULT_MIN_CAPACITY,
-            int max_cap = DEFAULT_MAX_CAPACITY) noexcept;
+            size_t min_cap = DEFAULT_MIN_CAPACITY,
+            size_t max_cap = DEFAULT_MAX_CAPACITY) noexcept;
 
     jheap(const jheap &) = delete;
 
@@ -130,10 +140,10 @@ public:
 
     /**
      * 尝试分配一块内存用来存放对象
-     * @param size 对象的大小，不包括对象头和填充数据，因此不需要对齐
+     * @param size 对象的大小，不包括对象头和填充数据，因此不需要调用者手动对齐
      * @return 成功返回 jref，失败返回 nullptr
      */
-    jref alloc(jclass *klass, int size) noexcept;
+    jref alloc(jclass *klass, size_t size) noexcept;
 
     jref alloc(jclass *klass) noexcept { return alloc(klass, klass->object_size); }
 
@@ -142,7 +152,7 @@ public:
     }
 
     static inline jobject *cast(jref ref) noexcept {
-        return (jobject *) (((int64_t) ref) & ~3);
+        return (jobject *) (((int64_t) ref) & ~R_MSK);
     }
 
     [[deprecated]]
@@ -150,8 +160,12 @@ public:
     {
         return cast(ref);
     }
+
+    static constexpr int R_MSK =   3;
+    static constexpr int R_STR =   0;
+    static constexpr int R_SFT =   1;
+    static constexpr int R_WEK =   2;
+    static constexpr int R_PHA =   3;
 };
-
-
 }
 #endif

@@ -127,7 +127,7 @@ static linked_pool<lock_event_t> lock_pool(64);
 
 struct flag_t
 {
-    static constexpr int LOCK_COUNT_MAX = (1 << 16) - 1;
+    static constexpr int LOCK_COUNT_MAX = 1 << 15;
 
     enum ctl_t
     {
@@ -140,11 +140,9 @@ struct flag_t
     lock_event_t *lock = nullptr;
 
     int hash = 0;
-    int gc = 0;
+    int size = 0;
 
     flag_t() noexcept = default;
-
-    flag_t(flag_t &f) noexcept = default;
 
     flag_t(int64_t val) noexcept
     {
@@ -159,7 +157,7 @@ struct flag_t
         lock = (lock_event_t *) ((val >> 15) & ~15LL);
 
         hash = (int) (val >> 32);
-        gc = (int) ((val >> 4) & 15);
+        size = 0x0FFFFFFF & (int) (val >> 4);
         return *this;
     }
 
@@ -174,7 +172,7 @@ struct flag_t
         }
         if (ctl == ctl_no_lock) {
             int64_t val = ((int64_t) hash) << 32;
-            val |= gc << 4;
+            val |= size << 4;
             val |= ctl;
             return val;
         }
@@ -183,63 +181,87 @@ struct flag_t
 };
 
 
-jobject::jobject() noexcept:
-    m_flag(0)
+jobject::jobject(int size) noexcept
 {
-    auto hash = (int64_t) this;
+    auto hash = (uint64_t) this;
     hash |= hash >> 32;
 
-    flag_t flag {};
+    flag_t flag;
     flag.ctl = flag_t::ctl_no_lock;
     flag.hash = (int) hash;
+    flag.size = size;
 
     m_flag.store(flag.value());
 }
 
-int jobject::hash_code() noexcept
+int64_t jobject::magic() noexcept
 {
-    flag_t old_flag{};
+    flag_t flag;
 
     for (;;) {
         int64_t old_value;
-        old_flag = old_value = m_flag.load();
+        flag = old_value = m_flag.load();
 
-        if (old_flag.ctl == flag_t::ctl_no_lock) {
-            return old_flag.hash;
+        if (flag.ctl == flag_t::ctl_no_lock) {
+            return old_value;
         }
 
-        assert_x(old_flag.lock != nullptr);
-        assert_x(old_flag.lock_count > 0 && old_flag.lock_count < flag_t::LOCK_COUNT_MAX);
+        assert_x(flag.lock != nullptr);
+        assert_x(flag.lock_count > 0 && flag.lock_count < flag_t::LOCK_COUNT_MAX);
 
-        old_flag.lock_count ++;
-        if (m_flag.compare_exchange_strong(old_value, old_flag.value())) {
+        flag.lock_count ++;
+        if (m_flag.compare_exchange_strong(old_value, flag.value())) {
             break;
         }
     }
 
-    flag_t tmp = old_flag.lock->magic;
-    const int hash = tmp.hash;
+    auto magic = flag.lock->magic;
 
     for (;;) {
         int64_t old_value;
-        old_flag = old_value = m_flag.load();
+        flag = old_value = m_flag.load();
 
-        assert_x(old_flag.ctl == flag_t::ctl_locked);
-        assert_x(old_flag.lock != nullptr);
-        assert_x(old_flag.lock_count >= 1);
+        assert_x(flag.ctl == flag_t::ctl_locked);
+        assert_x(flag.lock != nullptr);
+        assert_x(flag.lock_count >= 1);
 
-        old_flag.lock_count --;
-        if (m_flag.compare_exchange_strong(old_value, old_flag.value())) {
+        int64_t new_value;
+
+        if (flag.lock_count == 1) {
+            new_value = flag.lock->magic;
+        }
+        else {
+            flag.lock_count --;
+            new_value = flag.value();
+            flag.lock_count ++; // 防止 flag.lock_count == 2 时下边误判
+        }
+        // CAS 操作更新 flag
+        if (m_flag.compare_exchange_strong(old_value, new_value)) {
+            if (flag.lock_count == 1) {
+                lock_pool.recycle(*flag.lock);
+            }
             break;
         }
     }
-    return hash;
+    return magic;
 }
 
 
+int jobject::hash_code() noexcept
+{
+    flag_t flag = magic();
+    return flag.hash;
+}
+
+int jobject::size() noexcept
+{
+    flag_t flag = magic();
+    return flag.size;
+}
+
 int jobject::lock() noexcept
 {
-    flag_t new_flag{};
+    flag_t new_flag;
 
     for (;;) {
         int64_t old_value;
@@ -288,31 +310,31 @@ int jobject::unlock() noexcept
 {
     for (;;) {
         int64_t old_value;
-        flag_t old_flag = old_value = m_flag.load();
+        flag_t flag = old_value = m_flag.load();
 
-        if (old_flag.ctl != flag_t::ctl_locked || ! old_flag.lock->am_i_locked()) {
+        if (flag.ctl != flag_t::ctl_locked || ! flag.lock->am_i_locked()) {
             // 说明之前没有锁住，是异常状态
             return -1;
         }
-        assert_x(old_flag.lock_count >= 1);
+        assert_x(flag.lock_count >= 1);
 
         // 当 count 为 1，说明没有任何线程尝试获取锁，需要释放掉 lock_event
         int64_t new_value;
 
-        if (old_flag.lock_count == 1) {
-            new_value = old_flag.lock->magic;
+        if (flag.lock_count == 1) {
+            new_value = flag.lock->magic;
         }
         else {
-            old_flag.lock_count --;
-            new_value = old_flag.value();
-            old_flag.lock_count ++;
+            flag.lock_count --;
+            new_value = flag.value();
+            flag.lock_count ++;
         }
 
         // CAS 操作更新 flag
         if (m_flag.compare_exchange_strong(old_value, new_value)) {
-            old_flag.lock->unlock();
-            if (old_flag.lock_count == 1) {
-                lock_pool.recycle(*old_flag.lock);
+            flag.lock->unlock();
+            if (flag.lock_count == 1) {
+                lock_pool.recycle(*flag.lock);
             }
             break;
         }
