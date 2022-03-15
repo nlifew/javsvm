@@ -35,7 +35,7 @@ static bool is_method_virtual(jclass_method *m, jclass_const_pool& pool)
  * NOTE: 当前的实现是不安全的，并没有对 sig 做校验
  */ 
 
-static void calculate_slot_num(jmethod *method)
+static void calculate_slot_num(jmethod *method, jmethod_area &allocator)
 {
     int& args_slot = method->args_slot;
     int& return_slot = method->return_slot; 
@@ -44,6 +44,14 @@ static void calculate_slot_num(jmethod *method)
     args_slot = 0;
     return_slot = 0;
 
+    std::vector<char> ref_table;
+    ref_table.reserve(32);
+
+    // 非静态函数的第一个参数是 this，要占一个变量槽
+    if ((method->access_flag & jclass_method::ACC_STATIC) == 0) {
+        args_slot += 1;
+        ref_table.push_back(1);
+    }
 
     for (int i = 1; sig[i] != ')'; i ++) {
         switch (sig[i]) {
@@ -54,27 +62,28 @@ static void calculate_slot_num(jmethod *method)
             case 'I':       /* int */
             case 'F':       /* float */
                 args_slot += 1;
+                ref_table.push_back(0);
                 break;
             case 'D':       /* double */
             case 'J':       /* long */
                 args_slot += 2;
+                ref_table.push_back(0);
+                ref_table.push_back(0);
                 break;
             case 'L':       /* object */
                 i = (int) (strchr(sig + i + 1, ';') - sig);
                 args_slot += 1;
+                ref_table.push_back(1);
                 break;
             case '[':       /* array */
                 while (sig[i] == '[') i ++;
                 if (sig[i] == 'L') i = (int) (strchr(sig + i + 1, ';') - sig);
                 args_slot += 1;
+                ref_table.push_back(1);
                 break;
             default:
                 LOGE("unknown jmethod sig: '%s'\n", sig);
         }
-    }
-    // 非静态函数的第一个参数是 this，要占一个变量槽
-    if ((method->access_flag & jclass_method::ACC_STATIC) == 0) {
-        args_slot += 1;
     }
 
     switch (strchr(sig + 1, ')')[1]) {
@@ -93,10 +102,16 @@ static void calculate_slot_num(jmethod *method)
             return_slot = 2;
             break;
     }
+
+    ref_table.push_back(0); // 终止字符串 ?
+    if (args_slot > 0) {
+        method->args_ref_table = allocator.calloc_type<char>(args_slot + 1);
+        memcpy(method->args_ref_table, &ref_table[0], args_slot + 1);
+    }
 }
 
 
-void jmethod::bind(jclass *klass, jclass_file *cls, int index)
+void jmethod::bind(jmethod_area &allocator, jclass *klass, jclass_file *cls, int index) noexcept
 {
     // 绑定原始 jclass_method 对象
     clazz = klass;
@@ -125,7 +140,7 @@ void jmethod::bind(jclass *klass, jclass_file *cls, int index)
     }
 
     // 计算参数占用的局部变量槽
-    calculate_slot_num(this);
+    calculate_slot_num(this, allocator);
 }
 
 
@@ -139,16 +154,16 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
 {
     auto access_flag = method->access_flag;
 
-    // 如果被 synchronized 关键字修饰，加锁
-    bool synchronized = false;
-
-    if ((access_flag & jclass_method::ACC_SYNCHRONIZED) != 0
-            /* || strcmp(method->name, "<cinit>") == 0 */) { // [1]
-
-        // [1]. 不处理 <clinit>，jclass 自己会处理
-        synchronized = true;
-        jvm::get().heap.lock(ref)->lock();
-    }
+//    // 如果被 synchronized 关键字修饰，加锁
+//    bool synchronized = false;
+//
+//    if ((access_flag & jclass_method::ACC_SYNCHRONIZED) != 0
+//            /* || strcmp(method->name, "<cinit>") == 0 */) { // [1]
+//
+//        // [1]. 不处理 <clinit>，jclass 自己会处理
+//        synchronized = true;
+//        jvm::get().heap.lock(ref)->lock();
+//    }
 
     jvalue value;
 
@@ -165,10 +180,10 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
         value = run_java(method, ref, args);
     }
 
-    // 解除锁
-    if (synchronized) {
-        jvm::get().heap.lock(ref)->unlock();
-    }
+//    // 解除锁
+//    if (synchronized) {
+//        jvm::get().heap.lock(ref)->unlock();
+//    }
     return value;
 }
 
@@ -179,7 +194,7 @@ jvalue jmethod::invoke_static(jargs &args)
     if (clazz->invoke_clinit() < 0) {
         return { 0 };
     }
-    return lock_and_run(this, clazz->object, args);
+    return lock_and_run(this, clazz->object.get(), args);
 }
 
 

@@ -11,6 +11,7 @@ namespace javsvm
 
 struct jclass;
 struct jargs;
+class jmethod_area;
 
 struct jmethod
 {
@@ -61,6 +62,9 @@ struct jmethod
     int args_slot = 0;
     int return_slot = 0;
 
+
+    char *args_ref_table = nullptr;
+
     /**
      * 比较函数，查询虚函数表时使用
      */ 
@@ -82,7 +86,7 @@ struct jmethod
      * @param index 当前函数在 .class 文件中的位置
      */ 
 
-    void bind(jclass *klass, jclass_file *cls, int index);
+    void bind(jmethod_area &allocator, jclass *klass, jclass_file *cls, int index) noexcept;
 
     // jvalue invoke(operand_t *args) { return invoke(this, args, is_virtual); }
 

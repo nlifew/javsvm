@@ -12,6 +12,7 @@
 #include "../vm/jvm.h"
 #include "opslib.h"
 
+
 static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_attr_code &code) noexcept
 {
     LOGD("\n------------------------dump stack frame------------------------\n");
@@ -19,12 +20,33 @@ static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_att
     LOGD("pc: %d, op: %s(%d)\n", frame.pc, ops_str[op], op);
     LOGD("variable_table(total %d):\n", code.max_locals);
     for (int i = 0; i < code.max_locals; i ++) {
-        LOGD("\t\t[%d/%d]: %#llx\n", i, code.max_locals, frame.variable_table[i]);
+        char buff[512] = { '\0' };
+        if (frame.variable_ref_table[i]) {
+            if (frame.variable_table[i] == 0) {
+                strcpy(buff, "(null)");
+            }
+            else {
+                jobject *obj = jheap::cast((jref) frame.variable_table[i]);
+                snprintf(buff, sizeof(buff), "(%s@%04x)", obj->klass->name, 0xFFFF & obj->hash_code());
+            }
+        }
+        LOGD("\t\t[%d/%d]: %#llx %s\n", i, code.max_locals, frame.variable_table[i], buff);
     }
     int stack_depth = (int) (frame.operand_stack - frame.operand_stack_orig);
     LOGD("operand_stack(cur %d, max %d):\n", stack_depth, code.max_stack);
-    for (int i = 0; i < stack_depth; i ++) {
-        LOGD("\t\t[%d/%d]: %#llx\n", i, stack_depth, *(frame.operand_stack - i - 1));
+
+    for (int i = stack_depth - 1; i >= 0; --i) {
+        char buff[512] = { '\0' };
+        if (frame.operand_ref_stack_orig[i]) {
+            if (frame.operand_stack_orig[i] == 0) {
+                strcpy(buff, "(null)");
+            }
+            else {
+                jobject *obj = jheap::cast((jref) frame.operand_stack_orig[i]);
+                snprintf(buff, sizeof(buff), "(%s@%04x)", obj->klass->name, 0xFFFF & obj->hash_code());
+            }
+        }
+        LOGD("\t\t[%d/%d]: %#llx %s\n", i, stack_depth, frame.operand_stack_orig[i], buff);
     }
     LOGD("------------------------------end-------------------------------\n");
 }
@@ -34,20 +56,28 @@ static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_att
 /**
  * 真正的代码执行逻辑
  */ 
-jvalue javsvm::run_java(jmethod *me, jref, jargs &args)
+jvalue javsvm::run_java(jmethod *me, jref lock_object, jargs &args)
 {
     jvalue result;
 
     // 创建栈帧并初始化
     jstack &stack = jvm::get().env().stack;
     jstack_frame &frame = stack.push(me);
-    
+
+    if ((me->access_flag & jclass_method::ACC_SYNCHRONIZED) != 0) {
+        frame.lock = lock_object;
+        jobject *ptr = jheap::cast(lock_object);
+        assert(ptr != nullptr);
+        auto ok = ptr->lock();
+        assert(ok == 0);
+    }
     
     jclass_attr_code &code = *(me->entrance.code_func);
     jclass_const_pool &constant_pool = me->clazz->class_file->constant_pool;
  
     // 将参数压进局部变量表
     memcpy(frame.variable_table, args.begin(), me->args_slot * sizeof(slot_t));
+    memcpy(frame.variable_ref_table, me->args_ref_table, me->args_slot);
 
     const auto code_length = code.code_length;
 
@@ -544,6 +574,11 @@ _catch:
     goto loop;
 
 finally:
+    if (frame.lock != nullptr) {
+        auto ok = jheap::cast(frame.lock)->unlock();
+        assert(ok == 0);
+    }
+
     stack.pop();
     return result;
 }

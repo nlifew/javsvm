@@ -387,8 +387,7 @@ void bootstrap_loader::gen_method_table(jclass *klass, jclass_file *cls)
 //    LOGD("gen_method_table: class '%s'\n", klass->name);
 
     for (int i = 0; i < klass->method_table_size; i++) {
-//        LOGD("bind method [%d/%d]\n", i, klass->method_table_size);
-        klass->method_tables[i].bind(klass, cls, i);
+        klass->method_tables[i].bind(m_allocator, klass, cls, i);
     }
 
     qsort(klass->method_tables, klass->method_table_size, sizeof(jmethod),

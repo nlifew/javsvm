@@ -85,6 +85,10 @@ struct jstack_frame
     u4 exp_handler_pc = 0;
 
 
+    /**
+     * 当函数被 synchronized 关键字修饰时，会将这个字段置位
+     */
+    jref lock = nullptr;
 
     jstack_frame() noexcept = default;
     ~jstack_frame() noexcept = default;
@@ -93,7 +97,7 @@ struct jstack_frame
 
 
     template <typename T>
-    INLINE T pop_param() noexcept
+    inline T pop_param() noexcept
     {
         operand_stack -= slotof(T);
         T t = *(T *)(operand_stack);
@@ -102,7 +106,7 @@ struct jstack_frame
     }
 
     template <typename T>
-    INLINE void push_param(const T &t) noexcept
+    inline void push_param(const T &t) noexcept
     {
 #ifndef NDEBUG
         *operand_stack = 0;
@@ -117,13 +121,13 @@ struct jstack_frame
 
 
     template<typename T>
-    INLINE T load_param(int idx) noexcept
+    inline T load_param(int idx) noexcept
     {
         push_param(*(T *) (variable_table + idx));
     }
 
     template<typename T>
-    INLINE void store_param(int idx) noexcept
+    inline void store_param(int idx) noexcept
     {
 #ifndef NDEBUG
         variable_table[idx] = 0;
@@ -133,12 +137,11 @@ struct jstack_frame
     }
 
 
-    INLINE void reset_operand_stack() noexcept
+    inline void reset_operand_stack() noexcept
     {
         operand_stack = operand_stack_orig;
         operand_ref_stack = operand_ref_stack_orig;
     }
-
 
 };
 
@@ -162,14 +165,22 @@ private:
     T* alloc(int n)
     {
         auto ptr = (T *)malloc_bytes(n * sizeof(T) + sizeof(int));
+#ifdef NDEBUG
         return ::new(ptr) T[n];
+#else
+        return ::new(ptr) T[n]{};
+#endif
     }
 
     template<typename T>
     T* alloc()
     {
         auto ptr = (T *)malloc_bytes(sizeof(T));
+#ifdef NDEBUG
         return ::new(ptr) T;
+#else
+        return ::new(ptr) T{};
+#endif
     }
 
 public:
