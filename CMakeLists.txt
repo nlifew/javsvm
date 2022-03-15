@@ -28,7 +28,7 @@ add_subdirectory(classloader)
 add_subdirectory(engine)
 add_subdirectory(utils)
 add_subdirectory(dll)
-add_subdirectory(jni)
+#add_subdirectory(jni)
 add_subdirectory(gc)
 
 add_library(
@@ -46,7 +46,7 @@ target_link_libraries(
         object
         gc
         vm
-        jni
+#        jni
         class
         dllloader
         concurrent

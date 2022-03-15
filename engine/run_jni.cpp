@@ -229,7 +229,7 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref, jargs &args)
 {
     LOGD("run_jni: start with %s->%s%s\n", method->clazz->name,
          method->name, method->sig);
-
+#if 0
     if (method->entrance.jni_func == nullptr) {
         // 如果当前函数还没有绑定，尝试去动态库中找
         LOGD("run_jni: entrance == nullptr, lookup ...\n");
@@ -293,4 +293,6 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref, jargs &args)
         throw_throwable(exp);
     }
     return ret;
+#endif
+    return {};
 }

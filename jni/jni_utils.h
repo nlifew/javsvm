@@ -252,7 +252,7 @@ namespace javsvm {
     class jenv;
     class jvm;
 }
-int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept;
+static int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept {  };
 
 
 /**
@@ -261,7 +261,7 @@ int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept;
  * @param jvm 指定的 jvm 实例
  * @return 成功返回 0, 失败返回 -1
  */
-int init_jni_vm(JNIInvokeInterface_ *dst, javsvm::jvm *jvm) noexcept;
+static int init_jni_vm(JNIInvokeInterface_ *dst, javsvm::jvm *jvm) noexcept { };
 
 
 #endif // JAVSVM_JNI_UTILS_H
