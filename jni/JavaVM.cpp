@@ -27,7 +27,7 @@ jint (JNICALL AttachCurrentThread)(JavaVM *vm, void **penv, void *arg)
     auto *jvm = to_jvm(vm);
 
     // 如果已经附加过了，返回 -1
-    if (jvm->env(0) != nullptr) {
+    if (jvm->test() != nullptr) {
         return -1;
     }
     auto &env = jvm->attach();
@@ -40,7 +40,7 @@ jint (JNICALL DetachCurrentThread)(JavaVM *vm)
     auto *jvm = to_jvm(vm);
 
     // 如果没有被附加过，返回 -1
-    if (jvm->env(0) == nullptr) {
+    if (jvm->test() == nullptr) {
         return -1;
     }
     jvm->detach();
@@ -52,7 +52,7 @@ jint (JNICALL GetEnv)(JavaVM *vm, void **penv, jint version)
     if (penv) *penv = nullptr;
 
     auto *jvm = to_jvm(vm);
-    auto *env = jvm->env(0);
+    auto *env = jvm->test();
 
     if (env == nullptr) {
         return -1;

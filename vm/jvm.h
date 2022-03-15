@@ -15,6 +15,8 @@
 #include <condition_variable>
 #include <unordered_set>
 #include <pthread.h>
+#include <vector>
+
 
 namespace javsvm
 {
@@ -35,19 +37,11 @@ private:
      */
     std::mutex m_mutex;
     std::condition_variable m_cond;
+    volatile int m_active_threads_count = 0;
 
-    struct pthread_equals
-    {
-        bool operator()(const pthread_t &p, const pthread_t &q) const noexcept
-        {
-            return pthread_equal(p, q);
-        }
-    };
+    std::unordered_set<jenv*> m_threads;
 
-    using thread_container_type = std::unordered_set<
-            pthread_t, std::hash<pthread_t>, pthread_equals, std::allocator<pthread_t>>;
-
-    thread_container_type m_threads;
+    std::vector<pthread_t> m_placeholder_threads;
 public:
     /**
      * 堆
@@ -80,7 +74,7 @@ public:
     jstring string;
 
 
-    ~jvm() noexcept;
+    ~jvm() noexcept = default;
     jvm(const jvm&) = delete;
     jvm& operator=(const jvm&) = delete;
 
@@ -185,9 +179,16 @@ public:
      */
      void wait_for() noexcept;
 
-    /**
-     * 获取 jni 层 JavaVM 指针
-     */
+     /**
+      * 获取附加到该虚拟机实例上的所有线程
+      * @param out 要写入的地址
+      * @return 一共有多少线程数
+      */
+     int all_threads(std::vector<jenv*> *out) noexcept;
+
+     /**
+      * 获取 jni 层 JavaVM 指针
+      */
      void *jni() const noexcept;
 };
 
