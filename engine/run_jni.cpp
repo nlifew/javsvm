@@ -35,19 +35,20 @@ static void *find_entrance(jmethod *method)
 
 static_assert(sizeof(javsvm::jvalue) == sizeof(int64_t));
 
-extern "C" javsvm::jvalue calljni64(
-        const void *addr,			    /* 函数地址，由 load_library() 获取得到，不能是 nullptr */
-        int return_type,			    /* 返回类型，0 表示返回 int64，非 0 返回浮点数.  */
-        const int64_t* integers,	    /* 固定长度为 8 的数组，数组内的值将被写入到 x0-x7 通用寄存器 */
-        const javsvm::jdouble* floats,  /* 固定长度为 16 的数组，数组内的值将被写入到 d0-d15 浮点数寄存器 */
-        int stack_len,				    /* 表示要压进栈的参数大小，单位是字节，为非负的整数。需要调用者自己对齐到 16 字节 */
-        const void *stack			    /* 要压进栈的参数的起始地址。高地址会被先压进栈。 */
+extern "C" int64_t calljni64(
+        const void *addr,			/* 函数地址，由 load_library() 获取得到，不能是 nullptr */
+        int return_type,			/* 返回类型，0 表示返回 int64，非 0 返回 double64.  */
+        const int64_t* integers,	/* 固定长度为 8 的数组，数组内的值将被写入到 x0-x7 通用寄存器 */
+        const int64_t* floats,		/* 固定长度为 16 的数组，数组内的值将被写入到 d0-d15 浮点数寄存器 */
+        int stack_len,				/* 表示要压进栈的参数大小，单位是字节，为非负的整数。需要调用者自己对齐到 16 字节 */
+        const void *stack			/* 要压进栈的参数的起始地址。高地址会被先压进栈。 */
 );
 
 /**
- * @tparam align16 使用栈传递参数时是否强制 8 字节对齐
+ * @tparam align8 使用栈传递参数时是否强制 8 字节对齐
+ * @tparam regNum 通用寄存器的数量
  */
-template <bool align8>
+template <bool align8, int regNum>
 class args_stack
 {
 private:
@@ -178,6 +179,8 @@ public:
     [[nodiscard]]
     const int64_t *registers() const noexcept { return m_registers.data(); }
 
+    [[nodiscard]]
+    int register_size() const noexcept { return m_register_size; }
 
     [[nodiscard]]
     const javsvm::jdouble *float_registers() const noexcept { return m_float_registers.data(); }
@@ -193,9 +196,9 @@ public:
     int stack_size() const noexcept { return align<16>(m_stack_size); }
 };
 
-template <bool B>
+template <bool align8, int regNum>
 static void dump_stack_trace(jmethod *method, JNIEnv *jni_env, jref jni_obj,
-                             int return_type, args_stack<B> &as)
+                             int return_type, args_stack<align8, regNum> &as)
 {
     LOGD("run_jni:-----------------------dump stack-----------------------\n");
     LOGD("run_jni: %s->%s%s\n", method->clazz->name, method->name, method->sig);
@@ -206,8 +209,8 @@ static void dump_stack_trace(jmethod *method, JNIEnv *jni_env, jref jni_obj,
     LOGD("run_jni: return_type: %d\n", return_type);
     LOGD("run_jni: \n");
     LOGD("run_jni: registers:\n");
-    for (int i = 0; i < 8; i ++) {
-        LOGD("run_jni: \t\t[%d/%d]: %lld\n", i, 8, as.registers()[i]);
+    for (int i = 0, z = as.register_size(); i < z; i ++) {
+        LOGD("run_jni: \t\t[%d/%d]: %lld\n", i, z, as.registers()[i]);
     }
     LOGD("run_jni: \n");
     LOGD("run_jni: float_registers: %d\n", as.float_size());
@@ -225,11 +228,10 @@ static void dump_stack_trace(jmethod *method, JNIEnv *jni_env, jref jni_obj,
     LOGD("run_jni:---------------------dump stack end---------------------\n");
 }
 
-javsvm::jvalue javsvm::run_jni(jmethod *method, jref, jargs &args)
+javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
 {
-    LOGD("run_jni: start with %s->%s%s\n", method->clazz->name,
-         method->name, method->sig);
-#if 0
+    LOGD("run_jni: start with %s->%s%s\n", method->clazz->name, method->name, method->sig);
+
     if (method->entrance.jni_func == nullptr) {
         // 如果当前函数还没有绑定，尝试去动态库中找
         LOGD("run_jni: entrance == nullptr, lookup ...\n");
@@ -247,6 +249,8 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref, jargs &args)
     LOGD("run_jni: push a new frame\n");
     auto &env = jvm::get().env();
     auto &frame = env.stack.push(method);
+
+    frame.lock_if(lock_object);
 
     // 准备 jni 运行时参数
     args.reset();
@@ -268,10 +272,10 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref, jargs &args)
         default: LOGE("run_jni: unknown return type: %s->%s\n", method->name, method->sig);
     }
 
-
+#if 0
     // 4. 参数
     // macOS 使用栈传递参数时不强制扩充到 8 字节
-    args_stack<false> as;
+    args_stack<false, 8> as;
     as.push_integer<::JNIEnv*>(jni_env);
     as.push_integer<::jobject>(to_object(jni_obj));
     as.add_all(method->sig, args);
@@ -285,14 +289,15 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref, jargs &args)
             as.float_registers(), as.stack_size(), as.stack()
             );
 
+#endif
     // 弹出栈之前检查有没有异常。如果有，向上抛出
     auto exp = frame.exp;
+
+    frame.unlock();
     env.stack.pop();
 
     if (exp != nullptr) {
         throw_throwable(exp);
     }
-    return ret;
-#endif
     return {};
 }

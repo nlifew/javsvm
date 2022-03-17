@@ -2,6 +2,8 @@
 
 #include <new>
 #include "jstack.h"
+#include "jheap.h"
+#include "../object/jobject.h"
 #include "../object/jmethod.h"
 
 using namespace javsvm;
@@ -24,10 +26,10 @@ void* jstack::malloc_bytes(int bytes)
     return mem; // memset(mem, 0, bytes);
 }
 
-void jstack::recycle_bytes(int bytes)
-{
-    m_offset -= bytes;
-}
+//void jstack::recycle_bytes(int bytes)
+//{
+//    m_offset -= bytes;
+//}
 
 
 jstack::jstack(int capacity) noexcept
@@ -48,21 +50,22 @@ jstack_frame *jstack::pop() noexcept
 {
     assert(m_top != nullptr);
 
-    jstack_frame *frame = m_top;
-    m_top = frame->next;
-    frame->next = nullptr;
+    m_offset = m_top->backup;
+    m_top = m_top->next;
 
-    recycle_bytes(frame->bytes);
     return m_top;
 }
 
 jstack_frame& jstack::push(jmethod *m) noexcept
 {
     int pos = m_offset;
-    auto frame = alloc<jstack_frame>();
 
+    jstack_frame *result;
 
     if ((m->access_flag & jclass_method::ACC_NATIVE) == 0) {
+        auto frame = alloc<java_stack_frame>();
+        result = frame;
+
         jclass_attr_code *code = m->entrance.code_func;
 
         frame->operand_stack = alloc<slot_t>(code->max_stack);
@@ -74,11 +77,52 @@ jstack_frame& jstack::push(jmethod *m) noexcept
         frame->operand_stack_orig = frame->operand_stack;
         frame->operand_ref_stack_orig = frame->operand_ref_stack;
     }
+    else {
+        auto frame = alloc<jni_stack_frame>();
+        result = frame;
 
-    frame->method = m;
-    frame->bytes = m_offset - pos;
+        frame->stack = this;
+        frame->local_ref_table = alloc<jref>(frame->local_ref_table_capacity);
+    }
 
-    frame->next = m_top;
-    m_top = frame;
-    return *frame;
+    result->backup = pos;
+    result->method = m;
+    result->next = m_top;
+    m_top = result;
+    return *result;
+}
+
+void jstack_frame::lock_if(jref lck) noexcept
+{
+    lock = lck;
+    auto *ptr = jheap::cast(lck);
+    assert(ptr != nullptr);
+    auto ok = ptr->lock();
+    assert(ok == 0);
+}
+
+void jstack_frame::unlock() noexcept
+{
+    if (lock == nullptr) {
+        return;
+    }
+    auto ok = jheap::cast(lock)->unlock();
+    assert(ok == 0);
+    lock = nullptr;
+}
+
+
+int jni_stack_frame::reserve(int capacity) noexcept
+{
+    if (local_ref_table_capacity >= capacity) {
+        return 0;
+    }
+    assert(stack->top() == this);
+    int need = (capacity - local_ref_table_capacity) * (int) sizeof(jref);
+    if (stack->m_offset + need > stack->m_capacity) {
+        return -1;
+    }
+    local_ref_table_capacity = capacity;
+    stack->m_offset += need;
+    return 0;
 }

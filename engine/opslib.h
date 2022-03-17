@@ -14,7 +14,7 @@ using namespace javsvm;
 
 
 template <typename T>
-static void getT(jstack_frame &frame)
+static void getT(java_stack_frame &frame)
 {
     int idx = frame.pop_param<int>();
     jref ref = frame.pop_param<jref>();
@@ -27,7 +27,7 @@ static void getT(jstack_frame &frame)
 }
 
 template <typename T>
-static void setT(jstack_frame &frame)
+static void setT(java_stack_frame &frame)
 {
     T val = frame.pop_param<T>();
     int idx = frame.pop_param<int>();
@@ -38,7 +38,7 @@ static void setT(jstack_frame &frame)
 }
 
 template <typename T>
-static void addT(jstack_frame &frame)
+static void addT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -47,7 +47,7 @@ static void addT(jstack_frame &frame)
 }
 
 template <typename T>
-static void subT(jstack_frame &frame)
+static void subT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -56,7 +56,7 @@ static void subT(jstack_frame &frame)
 }
 
 template <typename T>
-static void mulT(jstack_frame &frame)
+static void mulT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -65,7 +65,7 @@ static void mulT(jstack_frame &frame)
 }
 
 template <typename T>
-static void divT(jstack_frame &frame)
+static void divT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -74,7 +74,7 @@ static void divT(jstack_frame &frame)
 }
 
 template <>
-void divT<jint>(jstack_frame &frame)
+void divT<jint>(java_stack_frame &frame)
 {
     auto q = frame.pop_param<jint>();
     auto p = frame.pop_param<jint>();
@@ -88,7 +88,7 @@ void divT<jint>(jstack_frame &frame)
 }
 
 template <>
-void divT<jlong>(jstack_frame &frame)
+void divT<jlong>(java_stack_frame &frame)
 {
     auto q = frame.pop_param<jlong>();
     auto p = frame.pop_param<jlong>();
@@ -102,7 +102,7 @@ void divT<jlong>(jstack_frame &frame)
 }
 
 template <typename T>
-static void remT(jstack_frame &frame)
+static void remT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -112,7 +112,7 @@ static void remT(jstack_frame &frame)
 
 
 template <>
-void remT<jfloat>(jstack_frame &frame)
+void remT<jfloat>(java_stack_frame &frame)
 {
     auto q = frame.pop_param<jfloat>();
     auto p = frame.pop_param<jfloat>();
@@ -120,7 +120,7 @@ void remT<jfloat>(jstack_frame &frame)
     frame.pc += 1;
 }
 template <>
-void remT<jdouble>(jstack_frame &frame)
+void remT<jdouble>(java_stack_frame &frame)
 {
     auto q = frame.pop_param<jdouble>();
     auto p = frame.pop_param<jdouble>();
@@ -129,7 +129,7 @@ void remT<jdouble>(jstack_frame &frame)
 }
 
 template <typename T>
-static void negT(jstack_frame &frame)
+static void negT(java_stack_frame &frame)
 {
     T val = frame.pop_param<T>();
     frame.push_param<T>(- val);
@@ -137,7 +137,7 @@ static void negT(jstack_frame &frame)
 }
 
 template <typename T>
-static void shlT(jstack_frame &frame)
+static void shlT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -146,7 +146,7 @@ static void shlT(jstack_frame &frame)
 }
 
 template <typename T>
-static void shrT(jstack_frame &frame)
+static void shrT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -155,7 +155,7 @@ static void shrT(jstack_frame &frame)
 }
 
 template <typename SignedT, typename UnsignedT>
-static void ushrT(jstack_frame &frame)
+static void ushrT(java_stack_frame &frame)
 {
     SignedT q = frame.pop_param<SignedT>();
     SignedT p = frame.pop_param<SignedT>();
@@ -166,7 +166,7 @@ static void ushrT(jstack_frame &frame)
 
 
 template <typename T>
-static void andT(jstack_frame &frame)
+static void andT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -175,7 +175,7 @@ static void andT(jstack_frame &frame)
 }
 
 template <typename T>
-static void orT(jstack_frame &frame)
+static void orT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -184,7 +184,7 @@ static void orT(jstack_frame &frame)
 }
 
 template <typename T>
-static void xorT(jstack_frame &frame)
+static void xorT(java_stack_frame &frame)
 {
     T q = frame.pop_param<T>();
     T p = frame.pop_param<T>();
@@ -195,7 +195,7 @@ static void xorT(jstack_frame &frame)
 
 
 template <typename TypeIn, typename TypeOut>
-static void i2T(jstack_frame &frame)
+static void i2T(java_stack_frame &frame)
 {
     TypeIn val = frame.pop_param<TypeIn>();
     frame.push_param<TypeOut>((TypeOut) val);
@@ -204,7 +204,7 @@ static void i2T(jstack_frame &frame)
 
 
 template <typename Type, typename TypeW, jint ErrVal>
-static void cmpT(jstack_frame &frame)
+static void cmpT(java_stack_frame &frame)
 {
     Type b = frame.pop_param<Type>();
     Type a = frame.pop_param<Type>();
@@ -217,7 +217,7 @@ static void cmpT(jstack_frame &frame)
 }
 
 template <typename T>
-static void cmpT(jstack_frame &frame)
+static void cmpT(java_stack_frame &frame)
 {
     T b = frame.pop_param<T>();
     T a = frame.pop_param<T>();
@@ -227,7 +227,7 @@ static void cmpT(jstack_frame &frame)
 
 
 template <typename Type, typename Comparator>
-static void ifT(jstack_frame &frame, jclass_attr_code &code)
+static void ifT(java_stack_frame &frame, jclass_attr_code &code)
 {
     Type val = frame.pop_param<Type>();
 
@@ -244,7 +244,7 @@ static void ifT(jstack_frame &frame, jclass_attr_code &code)
 
 
 template <typename Type, typename Comparator>
-static void ifcmpT(jstack_frame &frame, jclass_attr_code &code)
+static void ifcmpT(java_stack_frame &frame, jclass_attr_code &code)
 {
     Type val2 = frame.pop_param<Type>();
     Type val1 = frame.pop_param<Type>();
@@ -276,7 +276,7 @@ struct ref_not_equ
 };
 
 
-static inline void switch_table(jstack_frame &frame, jclass_attr_code &code)
+static inline void switch_table(java_stack_frame &frame, jclass_attr_code &code)
 {
     jint (*reverse)(jint) = numbers::reverse_endian<jint>;
 
@@ -297,7 +297,7 @@ static inline void switch_table(jstack_frame &frame, jclass_attr_code &code)
     }
 }
 
-static inline void lookup_table(jstack_frame &frame, jclass_attr_code &code)
+static inline void lookup_table(java_stack_frame &frame, jclass_attr_code &code)
 {
     constexpr jint (*reverse)(jint) = numbers::reverse_endian<jint>;
 
@@ -340,7 +340,7 @@ static inline jclass *get_class(int index, jclass_const_pool &pool)
 }
 
 
-static inline void do_ldc(jclass_const_pool &pool, int idx, jstack_frame& frame)
+static inline void do_ldc(jclass_const_pool &pool, int idx, java_stack_frame& frame)
 {
     auto *const_value = pool.child_at(idx - 1);
 
@@ -458,7 +458,7 @@ static inline jmethod* get_method(int index, jclass_const_pool &pool)
 
 
 template<typename Method, int OpCount>
-static inline void invoke_method(jstack_frame &frame,
+static inline void invoke_method(java_stack_frame &frame,
                                  jclass_attr_code &code,
                                  jclass_const_pool &pool)
 {
@@ -528,7 +528,7 @@ static inline jfield* get_field(int index, jclass_const_pool &pool)
 }
 
 template <typename Field>
-static inline void put_field(jstack_frame &frame,
+static inline void put_field(java_stack_frame &frame,
                              jclass_attr_code &code,
                              jclass_const_pool &pool)
 {
@@ -560,7 +560,7 @@ static inline void put_field(jstack_frame &frame,
 
 
 template <typename Field>
-static inline void get_field(jstack_frame &frame,
+static inline void get_field(java_stack_frame &frame,
                              jclass_attr_code &code,
                              jclass_const_pool &pool)
 {
@@ -589,7 +589,7 @@ static inline void get_field(jstack_frame &frame,
 
 
 
-static inline void new_array(jstack_frame &frame, jclass_attr_code &code)
+static inline void new_array(java_stack_frame &frame, jclass_attr_code &code)
 {
     int length = frame.pop_param<jint>();
     int type = code.code[frame.pc + 1];
@@ -613,7 +613,7 @@ static inline void new_array(jstack_frame &frame, jclass_attr_code &code)
     frame.pc += 2;
 }
 
-static inline void a_new_array(jstack_frame &frame,
+static inline void a_new_array(java_stack_frame &frame,
                                jclass_const_pool &pool,
                                jclass_attr_code &code)
 {
@@ -630,7 +630,7 @@ static inline void a_new_array(jstack_frame &frame,
 }
 
 
-static inline void multi_array(jstack_frame &frame,
+static inline void multi_array(java_stack_frame &frame,
                                jclass_const_pool &pool,
                                jclass_attr_code &code)
 {
@@ -645,7 +645,7 @@ static inline void multi_array(jstack_frame &frame,
     frame.pc += 3;
 }
 
-static inline void array_length(jstack_frame &frame)
+static inline void array_length(java_stack_frame &frame)
 {
     jref ref = frame.pop_param<jref>();
     frame.push_param<jint>(jvm::get().array.get_array_length(ref));
@@ -653,7 +653,7 @@ static inline void array_length(jstack_frame &frame)
 }
 
 
-static inline void check_cast(jstack_frame &frame,
+static inline void check_cast(java_stack_frame &frame,
                               jclass_const_pool &pool,
                               jclass_attr_code &code)
 {
@@ -669,7 +669,7 @@ static inline void check_cast(jstack_frame &frame,
     frame.pc += 3;
 }
 
-static inline void instance_of(jstack_frame &frame,
+static inline void instance_of(java_stack_frame &frame,
                               jclass_const_pool &pool,
                               jclass_attr_code &code)
 {

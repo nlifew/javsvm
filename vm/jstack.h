@@ -19,6 +19,61 @@ using slot_t = std::uint64_t;
  */
 struct jstack_frame
 {
+
+    /**
+     * 正在执行的函数
+     */
+    jmethod *method = nullptr;
+
+
+    /**
+     * 链表结构，指向下一个栈帧
+     */
+    jstack_frame *next = nullptr;
+
+
+    /**
+     * 指针计数器 pointer counter
+     */
+    u4 pc = 0;
+
+    /**
+     * 栈底，用来回复栈指针
+     */
+    int backup = 0;
+
+    /**
+     * 异常引用
+     * 当异常实例被抛出，虚拟机会进行栈回溯，如果该异常能够被正常捕获，
+     * 则会修改 exp_handler_pc，并将此字段置位。此时解释引擎会清空操作数栈，
+     * 并重新修正 pc 为 exp_handler_pc
+     */
+    jref exp = nullptr;
+
+    /**
+     * 异常发生时的 pc 指针
+     */
+    u4 exp_handler_pc = 0;
+
+
+    /**
+     * 当函数被 synchronized 关键字修饰时，会将这个字段置位
+     */
+    jref lock = nullptr;
+
+    jstack_frame() noexcept = default;
+    ~jstack_frame() noexcept = default;
+    jstack_frame(const jstack_frame &) = delete;
+    jstack_frame &operator=(const jstack_frame&) = delete;
+
+    void lock_if(jref lck) noexcept;
+
+    void unlock() noexcept;
+};
+
+
+struct java_stack_frame: public jstack_frame
+{
     /**
      * 局部变量表
      */
@@ -48,52 +103,6 @@ struct jstack_frame
      * 原始的操作数栈指针，用来恢复操作数栈到原始位置
      */
     slot_t *operand_stack_orig = nullptr;
-
-    /**
-     * 正在执行的函数
-     */
-    jmethod *method = nullptr;
-
-
-    /**
-     * 链表结构，指向下一个栈帧
-     */
-    jstack_frame *next = nullptr;
-
-
-    /**
-     * 指针计数器 pointer counter
-     */
-    u4 pc = 0;
-
-    /**
-     * 栈帧使用的字节数
-     */
-    int bytes = 0;
-
-    /**
-     * 异常引用
-     * 当异常实例被抛出，虚拟机会进行栈回溯，如果该异常能够被正常捕获，
-     * 则会修改 exp_handler_pc，并将此字段置位。此时解释引擎会清空操作数栈，
-     * 并重新修正 pc 为 exp_handler_pc
-     */
-    jref exp = nullptr;
-
-    /**
-     * 异常发生时的 pc 指针
-     */
-    u4 exp_handler_pc = 0;
-
-
-    /**
-     * 当函数被 synchronized 关键字修饰时，会将这个字段置位
-     */
-    jref lock = nullptr;
-
-    jstack_frame() noexcept = default;
-    ~jstack_frame() noexcept = default;
-    jstack_frame(const jstack_frame &) = delete;
-    jstack_frame &operator=(const jstack_frame&) = delete;
 
 
     template <typename T>
@@ -145,9 +154,91 @@ struct jstack_frame
 
 };
 
+class jstack;
+
+struct jni_stack_frame: public jstack_frame
+{
+    /**
+     * 栈
+     */
+    jstack *stack = nullptr;
+
+    /**
+     * 保存局部引用的表
+     */
+     jref *local_ref_table = nullptr;
+
+     /**
+      * 局部引用表的容量
+      */
+      int local_ref_table_capacity = 16;
+
+      /**
+       * 已使用的局部引用的数量
+       */
+       int local_ref_table_size = 0;
+
+      /**
+       * 保证当前局部引用表最少能容纳 capacity 个引用
+       * 成功返回 0，失败返回 -1
+       */
+      int reserve(int capacity) noexcept;
+
+      /**
+       * 向局部引用表的末尾添加一个引用
+       * 成功返回该引用在引用表中的指针。失败返回 nullptr
+       */
+      jref* append_local_ref(jref ref) noexcept
+      {
+          if (local_ref_table_size >= local_ref_table_capacity
+                && reserve(local_ref_table_size * 2) < 0) {
+              return nullptr;
+          }
+          jref &ret = local_ref_table[local_ref_table_size ++] = ref;
+          return &ret;
+      }
+
+      /**
+       * 得到引用在局部引用表中的位置
+       * 找到返回相应的 index，失败返回 -1
+       */
+      int index_of(jref *ptr) const noexcept
+      {
+          const ssize_t index = ptr - local_ref_table;
+          if (index < local_ref_table_size && index > -1) {
+              return (int) index;
+          }
+          return -1;
+      }
+
+      /**
+       * 强制指定局部变量表为 size 大小。如果 size 比之前的 size 大，
+       * 多余的部分用 nullptr 填充；否则删除队列尾的部分。
+       * 成功返回旧的 size，失败返回 -1
+       */
+      int resize(int size) noexcept
+      {
+          const int old_size = local_ref_table_size;
+          if (old_size < size) {
+              if (reserve(size) < 0) {
+                  return -1;
+              }
+              memset(local_ref_table + old_size, 0, sizeof(jref) * (size - old_size));
+          }
+          local_ref_table_size = size;
+          return old_size;
+      }
+};
+
+
+
+
+
+
 class jstack
 {
 private:
+    friend class jni_stack_frame;
     static const int DEFAULT_STACK_SIZE = 64 * 1024;  /* aka 64k */
     
 private:
@@ -159,7 +250,7 @@ private:
 
     void *malloc_bytes(int bytes);
 
-    void recycle_bytes(int bytes);
+//    void recycle_bytes(int bytes);
 
     template <typename T>
     T* alloc(int n)
@@ -195,6 +286,10 @@ public:
     [[nodiscard]]
     jstack_frame *top() const noexcept { return m_top; }
 
+    /**
+     * 弹出顶部的栈帧
+     * @return 弹出后新的栈顶
+     */
     jstack_frame *pop() noexcept;
 
     jstack_frame& push(jmethod *m) noexcept;

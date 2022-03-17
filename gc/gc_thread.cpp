@@ -309,25 +309,36 @@ static void lookup_gc_root(std::list<jref> &v, const T &t) noexcept
             t(frame->exp);
             t(frame->lock);
 
-            jclass_attr_code *code = frame->method->entrance.code_func;
+            if ((frame->method->access_flag & jclass_method::ACC_NATIVE) != 0) {
+                auto *f = (jni_stack_frame *) frame;
+                for (int i = 0, z = f->local_ref_table_size; i < z; ++i) {
+                    t(f->local_ref_table[i]);
+                }
+            }
+            else {
+                // 此时是 java 函数
+                jclass_attr_code *code = frame->method->entrance.code_func;
+                auto *f = (java_stack_frame *) frame;
 
-            // 局部变量表
-            auto local_variable_table = frame->variable_table;
-            auto local_ref_table = frame->variable_ref_table;
-            for (int i = 0, z = code->max_locals; i < z; ++i) {
-                if (local_ref_table[i]) {
-                    t(* (jref *) &local_variable_table[i]);
+                // 局部变量表
+                auto local_variable_table = f->variable_table;
+                auto local_ref_table = f->variable_ref_table;
+                for (int i = 0, z = code->max_locals; i < z; ++i) {
+                    if (local_ref_table[i]) {
+                        t(* (jref *) &local_variable_table[i]);
+                    }
+                }
+
+                // 操作数栈
+                auto operand_stack = f->operand_stack;
+                auto operand_ref_stack = f->operand_ref_stack;
+                for (int i = 0, z = code->max_stack; i < z; ++i) {
+                    if (operand_ref_stack[i]) {
+                        t(* (jref *) &operand_stack[i]);
+                    }
                 }
             }
 
-            // 操作数栈
-            auto operand_stack = frame->operand_stack;
-            auto operand_ref_stack = frame->operand_ref_stack;
-            for (int i = 0, z = code->max_stack; i < z; ++i) {
-                if (operand_ref_stack[i]) {
-                    t(* (jref *) &operand_stack[i]);
-                }
-            }
         }
     }
 

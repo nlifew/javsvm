@@ -13,7 +13,7 @@
 #include "opslib.h"
 
 
-static void dump_frame_info(jmethod *me, jstack_frame &frame, int op, jclass_attr_code &code) noexcept
+static void dump_frame_info(jmethod *me, java_stack_frame &frame, int op, jclass_attr_code &code) noexcept
 {
     LOGD("\n------------------------dump stack frame------------------------\n");
     LOGD("method: %s->%s%s\n", me->clazz->name, me->name, me->sig);
@@ -62,15 +62,9 @@ jvalue javsvm::run_java(jmethod *me, jref lock_object, jargs &args)
 
     // 创建栈帧并初始化
     jstack &stack = jvm::get().env().stack;
-    jstack_frame &frame = stack.push(me);
+    auto &frame = (java_stack_frame&) stack.push(me);
 
-    if ((me->access_flag & jclass_method::ACC_SYNCHRONIZED) != 0) {
-        frame.lock = lock_object;
-        jobject *ptr = jheap::cast(lock_object);
-        assert(ptr != nullptr);
-        auto ok = ptr->lock();
-        assert(ok == 0);
-    }
+    frame.lock_if(lock_object);
     
     jclass_attr_code &code = *(me->entrance.code_func);
     jclass_const_pool &constant_pool = me->clazz->class_file->constant_pool;
@@ -574,11 +568,7 @@ _catch:
     goto loop;
 
 finally:
-    if (frame.lock != nullptr) {
-        auto ok = jheap::cast(frame.lock)->unlock();
-        assert(ok == 0);
-    }
-
+    frame.unlock();
     stack.pop();
     return result;
 }
