@@ -482,7 +482,7 @@ int jclass::do_invoke_clinit() noexcept
                 continue;
             }
 //            LOGD("invoke_clinit: layout constant fields: %s\n", field->name);
-            field->set(nullptr, val);
+            field->set_static(val);
         }
     }
 

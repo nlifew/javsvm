@@ -49,7 +49,7 @@ public:
 
 private:
     jref m_ptr = nullptr;
-
+    const bool m_owner = true;
 public:
     /**
      * 全局 GcRoot 池。所有的 GcRoot 实例都保存在这里，以便 gc 线程遍历
@@ -65,10 +65,13 @@ public:
     static static_field_set_type static_field_pool;
 
 
-    gc_root(jref ref = nullptr) noexcept
+    gc_root(jref ref = nullptr, bool owner = true) noexcept:
+        m_owner(owner)
     {
         m_ptr = ref;
-        ref_pool.add(this);
+        if (owner) {
+            ref_pool.add(this);
+        }
     }
 
     gc_root(const gc_root &o) noexcept
@@ -77,12 +80,24 @@ public:
         ref_pool.add(this);
     }
 
-    ~gc_root() noexcept
+    gc_root(gc_root &&o) noexcept
     {
-        ref_pool.remove(this);
+        m_ptr = o.m_ptr;
+        ref_pool.add(this);
     }
 
-    gc_root& operator=(const gc_root &o) noexcept = default;
+    ~gc_root() noexcept
+    {
+        if (m_owner) {
+            ref_pool.remove(this);
+        }
+    }
+
+    gc_root& operator=(const gc_root &o) noexcept
+    {
+        m_ptr = o.m_ptr;
+        return *this;
+    }
 
     gc_root& operator=(jref ref) noexcept
     {
@@ -90,11 +105,6 @@ public:
         return *this;
     }
 
-    gc_root(gc_root &&o) noexcept
-    {
-        m_ptr = o.m_ptr;
-        ref_pool.add(this);
-    }
 
     gc_root& operator=(gc_root&& o) noexcept
     {

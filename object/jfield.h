@@ -5,6 +5,9 @@
 
 #include "../utils/global.h"
 #include "../class/jclass_file.h"
+#include "../vm/jheap.h"
+#include "../engine/engine.h"
+#include "jobject.h"
 
 namespace javsvm
 {
@@ -79,9 +82,69 @@ struct jfield
         return strcmp(o1->name, o2->name);
     }
 
-    jvalue get(jref obj) const noexcept;
 
-    void set(jref obj, jvalue val) const noexcept;
+    inline jvalue get(jref obj) const noexcept
+    {
+        auto ptr = jheap::cast(obj);
+        if (ptr == nullptr) {
+            throw_exp("java/lang/NullPointerException", name);
+            return { 0 };
+        }
+        return get0(ptr->values + mem_offset, mem_size);
+    }
+
+    inline jvalue get_static() const noexcept
+    {
+        if (clazz->invoke_clinit() < 0) {
+            return { 0 };
+        }
+        return get0((char*) clazz->data + mem_offset, mem_size);
+    }
+
+
+    inline void set(jref obj, jvalue val) const noexcept
+    {
+        auto ptr = jheap::cast(obj);
+        if (ptr == nullptr) {
+            throw_exp("java/lang/NullPointerException", name);
+            return;
+        }
+        set0(ptr->values + mem_offset, val, mem_size);
+    }
+
+    inline void set_static(jvalue val) const noexcept
+    {
+        if (clazz->invoke_clinit() < 0) {
+            return;
+        }
+        set0(clazz->data + mem_offset, val, mem_size);
+    }
+
+private:
+    static inline jvalue get0(const void *src, int size) noexcept
+    {
+        jvalue val;
+        switch (size) {
+            case 1: val.b = *(jbyte *) src; break;
+            case 2: val.s = *(jshort *) src ;break;
+            case 4: val.i = *(jint *) src; break;
+            case 8: val.j = *(jlong *) src; break;
+            default: val.j = 0; break;
+        }
+        return val;
+    }
+
+    static inline void set0(void *dst, jvalue val, int size) noexcept
+    {
+        switch (size) {
+            case 1: *(jbyte *) dst = val.b; break;
+            case 2: *(jshort *) dst = val.s; break;
+            case 4: *(jint *) dst = val.i; break;
+            case 8: *(jlong *) dst = val.j; break;
+            default:
+                break;
+        }
+    }
 };
 
 } // namespace javsvm

@@ -552,9 +552,12 @@ static inline void put_field(java_stack_frame &frame,
         case jfield::flat_type::ARRAY:      val.l = frame.pop_param<jref>();        break;
     }
 
-    jref obj = Field::STATIC ? nullptr : frame.pop_param<jref>();
-
-    field->set(obj, val);
+    if (Field::STATIC) {
+        field->set_static(val);
+    }
+    else {
+        field->set(frame.pop_param<jref>(), val);
+    }
     frame.pc += 3;
 }
 
@@ -568,9 +571,8 @@ static inline void get_field(java_stack_frame &frame,
     idx |= code.code[frame.pc + 2];
 
     jfield *field = get_field<Field>(idx, pool);
-    jref obj = Field::STATIC ? nullptr : frame.pop_param<jref>();
 
-    jvalue val = field->get(obj);
+    jvalue val = Field::STATIC ? field->get_static() : field->get(frame.pop_param<jref>());
 
     switch (field->type) {
         case jfield::BOOLEAN:   frame.push_param<jboolean>(val.z);  break;
