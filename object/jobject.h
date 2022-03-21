@@ -48,6 +48,8 @@ public:
      */
     int lock() noexcept;
 
+    bool try_lock() noexcept;
+
     /**
      * 尝试释放对象的锁
      */

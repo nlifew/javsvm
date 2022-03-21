@@ -47,12 +47,12 @@ void enter_safety_area() noexcept;
 /**
  * 表示当前线程即将离开安全区。在离开安全区之前，该线程会去检查安全点，
  * 如果 gc 线程正在活跃，则会挂起线程直到 gc 执行完。
- * 和 enter_safety_area() 相对的，exit_safety_area() 也有几种应用情景:
+ * 和 enter_safety_area() 相对的，leave_safety_area() 也有几种应用情景:
  * 1. 线程执行完 native 函数，即将返回 java 函数时;
  * 2. 线程开始执行第一个 java 函数时;
  * 3. 线程获取到锁 (monitor) 之后
  */
-void exit_safety_area() noexcept;
+void leave_safety_area() noexcept;
 
 
 /**

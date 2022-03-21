@@ -2,14 +2,7 @@
 
 
 #include "engine.h"
-
-
-
-#include <functional> /* std::equal_to, std::less */
-
 #include "opsdef.h"
-
-#include "../vm/jvm.h"
 #include "opslib.h"
 
 
@@ -72,6 +65,8 @@ jvalue javsvm::run_java(jmethod *me, jref lock_object, jargs &args)
     // 将参数压进局部变量表
     memcpy(frame.variable_table, args.begin(), me->args_slot * sizeof(slot_t));
     memcpy(frame.variable_ref_table, me->args_ref_table, me->args_slot);
+
+    check_safety_point();
 
     const auto code_length = code.code_length;
 
@@ -432,6 +427,10 @@ loop:
                 int pc = code.code[frame.pc + 1] << 8;
                 pc |= code.code[frame.pc + 2];
                 frame.pc += (short) pc;
+
+                // 非 count-loop 回跳处设置安全点
+//                if (pc < 0)
+                check_safety_point();
                 break;
             }
             case goto_w: {
@@ -441,6 +440,10 @@ loop:
                 pc |= code.code[frame.pc + 3] << 8;
                 pc |= code.code[frame.pc + 4] ;
                 frame.pc += pc;
+
+                // 非 count-loop 回跳处设置安全点
+//                if (pc < 0)
+                check_safety_point();
                 break;
             }
 
@@ -483,12 +486,15 @@ loop:
             case invokeinterface:
                 invoke_method<interface_method, 5>(frame, code, constant_pool);
                 break;
-            case invokedynamic:
-                // todo:
-                break;
+//            case invokedynamic:
+//                // todo:
+//                break;
             case _new: {
                 int idx = code.code[frame.pc + 1] << 8;
                 idx |= code.code[frame.pc + 2];
+
+                // new 指令前添加安全点
+                check_safety_point();
 
                 jclass *cls = get_class(idx, constant_pool);
                 jref ref = cls->new_instance();
@@ -508,6 +514,7 @@ loop:
                 break;
 
             case athrow: {
+                check_safety_point();
                 auto exp = frame.pop_param<jref>();
                 throw_throwable(exp);
                 frame.pc += 1;
@@ -523,8 +530,11 @@ loop:
                 if (ptr == nullptr) {
                     throw_exp("java/lang/NullPointerException", "monitorenter");
                 }
-                else {
-                    ptr->lock();
+                else if (! ptr->try_lock()) {
+                    enter_safety_area();
+                    int ok = ptr->lock();
+                    assert(ok == 0);
+                    leave_safety_area();
                 }
                 frame.pc += 1;
                 break;
@@ -536,13 +546,14 @@ loop:
                     throw_exp("java/lang/NullPointerException", "monitorenter");
                 }
                 else {
-                    ptr->unlock();
+                    auto ok = ptr->unlock();
+                    assert(ok == 0);
                 }
                 frame.pc += 1;
                 break;
             }
-            case wide:
-            case multianewarray:
+//            case wide:
+//            case multianewarray:
                 // todo
             case jsr_w:
                 LOGE("invalid op code: jsr\n"); exit(1); break;

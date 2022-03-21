@@ -78,6 +78,12 @@ int _slotof<void>() { return 0; }
 #define slotof(T) _slotof<T>()
 
 #define INLINE __attribute__((always_inline))
+
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
+#define if_likely(x) if (LIKELY(x))
+#define if_unlikely(x) if (UNLIKELY(x))
 }
 
 #endif //JAVSVM_GLOBAL_H

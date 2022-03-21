@@ -7,6 +7,7 @@
 #include "jnilib.h"
 #include "../vm/jvm.h"
 #include "../jni/jni.h"
+#include "../gc/safety_point.h"
 #include "../jni/jni_utils.h"
 
 #include <array>
@@ -196,6 +197,10 @@ public:
     int stack_size() const noexcept { return align<16>(m_stack_size); }
 };
 
+
+using macos_arm64_args_t = args_stack<false, 8>;
+
+
 template <bool align8, int regNum>
 static void dump_stack_trace(jmethod *method, JNIEnv *jni_env, jref jni_obj,
                              int return_type, args_stack<align8, regNum> &as)
@@ -252,6 +257,9 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
 
     frame.lock_if(lock_object);
 
+    // 进入安全区
+    enter_safety_area();
+#if 0
     // 准备 jni 运行时参数
     args.reset();
 
@@ -272,7 +280,6 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
         default: LOGE("run_jni: unknown return type: %s->%s\n", method->name, method->sig);
     }
 
-#if 0
     // 4. 参数
     // macOS 使用栈传递参数时不强制扩充到 8 字节
     args_stack<false, 8> as;
@@ -290,6 +297,10 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
             );
 
 #endif
+
+    // 离开安全区
+    leave_safety_area();
+
     // 弹出栈之前检查有没有异常。如果有，向上抛出
     auto exp = frame.exp;
 
@@ -299,5 +310,6 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
     if (exp != nullptr) {
         throw_throwable(exp);
     }
+
     return {};
 }

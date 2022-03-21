@@ -37,10 +37,26 @@ struct lock_event
     {
         auto id = T()();
         bool ok = recursive_count > 0 && owner_thread_id == id;
-        if (! ok) {
+        if_unlikely(! ok) {
             LOGE("am_i_locked: 所有者 %d, 递归数 %d，线程 %d\n", owner_thread_id, recursive_count, id);
         }
         return ok;
+    }
+
+    bool try_lock() noexcept
+    {
+        const int my_thread_id = T()();
+        if (my_thread_id == owner_thread_id) {
+            assert_x(recursive_count > 0);
+            recursive_count ++;
+            return true;
+        }
+        if (! mutex.try_lock()) {
+            return false;
+        }
+        recursive_count = 1;
+        owner_thread_id = my_thread_id;
+        return true;
     }
 
     void lock() noexcept
@@ -259,7 +275,8 @@ int jobject::size() noexcept
     return flag.size;
 }
 
-int jobject::lock() noexcept
+
+static flag_t lock_internal(std::atomic<int64_t> &m_flag) noexcept
 {
     flag_t new_flag;
 
@@ -301,18 +318,19 @@ int jobject::lock() noexcept
     assert_x(new_flag.lock != nullptr);
     assert_x(new_flag.lock_count > 0);
 
-    new_flag.lock->lock();
-    return 0;
+    return new_flag;
 }
 
 
-int jobject::unlock() noexcept
+
+template <bool unlockEvent>
+static inline int unlock_internal(std::atomic<int64_t> &m_flag) noexcept
 {
     for (;;) {
         int64_t old_value;
         flag_t flag = old_value = m_flag.load();
 
-        if (flag.ctl != flag_t::ctl_locked || ! flag.lock->am_i_locked()) {
+        if_unlikely(unlockEvent && (flag.ctl != flag_t::ctl_locked || ! flag.lock->am_i_locked())) {
             // 说明之前没有锁住，是异常状态
             return -1;
         }
@@ -332,7 +350,9 @@ int jobject::unlock() noexcept
 
         // CAS 操作更新 flag
         if (m_flag.compare_exchange_strong(old_value, new_value)) {
-            flag.lock->unlock();
+            if (unlockEvent) {
+                flag.lock->unlock();
+            }
             if (flag.lock_count == 1) {
                 lock_pool.recycle(*flag.lock);
             }
@@ -342,6 +362,27 @@ int jobject::unlock() noexcept
     return 0;
 }
 
+int jobject::lock() noexcept
+{
+    lock_internal(m_flag).lock->lock();
+    return 0;
+}
+
+
+int jobject::unlock() noexcept
+{
+    return unlock_internal<true>(m_flag);
+}
+
+
+bool jobject::try_lock() noexcept
+{
+    bool ok = lock_internal(m_flag).lock->try_lock();
+    if_unlikely(! ok) {
+        unlock_internal<false>(m_flag);
+    }
+    return ok;
+}
 
 static inline lock_event_t *am_i_locked(int64_t value) noexcept
 {
@@ -359,7 +400,7 @@ int jobject::wait(long time_millis) noexcept
     // 检查当前线程是否已经拥有了锁
     auto value = m_flag.load(std::memory_order_acquire);
     auto ok = am_i_locked(value);
-    if (! ok) {
+    if_unlikely(! ok) {
         return -1;
     }
     ok->wait(time_millis);
@@ -370,7 +411,7 @@ int jobject::notify_one() noexcept
 {
     auto value = m_flag.load(std::memory_order_acquire);
     auto ok = am_i_locked(value);
-    if (! ok) {
+    if_unlikely(! ok) {
         return -1;
     }
     ok->notify_one();
@@ -381,7 +422,7 @@ int jobject::notify_all() noexcept
 {
     auto value = m_flag.load(std::memory_order_acquire);
     auto ok = am_i_locked(value);
-    if (! ok) {
+    if_unlikely(! ok) {
         return -1;
     }
     ok->notify_all();

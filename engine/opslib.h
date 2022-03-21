@@ -7,8 +7,11 @@
 
 #include "../utils/numbers.h"
 #include "../class/jclass_file.h"
+#include "../vm/jvm.h"
+#include "../gc/safety_point.h"
 
-#include <cmath>
+#include <cmath> /* fmod */
+#include <functional> /* std::equal_to, std::less */
 
 using namespace javsvm;
 

@@ -29,7 +29,7 @@ void javsvm::enter_safety_area() noexcept
     s_instance->enter_safety_area();
 }
 
-void javsvm::exit_safety_area() noexcept
+void javsvm::leave_safety_area() noexcept
 {
     assert(s_instance != nullptr);
     s_instance->exit_safety_area();

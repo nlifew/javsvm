@@ -40,7 +40,11 @@ std::deque<int> m_queue;
 
 #define N 1000
 
+#ifndef NDEBUG
 #define assert_x(x) assert(x)
+#else
+#define assert_x(x) if (! (x)) exit(1);
+#endif
 
 static void product()
 {
