@@ -16,8 +16,11 @@ struct jvm;
 
 class jstring
 {
+public:
+    using cache_pool_t = concurrent_map<std::string, jref, recursive_lock>;
+    
 private:
-    concurrent_map<std::string, jref, recursive_lock> m_cache;
+    cache_pool_t m_cache;
 
     // std::shared_mutex m_lock;
     // std::unordered_map<std::wstring, jref> m_cache;
@@ -26,16 +29,16 @@ private:
 public:
     jref new_string(const char *str) noexcept;
 
-    jref new_string(const wchar_t *str) noexcept;
+    jref new_string(const wchar_t *str, int len) noexcept;
 
 
-    int length(jref ref) noexcept;
+    int length(jref ref) const noexcept;
 
     /**
      * 获取某个字符串内的数组引用
      * @return 失败返回 nullptr
      */
-    jref value_of(jref ref) noexcept;
+    static jref value_of(jref ref) noexcept;
 
 
     explicit jstring(jvm &vm) noexcept :
@@ -52,6 +55,8 @@ public:
     jref find_or_new(const char *s);
 
     jref intern(jref str);
+
+    cache_pool_t& pool() noexcept { return m_cache; }
 };
 
 } // namespace javsvm

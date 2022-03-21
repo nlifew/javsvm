@@ -42,22 +42,21 @@ static bool bind_java_class()
 jref jstring::new_string(const char* str) noexcept
 {
     auto wstr = strings::towstring(str);
-    return new_string(wstr.c_str());
+    return new_string(wstr.c_str(), wstr.length());
 }
 
 
-jref jstring::new_string(const wchar_t * str) noexcept
+jref jstring::new_string(const wchar_t * str, int len) noexcept
 {
     if (! bind_java_class()) {
         LOGE("java_lang_String hasn't been init\n");
         exit(1);
     }
 
-    auto chars_len = (int) wcslen(str);
-    jref chars_array = m_jvm.array.new_char_array(chars_len);
-    m_jvm.array.set_char_array_region(chars_array, 0, chars_len, (jchar *) str);
+    jref chars_array = m_jvm.array.new_char_array(len);
+    m_jvm.array.set_char_array_region(chars_array, 0, len, (jchar *) str);
 
-    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, 0, chars_len);
+    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, 0, len);
     return obj;
 }
 
@@ -71,7 +70,7 @@ jref jstring::value_of(jref ref) noexcept
     return java_lang_String_value->get(ref).l;
 }
 
-int jstring::length(jref ref) noexcept
+int jstring::length(jref ref) const noexcept
 {
     if (! bind_java_class()) {
         LOGE("java_lang_String hasn't been init\n");

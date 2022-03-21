@@ -301,6 +301,11 @@ static void lookup_gc_root(std::list<jref> &v, const T &t) noexcept
         t(* it);
     });
 
+    // 字符串池
+    jvm::get().string.pool().lookup([&](jref *it) {
+      t(* it);
+    });
+
     // 所有的 java 线程
     std::vector<jenv*> threads;
     jvm::get().all_threads(&threads);
