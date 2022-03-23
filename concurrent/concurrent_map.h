@@ -111,11 +111,43 @@ public:
         return m_bucket[key] = func();
     }
 
+
     template<typename T>
-    bool lookup(const T &t)
+    void lookup(const T &t) noexcept
+    {
+        std::unique_lock lck(m_lock);
+        for (auto &it : m_bucket) {
+            t(it);
+        }
+    }
+
+    template<typename T>
+    void const_lookup(const T &t) const noexcept
     {
         std::shared_lock lck(m_lock);
         for (const auto &it : m_bucket) {
+            t(it);
+        }
+    }
+
+
+    template<typename T>
+    bool lookup_when(const T &t) noexcept
+    {
+        std::unique_lock lck(m_lock);
+        for (auto &it : m_bucket) {
+            if (! t(it)) {
+               return false;
+            }
+        }
+        return true;
+    }
+
+    template<typename T>
+    bool const_lookup_when(const T &t) const noexcept
+    {
+        std::shared_lock lck(m_lock);
+        for (auto &it : m_bucket) {
             if (! t(it)) {
                 return false;
             }
@@ -237,11 +269,36 @@ public:
         }
     }
 
-    template<typename T>
-    void lookup(const T &t) const noexcept
+    template <typename T>
+    void lookup(const T &t) noexcept
     {
         for (int i = 0; i < m_segment_count; i ++) {
-            if (! m_segment[i].lookup(t)) {
+            m_segment[i].lookup(t);
+        }
+    }
+
+    template <typename T>
+    void const_lookup(const T &t) const noexcept
+    {
+        for (int i = 0; i < m_segment_count; i ++) {
+            m_segment[i].lookup(t);
+        }
+    }
+    template <typename T>
+    void lookup_when(const T &t) noexcept
+    {
+        for (int i = 0; i < m_segment_count; i ++) {
+            if (! m_segment[i].lookup_when(t)) {
+                break;
+            }
+        }
+    }
+
+    template <typename T>
+    void const_lookup_when(const T &t) const noexcept
+    {
+        for (int i = 0; i < m_segment_count; i ++) {
+            if (! m_segment[i].const_lookup_when(t)) {
                 break;
             }
         }

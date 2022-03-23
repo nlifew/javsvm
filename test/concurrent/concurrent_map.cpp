@@ -21,9 +21,12 @@ int main()
         map.put(buff, i);
     }
 
-    map.lookup([](const auto &it) -> bool {
-        LOGI("[%s] -> [%d]\n", it.first.c_str(), it.second);
-        return true;
+    map.lookup([](std::pair<const Key, Value> &pair) {
+        LOGI("[%s] -> [%d]\n", pair.first.c_str(), pair.second);
+        pair.second = -pair.second;
+    });
+    map.lookup([](std::pair<const Key, Value> &pair) {
+        LOGI("[%s] -> [%d]\n", pair.first.c_str(), pair.second);
     });
 
 
@@ -31,9 +34,9 @@ int main()
 
 
     int idx = 0;
-    map.lookup([&idx](const auto &it) -> bool {
-        LOGI("[%s] -> [%d]\n", it.first.c_str(), it.second);
-        return idx ++ < 4;
+    map.lookup_when([&idx](std::pair<const Key, Value> &pair) {
+        LOGI("[%s] -> [%d]\n", pair.first.c_str(), pair.second);
+        return idx ++ < 3;
     });
 
 

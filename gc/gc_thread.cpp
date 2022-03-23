@@ -302,8 +302,8 @@ static void lookup_gc_root(std::list<jref> &v, const T &t) noexcept
     });
 
     // 字符串池
-    jvm::get().string.pool().lookup([&](jref *it) {
-      t(* it);
+    jvm::get().string.pool().lookup([&](std::pair<const std::string, jref> &pair) {
+        t(pair.second);
     });
 
     // 所有的 java 线程
