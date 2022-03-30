@@ -19,55 +19,6 @@ struct jobject;
 
 
 
-class jobject_ptr {
-private:
-    jobject *m_ptr;
-public:
-    jobject_ptr(jobject *ptr = nullptr) noexcept:
-            m_ptr(ptr) {
-    }
-
-
-    jobject_ptr(const jobject_ptr &) = delete;
-
-    jobject_ptr &operator=(const jobject_ptr &o) = delete;
-
-    jobject_ptr(jobject_ptr &&o) noexcept:
-            m_ptr(o.m_ptr) {
-        o.m_ptr = nullptr;
-    }
-
-    jobject_ptr &operator=(jobject_ptr &&o) noexcept {
-        reset(o.m_ptr);
-        o.m_ptr = nullptr;
-        return *this;
-    }
-
-
-    ~jobject_ptr() noexcept { reset(); }
-
-    bool operator==(const jobject *p) const noexcept { return m_ptr == p; }
-
-    bool operator!=(const jobject *p) const noexcept { return m_ptr != p; }
-
-    bool operator==(const jobject_ptr &p) const noexcept { return m_ptr == p.m_ptr; }
-
-    bool operator!=(const jobject_ptr &p) const noexcept { return m_ptr != p.m_ptr; }
-
-    [[nodiscard]]
-    jobject *get() const noexcept { return m_ptr; }
-
-    explicit operator bool() const noexcept { return m_ptr != nullptr; }
-
-    jobject *operator*() const noexcept { return m_ptr; }
-
-    jobject *operator->() const noexcept { return m_ptr; }
-
-    void reset(jobject *ptr = nullptr) noexcept { m_ptr = ptr; }
-};
-
-
-
 class jheap {
 private:
     friend class gc_thread;
@@ -153,12 +104,6 @@ public:
 
     static inline jobject *cast(jref ref) noexcept {
         return (jobject *) (((uint64_t) ref) & ~R_MSK);
-    }
-
-    [[deprecated]]
-    inline jobject_ptr lock(jref ref) const noexcept
-    {
-        return cast(ref);
     }
 
     static constexpr uint64_t R_MSK =   3;

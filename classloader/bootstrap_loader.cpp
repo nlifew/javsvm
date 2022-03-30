@@ -80,7 +80,7 @@ static jclass_file* open_class_file(const char *dir, const char *name)
     s.append(dir).append("/").append(name).append(".class");
 
     if (access(s.c_str(), R_OK) != 0) {
-        LOGW("failed to open class file '%s'\n", s.c_str());
+        LOGI("failed to open class file '%s'\n", s.c_str());
         return nullptr;
     }
 

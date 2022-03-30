@@ -16,7 +16,6 @@ namespace javsvm
 class jobject;
 struct jclass;
 class jvm;
-class jobject_ptr;
 
 class jarray
 {

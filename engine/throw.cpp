@@ -9,6 +9,8 @@
 using namespace javsvm;
 
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
 
 void javsvm::throw_exp(const char *class_name, const char *msg)
 {
@@ -21,7 +23,7 @@ void javsvm::throw_exp(const char *class_name, const char *msg)
     }
     auto _init_ = klass->get_method("<init>", "(Ljava/lang/String;)V");
     auto exp = klass->new_instance(_init_, jvm::get().string.find_or_new(msg));
-    auto exp_ptr = jvm::get().heap.lock(exp);
+    auto exp_ptr = jheap::cast(exp);
     if (exp_ptr == nullptr) {
         LOGE("failed to create exception instance with class '%s' and msg '%s'\n", class_name, msg);
         throw_err(class_name, msg);
@@ -76,7 +78,7 @@ lookup_exp_table(u4 pc, jref ref, jmethod *method)
 
 void javsvm::throw_throwable(jref ref) noexcept
 {
-    auto ptr = jvm::get().heap.lock(ref);
+    auto ptr = jheap::cast(ref);
     if (ptr == nullptr) {
         throw_exp("java/lang/NullPointerException", "throw_throwable");
         return;
@@ -112,6 +114,7 @@ void javsvm::throw_throwable(jref ref) noexcept
     // todo:
 }
 
+#pragma clang diagnostic pop
 
 jref javsvm::check_exception() noexcept
 {
@@ -119,6 +122,12 @@ jref javsvm::check_exception() noexcept
     const auto &stack = jvm::get().env().stack;
 
     for (jstack_frame *frame = stack.top(); frame; frame = frame->next) {
+
+        // 如果是 native 栈，可以快速返回
+        if ((frame->method->access_flag & jclass_method::ACC_NATIVE) != 0) {
+            return frame->exp;
+        }
+
         if (frame->exp != nullptr) {
             return frame->exp;
         }
