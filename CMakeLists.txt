@@ -4,12 +4,19 @@ project(javsvm)
 
 message("Build type: ${CMAKE_BUILD_TYPE}")
 
+# define platform information here.
+# enum {
+#   platform_macos_arm64
+#   // todo
+# }
+set(PLATFORM_OS_ARCH "platform_macos_arm64")
+
 set(CMAKE_CXX_STANDARD 17)
 set(LINKER_FLAGS "-ffixed-x18 -Wl,--hash-style=both")
-set(C_FLAGS "-Werror=format -fdata-sections -ffunction-sections")
+set(C_FLAGS "-Dplatform_os_arch=${PLATFORM_OS_ARCH} -Werror=format -fdata-sections -ffunction-sections")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(C_FLAGS "${C_FLAGS} -O2 -fvisibility=hidden -fvisibility-inlines-hidden")
+    set(C_FLAGS "${C_FLAGS} -fvisibility=hidden -fvisibility-inlines-hidden")
     set(LINKER_FLAGS "${LINKER_FLAGS} -Wl,-exclude-libs,ALL -Wl,--gc-sections")
 else ()
     set(C_FLAGS "${C_FLAGS} -O0 -g")
@@ -28,7 +35,7 @@ add_subdirectory(classloader)
 add_subdirectory(engine)
 add_subdirectory(utils)
 add_subdirectory(dll)
-#add_subdirectory(jni)
+add_subdirectory(jni)
 add_subdirectory(gc)
 
 add_library(
@@ -46,7 +53,7 @@ target_link_libraries(
         object
         gc
         vm
-#        jni
+        jni
         class
         dllloader
         concurrent

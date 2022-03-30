@@ -5,13 +5,22 @@
 #ifndef JAVSVM_GLOBAL_H
 #define JAVSVM_GLOBAL_H
 
+#define platform_macos_arm64    (10)
+#define platform_macos_x64      (11)
+#define platform_windows_x64    (20)
+#define platform_linux_x64      (30)
 
-#if _WIN32 || WIN32 || WIN64
+#ifndef platform_os_arch
+#error define platform os&arch in CMakeLists.txt
+#endif
+
+
+// legacy
+#if platform_os_arch == platform_windows_x64
 #define WINDOWS 1
 #else
 #define WINDOWS 0
 #endif
-
 
 
 #include <cstdint>
