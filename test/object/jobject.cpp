@@ -31,7 +31,7 @@ struct lock_event
     int notify_all() noexcept { m_cond.notify_all(); return 0;}
 };
 
-jobject m_lock(0);
+jobject m_lock;
 int hash = 0;
 //lock_event m_lock;
 
@@ -104,10 +104,8 @@ static void consumer()
 }
 
 
-int main()
+static void test_lock() noexcept
 {
-    LOGI("start\n");
-
     hash = m_lock.hash_code();
 
     std::thread *threads[20];
@@ -118,5 +116,11 @@ int main()
         t->join();
         delete t;
     }
+}
+
+int main()
+{
+    LOGI("start\n");
+    test_lock();
     return 0;
 }

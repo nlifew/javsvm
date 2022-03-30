@@ -530,10 +530,15 @@ loop:
                 if (ptr == nullptr) {
                     throw_exp("java/lang/NullPointerException", "monitorenter");
                 }
-                else if (! ptr->try_lock()) {
+                else {
+                    // 进入安全区之前需要先锁住对象，拿到 lock_event
+                    // 因为进入安全区之后 jobject 指针位置可能会改变，我们不能在安全区内访问
+                    // jobject. 但访问 lock_event 是可以的
+                    auto event = ptr->lock_internal();
+                    // 防止重新排序到下面
+                    std::atomic_thread_fence(std::memory_order_seq_cst);
                     enter_safety_area();
-                    int ok = ptr->lock();
-                    assert(ok == 0);
+                    event->lock();
                     leave_safety_area();
                 }
                 frame.pc += 1;
