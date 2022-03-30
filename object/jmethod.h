@@ -27,8 +27,17 @@ struct jmethod
 
 
     /**
-     * 该函数在虚函数表中的 index
-     * 非虚函数为 -1
+     * 该函数在虚函数表/接口函数表中的 index，不同的函数有不同的意义:
+     * 1. 如果非虚函数(静态函数和私有函数)，始终为 -1;
+     * 2. 如果该虚函数来自非接口类，表示其在 vtable 中的 index. 即:
+     * *(this->clazz->vtable[index_in_table]) == *this;
+     * 一旦在类加载阶段初始化，不再改变;
+     * 3. 如果该虚函数来自接口类，初始值为 -1，但会随着传进来的 object 的变化而变化.
+     * 也就是说，invoke_interface(object) 之后，index_in_table 表示其在 object->clazz->itable
+     * 中的 index。为了和 [2] 区分开，取值范围是 [-1, -∞). 即:
+     * *(object->clazz->itable[-index_in_table - 1]) == *this.
+     * 这样的话下次如果传进来相同的对象，我们就能直接根据这个 index 快速确定接口实现，
+     * 不用再查找接口函数表.
      */
     int index_in_table = -1;
 

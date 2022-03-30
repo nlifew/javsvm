@@ -243,10 +243,36 @@ jvalue jmethod::invoke_interface(jref ref, jargs &args)
     }
 
     // 获取函数的真正实现
-    jmethod *_this = object->klass == clazz ?
-            this :
-            object->klass->get_interface_method(name, sig);
-    assert(jmethod::compare_to(this, _this) == 0);
 
-    return lock_and_run(_this, ref, args);
+    jmethod **itable = object->klass->itable;
+    const int itable_size = object->klass->itable_size;
+
+    // 先判断缓存是否仍然有效
+    int index = - index_in_table - 1;
+    assert(index > -1);
+
+    if (/* index > -1 && */ index < itable_size && jmethod::compare_to(this, itable[index]) == 0) {
+        // 命中缓存，直接返回
+        return lock_and_run(itable[index], ref, args);
+    }
+
+    // 缓存失效，查找接口函数表
+    jmethod m, *p_method = &m;
+    m.name = name;
+    m.sig = sig;
+
+    auto result = (jmethod **) bsearch(&p_method, itable, itable_size,
+                           sizeof(jmethod*),
+                           [](const void *_p1, const void *_p2) -> int {
+                               auto p1 = (jmethod **)_p1;
+                               auto p2 = (jmethod **)_p2;
+                               return jmethod::compare_to(*p1, *p2);
+                           });
+    assert(result != nullptr);
+
+    index = (int) (result - itable);
+    index_in_table = - index - 1;
+
+    assert(jmethod::compare_to(itable[index], this) == 0);
+    return lock_and_run(itable[index], ref, args);
 }
