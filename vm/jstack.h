@@ -130,7 +130,7 @@ struct java_stack_frame: public jstack_frame
 
 
     template<typename T>
-    inline T load_param(int idx) noexcept
+    inline void load_param(int idx) noexcept
     {
         push_param(*(T *) (variable_table + idx));
     }
@@ -188,7 +188,7 @@ struct jni_stack_frame: public jstack_frame
        * 向局部引用表的末尾添加一个引用
        * 成功返回该引用在引用表中的指针。失败返回 nullptr
        */
-      jref* append_local_ref(jref ref) noexcept
+      jref* append(jref ref) noexcept
       {
           if (local_ref_table_size >= local_ref_table_capacity
                 && reserve(local_ref_table_size * 2) < 0) {
@@ -196,6 +196,34 @@ struct jni_stack_frame: public jstack_frame
           }
           jref &ret = local_ref_table[local_ref_table_size ++] = ref;
           return &ret;
+      }
+
+      /**
+       * 移除某个引用。成功返回 ref，失败返回 nullptr
+       */
+      jref remove(jref ref) const noexcept
+      {
+          // 考虑到手动 remove 的场景发生多在循环里，
+          // 而且是对新获取到的引用进行移除，我们就做个优化，倒序遍历
+          for (int i = local_ref_table_size; i > -1; --i) {
+              if (local_ref_table[i] == ref) { // 可能要替换成 jheap::equals() ?
+                  // 我们并不能做任何内存移动工作，这会使得其它 jref 指针失效
+                  local_ref_table[i] = nullptr;
+                  return ref;
+              }
+          }
+          return nullptr;
+      }
+
+
+      jref remove(int index) const noexcept
+      {
+          if (index > -1 && index < local_ref_table_size) {
+              jref old = local_ref_table[index];
+              local_ref_table[index] = nullptr;
+              return old;
+          }
+          return nullptr;
       }
 
       /**

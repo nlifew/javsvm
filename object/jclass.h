@@ -62,7 +62,7 @@ struct jclass
 
     int parent_tree_size = 0;
     jclass **parent_tree = nullptr;
-    jclass *cached_parent = nullptr;
+    const jclass *cached_parent = nullptr;
 
 //    jfield **direct_object_fields = nullptr;
 //    int direct_object_field_num = 0;
@@ -99,12 +99,12 @@ public:
     /**
      * 判断后面的对象是否是当前 class 的子类
      */
-    bool is_instance(jref obj) noexcept;
+    bool is_instance(jref obj) const noexcept;
 
     /**
      * 判断后面的类是否是当前 class 的子类
      */
-    bool is_assign_from(jclass *sub) noexcept;
+    bool is_assign_from(jclass *sub) const noexcept;
 
     /**
      * 分配内存，创建对象，但不执行构造函数

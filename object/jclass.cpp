@@ -134,13 +134,13 @@ jmethod *jclass::get_static_method(const char *_name, const char *_sig) const no
 }
 
 
-bool jclass::is_instance(jref ref) noexcept
+bool jclass::is_instance(jref ref) const noexcept
 {
     auto ptr = jheap::cast(ref);
     return ptr != nullptr && is_assign_from(ptr->klass);
 }
 
-bool jclass::is_assign_from(jclass *sub) noexcept
+bool jclass::is_assign_from(jclass *sub) const noexcept
 {
     if (sub == nullptr) {
         return false;

@@ -11,15 +11,37 @@ namespace javsvm
 {
 struct arrays
 {
-    template<typename T>
-    static int binary_search(const T& key, const T* from, int size, int (*cmp)(const T*, const T*))
-    {
-        using cmp_t = int (*)(const void*, const void*);
-        T* old = (T*) std::bsearch(&key, from, size, sizeof(T), (cmp_t )cmp);
-        if (old == nullptr) return -1;
 
-        return (int) (old - from);
+
+    template <typename T>
+    static T* binsert(const T &key, T *base, int n) noexcept
+    {
+        int lo = 0, hi = n - 1;
+
+        while (lo <= hi) {
+            int mid = (lo + hi) >> 1;
+            T &mid_val = base[mid];
+
+            if (mid_val < key) {
+                lo = mid + 1;
+            }
+            else if (mid_val > key) {
+                hi = mid - 1;
+            }
+            else {
+                return &mid_val;
+            }
+        }
+
+
+        T *ret = base + lo;
+        memmove(ret + 1, ret, (n - lo) * sizeof(T));
+        *ret = key;
+
+        return ret;
     }
+
+
 };
 }
 
