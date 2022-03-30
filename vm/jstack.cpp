@@ -94,6 +94,10 @@ jstack_frame& jstack::push(jmethod *m) noexcept
 
 void jstack_frame::lock_if(jref lck) noexcept
 {
+    if ((method->access_flag & jclass_method::ACC_SYNCHRONIZED) == 0) {
+        return;
+    }
+
     lock = lck;
     auto *ptr = jheap::cast(lck);
     assert(ptr != nullptr);
