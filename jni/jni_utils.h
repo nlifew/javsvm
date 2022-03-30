@@ -258,9 +258,16 @@ static jargs_ptr to_args(jmethodID method, jobject obj, const jvalue *ap)
 }
 
 
+namespace jni
+{
+
 extern JNIEnv *jni_env;
 
 extern JavaVM *java_vm;
+
+}
+
+
 
 
 

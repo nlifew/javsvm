@@ -639,4 +639,4 @@ JNIEnv s_jni_env = {
         .functions = &s_jni_native_interface,
 };
 
-JNIEnv *jni_env = &s_jni_env;
+JNIEnv *jni::jni_env = &s_jni_env;

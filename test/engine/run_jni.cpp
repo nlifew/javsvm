@@ -3,6 +3,7 @@
 #include "object/jclass.h"
 #include "object/jmethod.h"
 #include "engine/engine.h"
+#include "vm/jvm.h"
 
 using namespace javsvm;
 

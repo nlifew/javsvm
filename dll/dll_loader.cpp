@@ -177,7 +177,7 @@ int dll_loader::call_JNI_OnLoad(void *library) noexcept
 
     LOGD("call_JNI_OnLoad: will call\n");
 
-    auto status = JNI_OnLoad(java_vm, nullptr);
+    auto status = JNI_OnLoad(jni::java_vm, nullptr);
     if (status < 0) {
         LOGE("call_JNI_OnLoad: JNI 层返回异常 %d\n", status);
     }

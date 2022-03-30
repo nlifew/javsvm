@@ -4,6 +4,7 @@
 
 #include "java_vm.h"
 #include "../vm/jvm.h"
+#include "jni_utils.h"
 
 #include <cstdlib>
 
@@ -91,5 +92,5 @@ static JavaVM s_java_vm = {
         .functions = &_jni_invoke_interface,
 };
 
-JavaVM *java_vm = &s_java_vm;
+JavaVM * jni::java_vm = &s_java_vm;
 

@@ -40,33 +40,29 @@ extern "C" int64_t calljni64(
         const void *addr,			/* 函数地址，由 load_library() 获取得到，不能是 nullptr */
         int return_type,			/* 返回类型，0 表示返回 int64，非 0 返回 double64.  */
         const int64_t* integers,	/* 固定长度为 8 的数组，数组内的值将被写入到 x0-x7 通用寄存器 */
-        const int64_t* floats,		/* 固定长度为 16 的数组，数组内的值将被写入到 d0-d15 浮点数寄存器 */
+        const double* floats,		/* 固定长度为 16 的数组，数组内的值将被写入到 d0-d15 浮点数寄存器 */
         int stack_len,				/* 表示要压进栈的参数大小，单位是字节，为非负的整数。需要调用者自己对齐到 16 字节 */
         const void *stack			/* 要压进栈的参数的起始地址。高地址会被先压进栈。 */
 );
 
 /**
  * @tparam align8 使用栈传递参数时是否强制 8 字节对齐
- * @tparam regNum 通用寄存器的数量
+ * @tparam intRegNum 通用寄存器的数量
+ * @tparam floatRegNum 浮点数寄存器数量
  */
-template <bool align8, int regNum>
+template <bool align8, int intRegNum, int floatRegNum>
 class args_stack
 {
-private:
-    std::array<int64_t, 8> m_registers{};
+    std::array<int64_t, intRegNum> m_registers{};
     int m_register_size = 0;
 
-    std::array<javsvm::jdouble, 16> m_float_registers{};
+    std::array<javsvm::jdouble, floatRegNum> m_float_registers{};
     int m_float_register_size = 0;
 
     char *m_stack = nullptr;
     int m_stack_size = 0;
     int m_stack_capacity = 0; // 16 的整数倍
 
-//    static inline int align(int in, int to) noexcept
-//    {
-//        return ((in - 1) | (to - 1)) + 1;
-//    }
 public:
     explicit args_stack() noexcept = default;
 
@@ -94,7 +90,7 @@ public:
         // 先计算需要多少个填充字节
         int padding = 0;
         if (! align8) {
-            padding = align<sizeof(T)>(m_stack_size) - m_stack_size; // align(m_stack_size, sizeof(T)) - m_stack_size;
+            padding = align<sizeof(T)>(m_stack_size) - m_stack_size;
             LOGI("push_integer: m_stack_index = %d, sizeof(T) = %lu, padding = %d\n",
                  m_stack_size, sizeof(T), padding);
         }
@@ -120,10 +116,10 @@ public:
      * 将参数压进浮点寄存器
      */
     template<typename T>
-    void push_float(jargs &args) noexcept
+    void push_float(T t) noexcept
     {
         javsvm::jdouble val;
-        *(T *) &val = args.next<T>();
+        *(T *) &val = t;
 
         // 如果通用寄存器没有装满，使用通用寄存器
         if (m_float_register_size < m_float_registers.size()) {
@@ -134,40 +130,38 @@ public:
         exit(1);
     }
 
-    template<typename T>
-    void inline push_integer(jargs &args) noexcept { push_integer(args.next<T>()); }
 
     int add_all(const char *sig, jargs &args) noexcept
     {
         for (int i = 1; sig[i] != ')'; i ++) {
             switch (sig[i]) {
                 case 'Z':       /* boolean */
-                    push_integer<javsvm::jboolean>(args);
+                    push_integer(args.next<javsvm::jboolean>());
                     break;
                 case 'B':       /* byte */
-                    push_integer<javsvm::jbyte>(args);
+                    push_integer(args.next<javsvm::jbyte>());
                     break;
                 case 'C':       /* char */
-                    push_integer<javsvm::jchar>(args);
+                    push_integer(args.next<javsvm::jchar>());
                     break;
                 case 'S':       /* short */
-                    push_integer<javsvm::jshort>(args);
+                    push_integer(args.next<javsvm::jshort>());
                     break;
                 case 'I':       /* int */
-                    push_integer<javsvm::jint>(args);
+                    push_integer(args.next<javsvm::jint>());
                     break;
                 case 'J':       /* long */
-                    push_integer<javsvm::jlong>(args);
+                    push_integer(args.next<javsvm::jlong>());
                     break;
                 case '[':       /* array */
                 case 'L':       /* object */
-                    push_integer<javsvm::jref>(args);
+                    push_integer(args.next<javsvm::jref>());
                     break;
                 case 'F':       /* float */
-                    push_float<javsvm::jfloat>(args);
+                    push_float(args.next<javsvm::jfloat>());
                     break;
                 case 'D':       /* double */
-                    push_float<javsvm::jdouble>(args);
+                    push_float(args.next<javsvm::jdouble>());
                     break;
                 default:
                     LOGE("add_all: unknown jmethod sig: '%s'\n", sig);
@@ -198,16 +192,13 @@ public:
 };
 
 
-using macos_arm64_args_t = args_stack<false, 8>;
-
-
-template <bool align8, int regNum>
-static void dump_stack_trace(jmethod *method, JNIEnv *jni_env, jref jni_obj,
-                             int return_type, args_stack<align8, regNum> &as)
+template <bool align8, int regNum, int floatRegNum>
+static void dump_stack_trace(jmethod *method, JNIEnv *jenv, jref jni_obj,
+                             int return_type, args_stack<align8, regNum, floatRegNum> &as)
 {
     LOGD("run_jni:-----------------------dump stack-----------------------\n");
     LOGD("run_jni: %s->%s%s\n", method->clazz->name, method->name, method->sig);
-    LOGD("run_jni: JNIEnv: %p, jenv: %p\n", jni_env, &jvm::get().env());
+    LOGD("run_jni: JNIEnv: %p\n", jenv);
     LOGD("run_jni: obj: %s, %p\n", (method->access_flag & jclass_method::ACC_STATIC) ?
                                    "static" : "direct", jheap::cast(jni_obj));
     LOGD("run_jni: entrance: %p\n", method->entrance.jni_func);
@@ -228,15 +219,17 @@ static void dump_stack_trace(jmethod *method, JNIEnv *jni_env, jref jni_obj,
     LOGD("run_jni: \n");
     LOGD("run_jni: stack: %d\n", as.stack_size());
     for (int i = 0, z = as.stack_size(); i < z; i ++) {
-        LOGD("run_jni: \t\t[%d/%d]: %llu\n", i, z, ((uint64_t *) as.stack())[i]);
+        LOGD("run_jni: \t\t[%d/%d]: %#x\n", i, z, 0xff & ((char *) as.stack())[i]);
     }
     LOGD("run_jni:---------------------dump stack end---------------------\n");
 }
 
+
+using macos_arm64_args_t = args_stack<false, 8, 16>;
+
+
 javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
 {
-    LOGD("run_jni: start with %s->%s%s\n", method->clazz->name, method->name, method->sig);
-
     if (method->entrance.jni_func == nullptr) {
         // 如果当前函数还没有绑定，尝试去动态库中找
         LOGD("run_jni: entrance == nullptr, lookup ...\n");
@@ -257,18 +250,15 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
 
     frame.lock_if(lock_object);
 
-    // 进入安全区
-    enter_safety_area();
-#if 0
     // 准备 jni 运行时参数
     args.reset();
 
-    // 1. JNIEnv *, 直接使用 jenv 的 jni() api 即可
-    auto jni_env = (JNIEnv *) env.jni();
+    // 1. JNIEnv *, 直接使用全局变量即可
+    auto jenv = jni::jni_env;
 
     // 2. 根据是否是静态函数，确定传进 jobject 还是 jclass
     auto jni_obj = (method->access_flag & jclass_method::ACC_STATIC) ?
-                   method->clazz->object :
+                   method->clazz->object.get() :
                    args.next<jref>();
 
 
@@ -277,29 +267,40 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
     switch (strchr(method->sig + 2, ')')[1]) {
         case 'F': return_type = 1; break;
         case 'D': return_type = 2; break;
-        default: LOGE("run_jni: unknown return type: %s->%s\n", method->name, method->sig);
+        default: break;
     }
 
     // 4. 参数
-    // macOS 使用栈传递参数时不强制扩充到 8 字节
-    args_stack<false, 8> as;
-    as.push_integer<::JNIEnv*>(jni_env);
+    macos_arm64_args_t as;
+    as.push_integer<::JNIEnv*>(jenv);
     as.push_integer<::jobject>(to_object(jni_obj));
     as.add_all(method->sig, args);
 
+#ifndef NDEBUG
     // 打印下参数
-    dump_stack_trace(method, jni_env, jni_obj, return_type, as);
+    dump_stack_trace(method, jenv, jni_obj, return_type, as);
+#endif
+
+    // 进入安全区
+    enter_safety_area();
 
     // let's go, ka ku go, go go go ghost !
-    javsvm::jvalue ret = calljni64(
+    int64_t ret_val = calljni64(
             method->entrance.jni_func, return_type, as.registers(),
-            as.float_registers(), as.stack_size(), as.stack()
-            );
-
-#endif
+            as.float_registers(), as.stack_size(), as.stack());
 
     // 离开安全区
     leave_safety_area();
+    
+    // 处理返回值
+    javsvm::jvalue v;
+
+    switch (return_type) {
+        case 0: v.j = ret_val; break;
+        case 1: v.f = *(javsvm::jfloat *) &ret_val; break;
+        case 2: v.d = *(javsvm::jdouble *) &ret_val; break;
+        default: break;
+    }
 
     // 弹出栈之前检查有没有异常。如果有，向上抛出
     auto exp = frame.exp;
@@ -311,5 +312,5 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
         throw_throwable(exp);
     }
 
-    return {};
+    return v;
 }
