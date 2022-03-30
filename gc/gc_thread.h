@@ -6,6 +6,7 @@
 #define JAVSVM_GC_THREAD_H
 
 #include "../utils/global.h"
+#include "safety_point.h"
 
 #include <csignal>
 #include <vector>
@@ -59,7 +60,12 @@ private:
      * 处于安全状态的 java 线程数
      * 当这个数字和 jvm 存储的总线程数相同时才会进行 gc
      */
-    volatile int m_blocked_threads_count = 0;
+    std::atomic<int> m_blocked_threads_count = 0;
+
+    /**
+     * 冻结/锁住 gc 线程使用的
+     */
+     std::atomic<int> m_gc_frozen_counter = 0;
 
     /**
      * 保存的堆指针。通过 attach() 函数建立联系
@@ -147,9 +153,13 @@ public:
         m_heap = heap;
     }
 
-    inline void enter_safety_area() noexcept;
+    friend void javsvm::enter_safety_area() noexcept;
 
-    inline void exit_safety_area() noexcept;
+    friend void javsvm::leave_safety_area() noexcept;
+
+    friend void javsvm::freeze_gc_thread() noexcept;
+
+    friend void javsvm::unfreeze_gc_thread() noexcept;
 };
 
 

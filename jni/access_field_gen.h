@@ -13,38 +13,42 @@
 
 /********************************* direct field begin *********************************/
 
-static type (JNICALL MACRO_ADD(Get, name, Field))
-        (JNIEnv *env, jobject obj, jfieldID field)
+type (JNICALL MACRO_ADD(Get, name, Field))
+        (JNIEnv *, jobject obj, jfieldID field)
 {
-    return take_from<type>(get_field(env, obj, field));
+    safety_area_guard guard;
+    return take_from<type>(get_field(obj, field));
 }
 
 
-static void (JNICALL MACRO_ADD(Set, name, Field))
-        (JNIEnv *env, jobject obj, jfieldID field, type val)
+void (JNICALL MACRO_ADD(Set, name, Field))
+        (JNIEnv *, jobject obj, jfieldID field, type val)
 {
-    set_field(env, obj, field, pack_to(val));
+    safety_area_guard guard;
+    set_field(obj, field, pack_to(val));
 }
 
 /********************************* direct field end *********************************/
 
-/********************************* static field begin *********************************/
+/********************************* field begin *********************************/
 
-static type (JNICALL MACRO_ADD(GetStatic, name, Field))
-        (JNIEnv *env, jclass clazz, jfieldID field)
+type (JNICALL MACRO_ADD(GetStatic, name, Field))
+        (JNIEnv *, jclass, jfieldID field)
 {
-    return take_from<type>(get_static_field(env, clazz, field));
+    safety_area_guard guard;
+    return take_from<type>(get_static_field(field));
 }
 
 
-static void (JNICALL MACRO_ADD(SetStatic, name, Field))
-        (JNIEnv *env, jclass clazz, jfieldID field, type val)
+void (JNICALL MACRO_ADD(SetStatic, name, Field))
+        (JNIEnv *, jclass, jfieldID field, type val)
 {
-    set_static_field(env, clazz, field, pack_to(val));
+    safety_area_guard guard;
+    set_static_field(field, pack_to(val));
 }
 
 
-/********************************* static field end *********************************/
+/********************************* field end *********************************/
 
 #undef name
 #undef type

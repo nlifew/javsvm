@@ -1,11 +1,18 @@
 
+#include "jni_utils.h"
+#include "jni_env.h"
 
+#include "../object/jfield.h"
 
-static jfieldID (JNICALL GetFieldID)
-        (JNIEnv *env, jclass clazz, const char *name, const char *sig)
+namespace jni
 {
+
+jfieldID (JNICALL GetFieldID)
+        (JNIEnv *, jclass clazz, const char *name, const char *sig) {
+    safety_area_guard guard;
+
     auto _clazz = to_class(clazz);
-    if (_clazz == nullptr || name == nullptr || sig == nullptr) {
+    if (_clazz == nullptr) {
         return nullptr;
     }
 
@@ -13,26 +20,19 @@ static jfieldID (JNICALL GetFieldID)
 }
 
 
-static inline javsvm::jvalue get_field(JNIEnv *, jobject obj, jfieldID field)
-{
+static inline javsvm::jvalue get_field(jobject obj, jfieldID field) {
     auto _field = (javsvm::jfield *) field;
     if (_field == nullptr) {
-        return { .j = 0 };
+        return {.j = 0};
     }
 
     javsvm::jref _obj = to_object(obj);
 
-    // openjdk8 并没有对此做校验，但我们需要
-    if (! _field->clazz->is_instance(_obj)) {
-        javsvm::throw_exp("java/lang/IncompatibleClassChangeError", "");
-        return { .j = 0 };
-    }
-
+    // 不做校验，直接返回
     return _field->get(_obj);
 }
 
-static inline void set_field(JNIEnv *, jobject obj, jfieldID field, javsvm::jvalue val)
-{
+static inline void set_field(jobject obj, jfieldID field, javsvm::jvalue val) {
     auto _field = (javsvm::jfield *) field;
     if (_field == nullptr) {
         return;
@@ -40,52 +40,43 @@ static inline void set_field(JNIEnv *, jobject obj, jfieldID field, javsvm::jval
 
     javsvm::jref _obj = to_object(obj);
 
-    // openjdk8 并没有对此做校验，但我们需要
-    if (! _field->clazz->is_instance(_obj)) {
-        javsvm::throw_exp("java/lang/IncompatibleClassChangeError", "");
-        return;
-    }
+    // 不做校验，直接访问
     _field->set(_obj, val);
 }
 
 
+jfieldID (JNICALL GetStaticFieldID)
+        (JNIEnv *, jclass clazz, const char *name, const char *sig) {
+    safety_area_guard guard;
 
-static jfieldID (JNICALL GetStaticFieldID)
-        (JNIEnv *, jclass clazz, const char *name, const char *sig)
-{
     auto _clazz = to_class(clazz);
-    if (_clazz == nullptr || name == nullptr || sig == nullptr) {
+    if (_clazz == nullptr) {
         return nullptr;
     }
-
     return (jfieldID) _clazz->get_static_field(name, sig);
 }
 
-static inline javsvm::jvalue get_static_field(JNIEnv *, jclass, jfieldID field)
-{
+static inline javsvm::jvalue get_static_field(jfieldID field) {
     auto _field = (javsvm::jfield *) field;
     if (_field == nullptr) {
-        return { .j = 0 };
+        return {.j = 0};
     }
 
-    return _field->get(nullptr);
+    return _field->get_static();
 }
 
-static inline void set_static_field(JNIEnv *, jclass, jfieldID field, javsvm::jvalue val)
-{
+static inline void set_static_field(jfieldID field, javsvm::jvalue val) {
     auto _field = (javsvm::jfield *) field;
     if (_field == nullptr) {
         return;
     }
-    _field->set(nullptr, *(javsvm::jvalue *) &val);
+    _field->set_static(val);
 }
-
-
-
 
 
 #define type jobject
 #define name Object
+
 #include "access_field_gen.h"
 
 #define type jboolean
@@ -126,3 +117,5 @@ static inline void set_static_field(JNIEnv *, jclass, jfieldID field, javsvm::jv
 #define type jdouble
 #define name Double
 #include "access_field_gen.h"
+
+}

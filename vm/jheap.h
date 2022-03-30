@@ -152,7 +152,7 @@ public:
     }
 
     static inline jobject *cast(jref ref) noexcept {
-        return (jobject *) (((int64_t) ref) & ~R_MSK);
+        return (jobject *) (((uint64_t) ref) & ~R_MSK);
     }
 
     [[deprecated]]
@@ -161,11 +161,11 @@ public:
         return cast(ref);
     }
 
-    static constexpr int R_MSK =   3;
-    static constexpr int R_STR =   0;
-    static constexpr int R_SFT =   1;
-    static constexpr int R_WEK =   2;
-    static constexpr int R_PHA =   3;
+    static constexpr uint64_t R_MSK =   3;
+    static constexpr uint64_t R_STR =   0;
+    static constexpr uint64_t R_SFT =   1;
+    static constexpr uint64_t R_WEK =   2;
+    static constexpr uint64_t R_PHA =   3;
 };
 }
 #endif

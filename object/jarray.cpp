@@ -191,16 +191,16 @@ void jarray::set_array_region(jref array, jsize start, jint len, const void *buf
 #endif
 }
 
-
-void *jarray::storage_of(jobject_ptr &obj) noexcept
-{
-    if (obj == nullptr) {
-        // todo: throw null pointer exception
-        LOGE("NullPointerException occurred when access the storage of region\n");
-        exit(1);
-    }
-    return ((jsize *)(obj->values)) + 2;
-}
+//
+//void *jarray::storage_of(jobject_ptr &obj) noexcept
+//{
+//    if (obj == nullptr) {
+//        // todo: throw null pointer exception
+//        LOGE("NullPointerException occurred when access the storage of region\n");
+//        exit(1);
+//    }
+//    return ((jsize *)(obj->values)) + 2;
+//}
 
 
 

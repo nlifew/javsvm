@@ -29,10 +29,10 @@ public:
 
     void set_array_region(jref array, jsize start, jint len, const void *buff) const noexcept;
 
-    /**
-     * 获取数组存储元素的起始地址
-     */
-    static void *storage_of(jobject_ptr &ptr) noexcept;
+//    /**
+//     * 获取数组存储元素的起始地址
+//     */
+//    static void *storage_of(jobject_ptr &ptr) noexcept;
 
     static inline void *storage_of(jobject *array, int *len, int *ele_size) noexcept
     {
@@ -40,12 +40,6 @@ public:
         *len = data[0];
         *ele_size = data[1];
         return &data[2];
-    }
-
-    static inline int size_of(jobject *array) noexcept
-    {
-        auto *data = (jsize *)(array->values);
-        return data[0] * data[1] + (int) sizeof(jsize) * 2;
     }
 
 public:

@@ -17,9 +17,11 @@
 
 /********************************* direct method begin *********************************/
 
-static return_type (JNICALL MACRO_ADD(Call, name, MethodA))
+return_type (JNICALL MACRO_ADD(Call, name, MethodA))
         (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args)
 {
+    safety_area_guard guard;
+
     auto _args = to_args(methodID, obj, args);
 #ifdef no_return
     call_direct_method(env, obj, methodID, _args.get());
@@ -30,9 +32,11 @@ static return_type (JNICALL MACRO_ADD(Call, name, MethodA))
 }
 
 
-static return_type (JNICALL MACRO_ADD(Call, name, MethodV))
+return_type (JNICALL MACRO_ADD(Call, name, MethodV))
         (JNIEnv *env, jobject obj, jmethodID methodID, va_list args)
 {
+    safety_area_guard guard;
+
     auto _args = to_args(methodID, obj, args);
 #ifdef no_return
     call_direct_method(env, obj, methodID, _args.get());
@@ -42,7 +46,7 @@ static return_type (JNICALL MACRO_ADD(Call, name, MethodV))
 #endif
 }
 
-static return_type (JNICALL MACRO_ADD(Call, name, Method))
+return_type (JNICALL MACRO_ADD(Call, name, Method))
         (JNIEnv *env, jobject obj, jmethodID methodID, ...)
 {
     va_list ap;
@@ -60,11 +64,13 @@ static return_type (JNICALL MACRO_ADD(Call, name, Method))
 
 /********************************* direct method end *********************************/
 
-/********************************* static method begin *********************************/
+/********************************* method begin *********************************/
 
-static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodA))
+return_type (JNICALL MACRO_ADD(CallStatic, name, MethodA))
         (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue * args)
 {
+    safety_area_guard guard;
+
     auto _args = to_args(methodID, nullptr, args);
 #ifdef no_return
     call_static_method(env, clazz, methodID, _args.get());
@@ -75,9 +81,11 @@ static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodA))
 }
 
 
-static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodV))
+return_type (JNICALL MACRO_ADD(CallStatic, name, MethodV))
         (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args)
 {
+    safety_area_guard guard;
+
     auto _args = to_args(methodID, nullptr, args);
 #ifdef no_return
     call_static_method(env, clazz, methodID, _args.get());
@@ -87,7 +95,7 @@ static return_type (JNICALL MACRO_ADD(CallStatic, name, MethodV))
 #endif
 }
 
-static return_type (JNICALL MACRO_ADD(CallStatic, name, Method))
+return_type (JNICALL MACRO_ADD(CallStatic, name, Method))
         (JNIEnv *env, jclass clazz, jmethodID methodID, ...)
 {
     va_list ap;
@@ -96,20 +104,22 @@ static return_type (JNICALL MACRO_ADD(CallStatic, name, Method))
     MACRO_ADD(CallStatic, name, MethodV)(env, clazz, methodID, ap);
     va_end(ap);
 #else
-    auto _ret =MACRO_ADD(CallStatic, name, MethodV)(env, clazz, methodID, ap);
+    auto _ret = MACRO_ADD(CallStatic, name, MethodV)(env, clazz, methodID, ap);
     va_end(ap);
     return _ret;
 #endif
 }
 
-/********************************* static method end *********************************/
+/********************************* method end *********************************/
 
 /***************************** non virtual method begin *****************************/
 
 
-static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodA))
+return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodA))
         (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, const jvalue * args)
 {
+    safety_area_guard guard;
+
     auto _args = to_args(methodID, obj, args);
 #ifdef no_return
     call_nonvirtual_method(env, obj, clazz, methodID, _args.get());
@@ -120,9 +130,11 @@ static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodA))
 }
 
 
-static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodV))
+return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodV))
         (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args)
 {
+    safety_area_guard guard;
+
     auto _args = to_args(methodID, obj, args);
 #ifdef no_return
     call_nonvirtual_method(env, obj, clazz, methodID, _args.get());
@@ -132,7 +144,7 @@ static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, MethodV))
 #endif
 }
 
-static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, Method))
+return_type (JNICALL MACRO_ADD(CallNonvirtual, name, Method))
         (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...)
 {
     va_list ap;
@@ -154,3 +166,4 @@ static return_type (JNICALL MACRO_ADD(CallNonvirtual, name, Method))
 #undef name
 #undef _MACRO_ADD
 #undef MACRO_ADD
+#undef no_return

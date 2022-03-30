@@ -3,7 +3,7 @@
 #include "dll_loader.h"
 #include "../utils/log.h"
 #include "../vm/jvm.h"
-#include "../jni/jni.h"
+#include "../jni/jni_utils.h"
 
 #include <memory>
 #include <cstring>
@@ -177,7 +177,7 @@ int dll_loader::call_JNI_OnLoad(void *library) noexcept
 
     LOGD("call_JNI_OnLoad: will call\n");
 
-    auto status = JNI_OnLoad((JavaVM *) m_vm.jni(), nullptr);
+    auto status = JNI_OnLoad(java_vm, nullptr);
     if (status < 0) {
         LOGE("call_JNI_OnLoad: JNI 层返回异常 %d\n", status);
     }

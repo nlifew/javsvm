@@ -26,17 +26,12 @@ class jvm
 private:
     jvm() noexcept;
 
-
-    /**
-     * jni 使用的保留区域
-     */
-    char m_jni_reserved[10 * sizeof(void*)];
+    std::mutex m_mutex;
+    std::condition_variable m_cond;
 
     /**
      * 和当前虚拟机实例绑定的线程数，不包含 daemon 线程
      */
-    std::mutex m_mutex;
-    std::condition_variable m_cond;
     volatile int m_active_threads_count = 0;
 
     std::unordered_set<jenv*> m_threads;
@@ -152,13 +147,11 @@ public:
      *      return 0;
      * }
      */
-    jenv& attach(attach_info &info = DEFAULT_ATTACH_INFO) noexcept;
+    jenv& attach(attach_info *info = nullptr) noexcept;
 
     /**
      * 通知 vm，即将有一个线程会附加到该虚拟机实例上。如果在附加成功之前，
      * 虚拟机内已经没有活跃的非 daemon 线程，也不会退出
-     *
-     * 如果该线程 id 已经调用过 attach(), 什么也不会发生
      */
     void placeholder(pthread_t tid) noexcept;
 
@@ -186,10 +179,12 @@ public:
       */
      int all_threads(std::vector<jenv*> *out) noexcept;
 
-     /**
-      * 获取 jni 层 JavaVM 指针
-      */
-     void *jni() const noexcept;
+    /**
+     * 获取附加到该虚拟机实例上的所有线程数
+     * NOTE: 此函数非线程安全，可用于快速判断
+     */
+     [[nodiscard]]
+     int threads_count() const noexcept { return (int) m_threads.size(); }
 };
 
 } // namespace javsvm

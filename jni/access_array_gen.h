@@ -17,24 +17,29 @@
 #define array_type MACRO_ADD(j, type, Array)
 #define pointer_type MACRO_ADD2(j, type)
 
-static array_type (JNICALL MACRO_ADD(New, name, Array))
+array_type (JNICALL MACRO_ADD(New, name, Array))
         (JNIEnv *, jsize len)
 {
+    safety_area_guard guard;
+
     MACRO_ADD(auto array = javsvm::jvm::get().array.new_, type, _array(len));
     return (array_type) to_object(array);
 }
 
+#define COPY_THRESHOLD 1024
 
-static pointer_type * (JNICALL MACRO_ADD(Get, name, ArrayElements))
+pointer_type * (JNICALL MACRO_ADD(Get, name, ArrayElements))
         (JNIEnv *env, array_type array, jboolean *isCopy)
 {
     // 如果数组长度多于 1024 字节，返回直接引用；否则返回拷贝
     auto len = GetArrayLength(env, array);
-    if (len > 1024) {
+    if (len > COPY_THRESHOLD) {
         return (pointer_type *) GetPrimitiveArrayCritical(env, array, isCopy);
     }
 
     if (isCopy) *isCopy = true;
+
+    safety_area_guard guard;
 
     auto copy = new pointer_type[len];
     javsvm::jvm::get().array.get_array_region(to_object(array), 0, len, copy);
@@ -42,15 +47,18 @@ static pointer_type * (JNICALL MACRO_ADD(Get, name, ArrayElements))
 }
 
 
-static void (JNICALL MACRO_ADD(Release, name, ArrayElements))
+void (JNICALL MACRO_ADD(Release, name, ArrayElements))
         (JNIEnv *env, array_type array, pointer_type *ptr, jint mode)
 {
     // 如果数组长度多于 1024 字节，返回直接引用；否则返回拷贝
     auto len = GetArrayLength(env, array);
-    if (len > 1024) {
+    if (len > COPY_THRESHOLD) {
         ReleasePrimitiveArrayCritical(env, array, ptr, mode);
         return;
     }
+
+    safety_area_guard guard;
+
     switch (mode) {
         case 0:             /* 复制内容并释放elems缓冲区 */
             javsvm::jvm::get().array.set_array_region(to_object(array), 0, len, ptr);
@@ -71,16 +79,18 @@ static void (JNICALL MACRO_ADD(Release, name, ArrayElements))
 }
 
 
-static void (JNICALL MACRO_ADD(Get, name, ArrayRegion))
+void (JNICALL MACRO_ADD(Get, name, ArrayRegion))
         (JNIEnv *, array_type array, jsize start, jsize l, pointer_type *buf)
 {
+    safety_area_guard guard;
     javsvm::jvm::get().array.get_array_region(to_object(array), start, l, buf);
 }
 
 
-static void (JNICALL MACRO_ADD(Set, name, ArrayRegion))
+void (JNICALL MACRO_ADD(Set, name, ArrayRegion))
         (JNIEnv *, array_type array, jsize start, jsize l, const pointer_type *buf)
 {
+    safety_area_guard guard;
     javsvm::jvm::get().array.set_array_region(to_object(array), start, l, buf);
 }
 

@@ -8,40 +8,24 @@
 
 #include "gc_root.h"
 #include "gc_thread.h"
-#include "safety_point.h"
 #include "../vm/jvm.h"
-#include "../object/jobject.h"
 #include "../object/jfield.h"
 #include "../object/jmethod.h"
-#include "../utils/log.h"
 
 
 using namespace javsvm;
 
 
 
-static gc_thread *s_instance = nullptr;
+static gc_thread *self = nullptr;
 
-
-void javsvm::enter_safety_area() noexcept
-{
-    assert(s_instance != nullptr);
-    s_instance->enter_safety_area();
-}
-
-void javsvm::leave_safety_area() noexcept
-{
-    assert(s_instance != nullptr);
-    s_instance->exit_safety_area();
-}
 
 
 void gc_thread::register_sigsegv_handler() noexcept
 {
     struct sigaction sig {};
     sig.sa_handler = [](int) {
-        assert(s_instance != nullptr);
-        s_instance->handle_sigsegv();
+        self->handle_sigsegv();
     };
     sigemptyset(&sig.sa_mask);
     sig.sa_flags = 0;
@@ -57,15 +41,6 @@ void gc_thread::unregister_sigsegv_handler() noexcept
     sigaction(SIGSEGV, &m_sigsegv_backup, nullptr);
 }
 
-bool gc_thread::is_the_world_stopped() const noexcept
-{
-    int blocked = m_blocked_threads_count;
-    int total = jvm::get().all_threads(nullptr);
-
-    assert(blocked <= total);
-    return blocked == total;
-}
-
 void gc_thread::handle_sigsegv() noexcept
 {
     // 先判断当前这个中断是不是 gc 允许的. 如果不是，走之前的逻辑
@@ -73,6 +48,7 @@ void gc_thread::handle_sigsegv() noexcept
         PLOGE("handle_sigsegv: SIGSEGV without gc\n");
         exit(1);
     }
+    // signal handler 内的变量必须是 volatile 类型
     thread_local volatile int is_doing_gc = 0;
     if (is_doing_gc) {
         PLOGE("handle_sigsegv: SIGSEGV when gc\n");
@@ -95,23 +71,67 @@ void gc_thread::handle_sigsegv() noexcept
 }
 
 
-inline void gc_thread::enter_safety_area() noexcept
+bool gc_thread::is_the_world_stopped() const noexcept
 {
-    std::unique_lock lck(m_mutex);
-    ++ m_blocked_threads_count;
+    if (m_gc_frozen_counter != 0) {
+        return false;
+    }
 
-    if (is_the_world_stopped()) {
-        m_stw_cond.notify_one();
+    int blocked = m_blocked_threads_count;
+    int total = jvm::get().threads_count();
+
+    assert(blocked <= total);
+    return blocked == total;
+}
+
+
+void javsvm::enter_safety_area() noexcept
+{
+    ++ self->m_blocked_threads_count;
+    if (javsvm::safety_point_trap != nullptr) {
+        return;
+    }
+
+    std::unique_lock lck(self->m_mutex);
+    if (self->is_the_world_stopped()) {
+        self->m_stw_cond.notify_one();
     }
 }
 
-inline void gc_thread::exit_safety_area() noexcept
+void javsvm::leave_safety_area() noexcept
 {
-    std::unique_lock lck(m_mutex);
-    -- m_blocked_threads_count;
+    -- self->m_blocked_threads_count;
+    if (javsvm::safety_point_trap != nullptr) {
+        return;
+    }
 
+    std::unique_lock lck(self->m_mutex);
     while (javsvm::safety_point_trap == nullptr) {
-        m_trap_cond.wait(lck);
+        self->m_trap_cond.wait(lck);
+    }
+}
+
+void javsvm::freeze_gc_thread() noexcept
+{
+    ++ self->m_gc_frozen_counter;
+    if (javsvm::safety_point_trap != nullptr) {
+        return;
+    }
+    std::unique_lock lck(self->m_mutex);
+    if (self->is_the_world_stopped()) {
+        self->m_stw_cond.notify_one();
+    }
+}
+
+void javsvm::unfreeze_gc_thread() noexcept
+{
+    -- self->m_gc_frozen_counter;
+    if (javsvm::safety_point_trap != nullptr) {
+        return;
+    }
+    std::unique_lock lck(self->m_mutex);
+    if (self->is_the_world_stopped()) {
+        self->m_stw_cond.notify_one();
     }
 }
 
@@ -121,7 +141,8 @@ volatile char *javsvm::safety_point_trap = nullptr;
 
 gc_thread::gc_thread() noexcept
 {
-    s_instance = this;
+    assert(self == nullptr);
+    self = this;
     safety_point_trap = &dummy_trap;
     register_sigsegv_handler();
 
@@ -131,7 +152,7 @@ gc_thread::gc_thread() noexcept
 gc_thread::~gc_thread() noexcept
 {
     unregister_sigsegv_handler();
-    s_instance = nullptr;
+    self = nullptr;
 }
 
 
@@ -401,10 +422,11 @@ void gc_thread::mark() noexcept
     gc_root_queue.reserve(m_last_gc_root_num + (m_last_gc_root_num >> 1));
 
     lookup_gc_root(m_finalize_queue, [&gc_root_queue] (jref &ref) {
-        if (ref != nullptr) {
-            assert(jheap::R_STR == (jheap::R_MSK & (uint64_t) ref));
-            gc_root_queue.push_back((jobject *) ref);
+        if (ref == nullptr) {
+            return;
         }
+        assert(jheap::R_STR == (jheap::R_MSK & (uint64_t) ref));
+        gc_root_queue.push_back((jobject *) ref);
     });
     m_last_gc_root_num = gc_root_queue.size();
 
@@ -471,7 +493,7 @@ void gc_thread::compact() noexcept
     const auto t2 = std::chrono::steady_clock::now();
     LOGI("memcpy cost %d ms\n", MS(t2 - t1));
 
-    // 最后一步，修改散落在各处的对象引用，klass 指针脱染色
+    // 修改散落在各处的对象引用，klass 指针脱染色
     lookup_gc_root(m_finalize_queue, [&] (jref &ref) {
         if (ref != nullptr) {
             trace_and_restore(mapping, ref);
@@ -485,6 +507,11 @@ void gc_thread::compact() noexcept
 
     const auto t3 = std::chrono::steady_clock::now();
     LOGI("trace and update pointer: %d ms\n", MS(t3 - t2));
+
+    // 最后一步，清空 gc_weak
+    gc_weak::ref_pool.lookup([&](gc_weak *ptr) {
+        ptr->reset(nullptr);
+    });
 }
 
 

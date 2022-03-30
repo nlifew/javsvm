@@ -2,38 +2,17 @@
 
 #include "jvm.h"
 #include "../utils/log.h"
-#include "../jni/jni.h"
-#include "../jni/jni_utils.h"
-
-//#include <locale.h>
+#include "../gc/safety_point.h"
 
 using namespace javsvm;
 
-
-//jvm::jvm()
-//{
-//    // setlocale(LC_ALL, "");
-//}
-
-struct jni_reserved
-{
-    JNIInvokeInterface_ interface;
-    JavaVM_ vm;
-};
 
 jvm::jvm() noexcept :
         bootstrap_loader(*this),
         array(*this),
         string(*this),
-        dll_loader(this),
-        m_jni_reserved()
+        dll_loader(this)
 {
-    static_assert(sizeof(m_jni_reserved) >= sizeof(jni_reserved));
-
-    auto jni = (jni_reserved *) m_jni_reserved;
-
-    init_jni_vm(&jni->interface, this);
-    jni->vm.functions = &jni->interface;
 }
 
 //jvm::~jvm() noexcept
@@ -45,12 +24,6 @@ jvm::jvm() noexcept :
      */
 //    wait_for();
 //}
-
-
-void *jvm::jni() const noexcept
-{
-    return &((jni_reserved *) m_jni_reserved)->vm;
-}
 
 
 
@@ -76,7 +49,7 @@ jenv& jvm::env() const noexcept
 {
     (void) this; // suppress static warning
 
-    if (! local_env.inited) {
+    if_unlikely(! local_env.inited) {
         LOGE("no valid jenv instance found, call jvm::attach() on this thread before\n");
         exit(1);
     }
@@ -101,20 +74,23 @@ static size_t fast_erase(std::vector<T> &vct, const T& val) noexcept
     return -1;
 }
 
-jenv& jvm::attach(jvm::attach_info &attach_info) noexcept
+jenv& jvm::attach(attach_info *attach_info) noexcept
 {
+    if (attach_info == nullptr) {
+        attach_info = &DEFAULT_ATTACH_INFO;
+    }
     if (local_env.inited) {
         LOGE("you can call jvm::attach() only once on one thread\n");
         exit(1);
     }
     auto *env = new (local_env.buff) jenv(this);
-    local_env.attach_info = attach_info;
+    local_env.attach_info = *attach_info;
     local_env.inited = this;
 
     std::unique_lock lck(m_mutex);
     m_threads.insert(env);
 
-    if (! attach_info.is_daemon) {
+    if (! attach_info->is_daemon) {
         m_active_threads_count ++;
     }
     if (! m_placeholder_threads.empty()) {
@@ -126,6 +102,7 @@ jenv& jvm::attach(jvm::attach_info &attach_info) noexcept
         };
         fast_erase<Comparator>(m_placeholder_threads, pthread_self());
     }
+    enter_safety_area();
     return *env;
 }
 
@@ -149,6 +126,7 @@ void jvm::detach() noexcept
             m_cond.notify_one();
         }
     }
+    leave_safety_area();
 }
 
 void jvm::placeholder(pthread_t tid) noexcept

@@ -41,6 +41,9 @@ extern volatile char *safety_point_trap;
  * 2. 线程附加到 jvm 之后，执行第一个 java 函数之前;
  * 3. 开始获取锁 (monitor) 之后，获取到锁之前(此时这个线程是有可能被挂起的);
  * 4. java 线程执行完最后一个 java 函数之后，从虚拟机分离之前。
+ *
+ * NOTE: 这个函数必须和 @link #leave_safety_area() 配对使用，
+ * 且不能递归调用.
  */
 void enter_safety_area() noexcept;
 
@@ -51,13 +54,18 @@ void enter_safety_area() noexcept;
  * 1. 线程执行完 native 函数，即将返回 java 函数时;
  * 2. 线程开始执行第一个 java 函数时;
  * 3. 线程获取到锁 (monitor) 之后
+ *
+ * NOTE: 这个函数必须和 @link #enter_safety_area() 配对使用，
+ * 且不能递归调用.
  */
 void leave_safety_area() noexcept;
 
 
-/**
- * 但所有线程都停下来时的回调
- */
+
+void freeze_gc_thread() noexcept;
+
+
+void unfreeze_gc_thread() noexcept;
 
 
 }; // namespace javsvm

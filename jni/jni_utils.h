@@ -2,14 +2,22 @@
 #ifndef JAVSVM_JNI_UTILS_H
 #define JAVSVM_JNI_UTILS_H
 
+#include "jni.h"
 
 #include "../object/jclass.h"
 #include "../object/jobject.h"
+#include "../object/jmethod.h"
 #include "../engine/engine.h"
 #include "../class/jclass_file.h"
-#include "../object/jmethod.h"
+#include "../vm/jvm.h"
+#include "../gc/safety_point.h"
 
 #include <memory>
+
+/**
+ * 这个类实现了 jni 和 javsvm 之间某些关键数据结构的双向映射，
+ * 可作为 jni 层的拓展
+ */
 
 template <typename T>
 static T take_from(const javsvm::jvalue &v) { }
@@ -41,10 +49,14 @@ inline jfloat take_from(const javsvm::jvalue &v) { return v.f; }
 template<>
 inline jdouble take_from(const javsvm::jvalue &v) { return v.d; }
 
-static inline jobject to_object(javsvm::jref obj) noexcept
+template <typename T = jobject>
+static T to_object(javsvm::jref obj) noexcept
 {
-    // todo 此处直接强转罢，反正也没有 gc ==
-    return (jobject) obj;
+    auto &env = javsvm::jvm::get().env();
+    auto frame = (javsvm::jni_stack_frame *) env.stack.top();
+    assert(frame != nullptr);
+
+    return (T) frame->append(obj);
 }
 
 template<>
@@ -84,8 +96,12 @@ inline javsvm::jvalue pack_to(jdouble val) { return { .d = val }; }
 
 static inline javsvm::jref to_object(jobject obj) noexcept
 {
-    // todo 此处直接强转罢，反正也没有 gc ==
-    return (javsvm::jref) obj;
+    if (obj == nullptr) {
+        return nullptr;
+    }
+    // jobject 也可能是指向 gc_root/gc_weak 的指针，
+    // 但 gc_root 的第一个成员变量就是 jref，gc_root* 和 jref* 是等价的
+    return *(javsvm::jref *) obj;
 }
 
 template<>
@@ -110,7 +126,7 @@ using jargs_ptr = std::unique_ptr<javsvm::slot_t, void(*)(const javsvm::slot_t *
 
 static inline jargs_ptr make_jargs(javsvm::slot_t *p) noexcept
 {
-    return { p, [](const javsvm::slot_t*){} };
+    return { p, [](const javsvm::slot_t*){  } };
 }
 
 /**
@@ -242,26 +258,26 @@ static jargs_ptr to_args(jmethodID method, jobject obj, const jvalue *ap)
 }
 
 
-/**
- * 根据传进来的 jenv 实例初始化 JNIEnv 结构体
- * @param dst 目标结构体
- * @param env 指定的 jenv 实例
- * @return 成功返回 0, 失败返回 -1
- */
-namespace javsvm {
-    class jenv;
-    class jvm;
-}
-static int init_jni_env(JNINativeInterface_ *dst, javsvm::jenv *env) noexcept {  };
+extern JNIEnv *jni_env;
+
+extern JavaVM *java_vm;
 
 
-/**
- * 根据传进来的 jvm 实例初始化 JavaVM 结构体
- * @param dst 目标结构体
- * @param jvm 指定的 jvm 实例
- * @return 成功返回 0, 失败返回 -1
- */
-static int init_jni_vm(JNIInvokeInterface_ *dst, javsvm::jvm *jvm) noexcept { };
 
+struct safety_area_guard
+{
+    safety_area_guard() noexcept
+    {
+        javsvm::leave_safety_area();
+    }
+    ~safety_area_guard() noexcept
+    {
+        javsvm::enter_safety_area();
+    }
+
+    safety_area_guard(const safety_area_guard&) = delete;
+    safety_area_guard& operator=(const safety_area_guard&) = delete;
+    safety_area_guard(safety_area_guard &&) = delete;
+};
 
 #endif // JAVSVM_JNI_UTILS_H
