@@ -182,6 +182,12 @@ jobject (JNICALL NewObjectV)
     if (_clazz == nullptr) {
         return nullptr;
     }
+
+    if (HAS_FLAG(_clazz->access_flag, javsvm::jclass_file::ACC_ABSTRACT)) {
+        javsvm::throw_exp("java/lang/InstantiationError", "");
+        return nullptr;
+    }
+
     auto _method = (javsvm::jmethod *) methodID;
     if (_method == nullptr) {
         return nullptr;
