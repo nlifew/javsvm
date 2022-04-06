@@ -20,14 +20,14 @@ static void *find_entrance(jmethod *method)
 {
     auto &loader = jvm::get().dll_loader;
 
-    auto short_name = jni_short_name(method);
+    auto short_name = jni_short_name(method->clazz->name, method->name);
     LOGI("find_entrance: try to use short name '%s'\n", short_name.c_str());
 
     auto ptr = loader.find_symbol(short_name.c_str());
     if (ptr != nullptr) {
         return ptr;
     }
-    auto long_name = jni_long_name(method);
+    auto long_name = jni_long_name(method->clazz->name, method->name, method->sig);
     LOGI("find_entrance: try to use short name '%s'\n", long_name.c_str());
 
     return loader.find_symbol(long_name.c_str());

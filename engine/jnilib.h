@@ -91,11 +91,9 @@ static std::string MangleForJni(const std::string& s) noexcept {
 }
 
 
-static std::string jni_short_name(const javsvm::jmethod *method)
+static std::string jni_short_name(const char *class_name,
+                                  const char *method_name)
 {
-    std::string class_name(method->clazz->name);
-    std::string method_name(method->name);
-
     std::string short_name;
     short_name += "Java_";
     short_name += MangleForJni(class_name);
@@ -104,13 +102,15 @@ static std::string jni_short_name(const javsvm::jmethod *method)
     return short_name;
 }
 
-static std::string jni_long_name(const javsvm::jmethod *method)
+static std::string jni_long_name(const char *class_name,
+                                 const char *method_name,
+                                 const char *method_sig)
 {
     std::string long_name;
-    long_name += jni_short_name(method);
+    long_name += jni_short_name(class_name, method_name);
     long_name += "__";
 
-    std::string signature(method->sig + 1);
+    std::string signature(method_sig + 1);
     signature.erase(signature.find_last_of(')'));
 
     long_name += MangleForJni(signature);

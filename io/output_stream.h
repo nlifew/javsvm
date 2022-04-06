@@ -4,7 +4,7 @@
 #define JAVSVM_OUTPUT_STREAM_H
 
 #include "utils/log.h"
-#include "utils/number_utils.h"
+#include "utils/numbers.h"
 
 namespace javsvm
 {
@@ -27,7 +27,7 @@ public:
     template <typename T>
     void write(T t)
     {
-        if (m_reverse) t = number_utils::reverse_endian(t);
+        if (m_reverse) t = numbers::reverse_endian(t);
         write_bytes(&t, sizeof(T));
     }
 

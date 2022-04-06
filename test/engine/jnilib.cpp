@@ -20,8 +20,8 @@ int main()
             .name = "native_func",
             .sig = "(Ljava/lang/String;Ljava/lang/Object;[F测试;)V",
     };
-    LOGI("%s\n", jni_short_name(&native_func).c_str());
-    LOGI("%s\n", jni_short_name(&native_func2).c_str());
-    LOGI("%s\n", jni_long_name(&native_func).c_str());
-    LOGI("%s\n", jni_long_name(&native_func2).c_str());
+    LOGI("%s\n", jni_short_name(klass.name, native_func.name).c_str());
+    LOGI("%s\n", jni_short_name(klass.name, native_func2.name).c_str());
+    LOGI("%s\n", jni_long_name(klass.name, native_func.name, native_func.sig).c_str());
+    LOGI("%s\n", jni_long_name(klass.name, native_func2.name, native_func2.sig).c_str());
 }

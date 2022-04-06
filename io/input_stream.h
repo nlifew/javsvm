@@ -81,20 +81,18 @@ class file_input : public input_stream
 {
 private:
     FILE *m_fp;
-    bool m_owner;
 
 public:
 
-    explicit file_input(const char *name): m_owner(true)
+    explicit file_input(const char *name)
     {
         m_fp = fopen(name, "rb");
     }
 
     ~file_input() override
     {
-        if (m_owner) fclose(m_fp);
+        fclose(m_fp);
         m_fp = nullptr;
-        m_owner = false;
     }
 
     long where() const override { return (int) ftell(m_fp); }
@@ -106,6 +104,8 @@ public:
         }
         return (int) fread(dst, 1, len, m_fp);
     }
+    
+    bool ok() const noexcept { return m_fp != nullptr && ferror(m_fp) == 0; }
 };
 
 }
