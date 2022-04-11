@@ -410,7 +410,7 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
     };
 
     if ((klass->access_flag & jclass_file::ACC_INTERFACE) != 0) {
-        /*
+        /**
          * 如果这个类是个接口，事实上我们没有必要为其创建虚函数表和接口函数表
          * 因为在合法的字节码中，来自接口的函数一定是通过 invoke-interface 方式调用的，
          * 这种方式会在其 *实现类（一定是非抽象类）* 中查询接口函数表，*接口类* 中的虚函数表和接口函数表
@@ -431,9 +431,32 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
                 if (old == itable.end() || IS_ABSTRACT((*old)->access_flag)) {
                     itable.insert(method);
                 }
-                else {
-                    // 父接口们不可能含有相同的两个 default 函数
-                    assert(IS_ABSTRACT(method->access_flag));
+                else if (!IS_ABSTRACT(method->access_flag)) {
+                    /**
+                     * 坏了，进入这个分支就说明从父接口处找到了两个一毛一样的 default 函数
+                     * 比如下面的示例代码:
+                     * interface A { default void run() { System.out.println("A->run"); } }
+                     * interface B extends A { default void run() { System.out.println("B->run"); } }
+                     * interface C extends A, B {}
+                     * 在加载接口 C 时，会在 A 的接口函数表和 B 的接口函数表中找到两个一模一样的 run() 函数。
+                     * 此时我们要做些额外工作，决定哪个函数要被替换掉。
+                     * 在上面的例子中，来自 B 接口的 B->run()V 将会替换掉 A->run()V，因为 B 相比于 A 在继承链
+                     * 更前面的位置。事实上我们可以推断出，对于这两个函数 runA 和 runB，它们所属的类 class A 和 class B，
+                     * 一定有着非此即彼的继承关系——要么 A 继承自 B，要么 B 继承自 A，没有其它可能(javac 会拒绝编译)。
+                     */
+                    if ((*old)->clazz->is_assign_from(method->clazz)) { // [1].
+                        itable.insert(method);
+                        /**
+                         * [1]. 注意是 method->clazz 而不是 interface. 比如再添加一个类
+                         * interface D implements A, C { }
+                         * 在加载 class C 时，先经过一次判决，留在 class C 的接口函数表中的 run 是 B->run()V.
+                         * 加载 class D 时还要经过一次判决，此时应该判断 B 和 A 的继承关系，而不是 C 和 A 的.
+                         */
+                    }
+                    else {
+                        // 断言二者之间一定存在继承关系.
+                        assert(method->clazz->is_assign_from((*old)->clazz));
+                    }
                 }
             }
         }
@@ -508,7 +531,8 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
 
     // 处理 itable
     std::set<jmethod*, Comparator> itable;
-    // 遍历所有的父接口
+
+    // 遍历所有的父接口, 和上面的逻辑一样
     for (int i = 0, z = klass->interface_num; i < z; i ++) {
         auto *interface = klass->interfaces[i];
         for (int j = 0, y = interface->itable_size; j < y; j ++) {
@@ -517,9 +541,14 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
             if (old == itable.end() || IS_ABSTRACT((*old)->access_flag)) {
                 itable.insert(method);
             }
-            else {
-                // 父接口们不可能含有相同的两个 default 函数
-                assert(IS_ABSTRACT(method->access_flag));
+            else if (!IS_ABSTRACT(method->access_flag)) {
+                if ((*old)->clazz->is_assign_from(method->clazz)) {
+                    itable.insert(method);
+                }
+                else {
+                    // 断言二者之间一定存在继承关系.
+                    assert(method->clazz->is_assign_from((*old)->clazz));
+                }
             }
         }
     }
