@@ -6,8 +6,6 @@
 #include "engine.h"
 #include "jnilib.h"
 #include "../vm/jvm.h"
-#include "../jni/jni.h"
-#include "../gc/safety_point.h"
 #include "../jni/jni_utils.h"
 
 #include <array>
@@ -118,7 +116,7 @@ public:
     template<typename T>
     void push_float(T t) noexcept
     {
-        javsvm::jdouble val;
+        javsvm::jdouble val = 0;
         *(T *) &val = t;
 
         // 如果通用寄存器没有装满，使用通用寄存器
@@ -128,47 +126,6 @@ public:
         }
         PLOGE("push_float: 浮点数寄存器超出范围 !!\n");
         exit(1);
-    }
-
-
-    int add_all(const char *sig, jargs &args) noexcept
-    {
-        for (int i = 1; sig[i] != ')'; i ++) {
-            switch (sig[i]) {
-                case 'Z':       /* boolean */
-                    push_integer(args.next<javsvm::jboolean>());
-                    break;
-                case 'B':       /* byte */
-                    push_integer(args.next<javsvm::jbyte>());
-                    break;
-                case 'C':       /* char */
-                    push_integer(args.next<javsvm::jchar>());
-                    break;
-                case 'S':       /* short */
-                    push_integer(args.next<javsvm::jshort>());
-                    break;
-                case 'I':       /* int */
-                    push_integer(args.next<javsvm::jint>());
-                    break;
-                case 'J':       /* long */
-                    push_integer(args.next<javsvm::jlong>());
-                    break;
-                case '[':       /* array */
-                case 'L':       /* object */
-                    push_integer(args.next<javsvm::jref>());
-                    break;
-                case 'F':       /* float */
-                    push_float(args.next<javsvm::jfloat>());
-                    break;
-                case 'D':       /* double */
-                    push_float(args.next<javsvm::jdouble>());
-                    break;
-                default:
-                    LOGE("add_all: unknown jmethod sig: '%s'\n", sig);
-                    return -1;
-            }
-        }
-        return 0;
     }
 
     [[nodiscard]]
@@ -261,20 +218,49 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
                    method->clazz->object.get() :
                    args.next<jref>();
 
-
-    // 3. 判断返回值类型
-    int return_type = 0;
-    switch (strchr(method->sig + 2, ')')[1]) {
-        case 'F': return_type = 1; break;
-        case 'D': return_type = 2; break;
-        default: break;
-    }
-
-    // 4. 参数
+    // 3. 准备参数和返回值
     macos_arm64_args_t as;
     as.push_integer<::JNIEnv*>(jenv);
     as.push_integer<::jobject>(to_object(jni_obj));
-    as.add_all(method->sig, args);
+
+    int return_type = 0;
+    {
+        int i = 1;
+        const char *sig = method->sig;
+        for (; sig[i] != ')'; ++i) {
+            switch (sig[i]) {
+                case 'Z': as.push_integer(args.next<javsvm::jboolean>()); break;
+                case 'B': as.push_integer(args.next<javsvm::jbyte>()); break;
+                case 'C': as.push_integer(args.next<javsvm::jchar>()); break;
+                case 'S': as.push_integer(args.next<javsvm::jshort>()); break;
+                case 'I': as.push_integer(args.next<javsvm::jint>()); break;
+                case 'J': as.push_integer(args.next<javsvm::jlong>()); break;
+
+                case 'F': as.push_float(args.next<javsvm::jfloat>()); break;
+                case 'D': as.push_float(args.next<javsvm::jdouble>()); break;
+
+                case 'L':
+                case '[':
+                    while (sig[i] == '[') i ++;
+                    if (sig[i] == 'L') while (sig[i] != ';') i ++;
+
+                    // 对象和数组类型需要转成 jni 的 jobject 形式
+                    as.push_integer(to_object(args.next<jref>()));
+                    break;
+                default:
+                    LOGE("unknown method sig: %s->%s%s\n", method->clazz->name, method->name, method->sig);
+                    break;
+            }
+        }
+        // 判断返回值类型. 0 表示返回值是整数，
+        // 1 表示 float32，2 表示 double64，4 表示返回对象
+        switch (sig[++ i]) {
+            case 'F': return_type = 1; break;
+            case 'D': return_type = 2; break;
+            case 'L':
+            case '[': return_type = 4; break;
+        }
+    }
 
 #ifndef NDEBUG
     // 打印下参数
@@ -286,8 +272,14 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
 
     // let's go, ka ku go, go go go ghost !
     int64_t ret_val = calljni64(
-            method->entrance.jni_func, return_type, as.registers(),
-            as.float_registers(), as.stack_size(), as.stack());
+            method->entrance.jni_func,
+            // 通过和 3 相与，整数和对象类型都成为 0，浮点数不变
+            return_type & 3,
+            as.registers(),
+            as.float_registers(),
+            as.stack_size(),
+            as.stack()
+    );
 
     // 离开安全区
     leave_safety_area();
@@ -299,6 +291,8 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
         case 0: v.j = ret_val; break;
         case 1: v.f = *(javsvm::jfloat *) &ret_val; break;
         case 2: v.d = *(javsvm::jdouble *) &ret_val; break;
+        // 4 表示需要返回一个引用类型
+        case 4: v.l = to_object((::jobject) ret_val); break;
         default: break;
     }
 
@@ -311,6 +305,5 @@ javsvm::jvalue javsvm::run_jni(jmethod *method, jref lock_object, jargs &args)
     if (exp != nullptr) {
         throw_throwable(exp);
     }
-
     return v;
 }
