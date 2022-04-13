@@ -28,7 +28,7 @@ package java.io;
 import java.lang.reflect.Field;
 import sun.reflect.CallerSensitive;
 import sun.reflect.Reflection;
-//import sun.reflect.misc.ReflectUtil;
+import sun.reflect.misc.ReflectUtil;
 
 /**
  * A description of a Serializable field from a Serializable class.  An array
@@ -162,14 +162,13 @@ public class ObjectStreamField
      */
     @CallerSensitive
     public Class<?> getType() {
-//        if (System.getSecurityManager() != null) {
-//            Class<?> caller = Reflection.getCallerClass();
-//            if (ReflectUtil.needsPackageAccessCheck(caller.getClassLoader(), type.getClassLoader())) {
-//                ReflectUtil.checkPackageAccess(type);
-//            }
-//        }
-//        return type;
-        throw new UnsupportedOperationException("getType()");
+        if (System.getSecurityManager() != null) {
+            Class<?> caller = Reflection.getCallerClass();
+            if (ReflectUtil.needsPackageAccessCheck(caller.getClassLoader(), type.getClassLoader())) {
+                ReflectUtil.checkPackageAccess(type);
+            }
+        }
+        return type;
     }
 
     /**

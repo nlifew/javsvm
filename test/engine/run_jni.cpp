@@ -9,7 +9,7 @@ using namespace javsvm;
 
 int main()
 {
-    putenv(strdup("CLASSPATH=../../../test/engine:../../../jre"));
+    putenv(strdup("CLASSPATH=../../../test/engine:../../../jre/out"));
 
     LOGI("main: start\n");
 

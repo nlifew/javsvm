@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -41,7 +41,7 @@ public class Object {
 //    static {
 //        registerNatives();
 //    }
-    /* javmvm-removed: end */
+    /* javsvm-removed: changed */
 
     /**
      * Returns the runtime class of this {@code Object}. The returned
@@ -99,7 +99,12 @@ public class Object {
      * @see     java.lang.Object#equals(java.lang.Object)
      * @see     java.lang.System#identityHashCode
      */
-    public native int hashCode();
+    /* javsvm-changed: the identity hash code has its own implementation. */
+//    public native int hashCode();
+    public int hashCode() {
+        return System.identityHashCode(this);
+    }
+    /* javsvm-changed: end */
 
     /**
      * Indicates whether some other object is "equal to" this one.
@@ -455,7 +460,7 @@ public class Object {
                                 "nanosecond timeout value out of range");
         }
 
-        if (nanos >= 500000 || (nanos != 0 && timeout == 0)) {
+        if (nanos > 0) {
             timeout++;
         }
 

@@ -29,7 +29,7 @@ static bool bind_java_class()
 //    if (java_lang_String_init == nullptr && (java_lang_String_init = java_lang_String->get_method("<init>", "([BII)V")) == nullptr) {
 //        return false;
 //    }
-    if (java_lang_String_init2 == nullptr && (java_lang_String_init2 = java_lang_String->get_method("<init>", "([CII)V")) == nullptr) {
+    if (java_lang_String_init2 == nullptr && (java_lang_String_init2 = java_lang_String->get_method("<init>", "([CZ)V")) == nullptr) {
         return false;
     }
     if (java_lang_String_value == nullptr && (java_lang_String_value = java_lang_String->get_field("value", "[C")) == nullptr) {
@@ -56,7 +56,7 @@ jref jstring::new_string(const wchar_t * str, int len) noexcept
     jref chars_array = m_jvm.array.new_char_array(len);
     m_jvm.array.set_char_array_region(chars_array, 0, len, (jchar *) str);
 
-    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, 0, len);
+    jref obj = java_lang_String->new_instance(java_lang_String_init2, chars_array, true);
     return obj;
 }
 

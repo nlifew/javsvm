@@ -163,7 +163,10 @@ public final class String
      *         The initial value of the string
      */
     public String(char value[]) {
-        this.value = Arrays.copyOf(value, value.length);
+        /* javsvm-changed: use Arrays.clone() instead. */
+//        this.value = Arrays.copyOf(value, value.length);
+        this.value = value.clone();
+        /* javsvm-changed: end */
     }
 
     /**
@@ -204,10 +207,7 @@ public final class String
         if (offset > value.length - count) {
             throw new StringIndexOutOfBoundsException(offset + count);
         }
-        this.value = new char[count]; // Arrays.copyOfRange(value, offset, offset+count);
-        for (int i = 0; i < count; i ++) {
-            this.value[i] = value[offset + i];
-        }
+        this.value = Arrays.copyOfRange(value, offset, offset+count);
     }
 
     /**

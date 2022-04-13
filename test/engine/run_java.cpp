@@ -40,7 +40,7 @@ static void sort(jmethod *method)
 
 int main()
 {
-    putenv(strdup("CLASSPATH=../../../jre"));
+    putenv(strdup("CLASSPATH=../../../jre/out"));
 
     LOGI("main: start\n");
 
