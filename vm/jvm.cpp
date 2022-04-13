@@ -2,7 +2,6 @@
 
 #include "jvm.h"
 #include "../utils/log.h"
-#include "../gc/safety_point.h"
 
 using namespace javsvm;
 
@@ -102,7 +101,6 @@ jenv& jvm::attach(attach_info *attach_info) noexcept
         };
         fast_erase<Comparator>(m_placeholder_threads, pthread_self());
     }
-    enter_safety_area();
     return *env;
 }
 

@@ -212,12 +212,11 @@ jclass (JNICALL GetObjectClass)
         (JNIEnv *, jobject obj) {
     safety_area_guard guard;
 
-    auto _obj = to_object(obj);
-    auto _obj_ptr = javsvm::jheap::cast(_obj);
+    auto _obj_ptr = javsvm::jheap::cast(to_object(obj));
     if (_obj_ptr == nullptr) {
         return nullptr;
     }
-    return (jclass) to_object(_obj_ptr->klass->object.get());
+    return to_object<jclass>(_obj_ptr->klass->object.get());
 }
 
 jboolean (JNICALL IsInstanceOf)
