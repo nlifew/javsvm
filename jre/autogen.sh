@@ -73,48 +73,40 @@ gen_h() {
 
   echo "\n" >> $NativeListsCpp
 
-  echo "constexpr java_native_class_t java_native_classes[] = {" >> $NativeListsCpp
+  echo "constexpr java_native_method_t java_native_methods[] = {" >> $NativeListsCpp
 
-  count=0
   find out -type f -name "*.h" | while read -r i; do
     class_name=${i%.h}
     class_name="${class_name#out/}"
-    class_name=$(echo "$class_name" | sed "s/\//./g")
 
-    methods_list=$(test_javah -m list "${i%.h}".class)
-    lines_count=$(echo "$methods_list" | wc -l | sed "s/ //g")
+    test_javah -m list "${i%.h}".class | \
+    awk '{ print "    { \"" "'"$class_name"'" "\", \"" $1 "\", \"" $2 "\", (void*) " $3 " }," }' >> $NativeListsCpp
 
-    echo "    { \"$class_name\", $lines_count, {" >> $NativeListsCpp
-
-    echo "$methods_list" | awk '{ print "        { \"" $1 "\", \"" $2 "\", (void*) " $3 " }," }' >> $NativeListsCpp
-
-    echo "    },\n" >> $NativeListsCpp
-    count=$((count + 1))
+    echo '' >> $NativeListsCpp
   done
 
+  echo "    { nullptr, nullptr, nullptr, nullptr }, " >> $NativeListsCpp
   echo '};' >> $NativeListsCpp
-  echo "size_t java_native_classes_num = $count;" >> $NativeListsCpp
 
   h='
 #ifndef JAVA_NATIVE_H
 #define JAVA_NATIVE_H
 
+#ifdef __cplusplus
+#include <cstddef>
+#else
+#include <stddef.h>
+#endif
+
 struct java_native_method_t
 {
+    const char *class_name;
     const char *name;
     const char *sig;
     void *func;
 };
 
-struct java_native_class_t
-{
-    const char *class_name;
-    size_t methods_num;
-    const struct java_native_method_t *methods;
-}
-
-extern const struct java_native_class_t *java_native_classes;
-extern size_t java_native_classes_num;
+extern const struct java_native_method_t java_native_methods[];
 
 #endif // JAVA_NATIVE_H
 '
