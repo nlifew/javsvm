@@ -71,7 +71,7 @@ void *(JNICALL GetPrimitiveArrayCritical)
         return nullptr;
     }
 
-    // 这里应该有个判断，如果 array 是数组类型，直接返回 nullptr
+    // 这里应该有个判断，如果 array 是对象数组，直接返回 nullptr
     // 对象数组的包裹类型是 jref, jobject 是 jref*，二者是绝对不能混合在一起的
     if (obj->klass->name[1] == '[' || obj->klass->name[1] == 'L') {
         return nullptr;

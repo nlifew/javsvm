@@ -37,6 +37,7 @@ add_subdirectory(utils)
 add_subdirectory(dll)
 add_subdirectory(jni)
 add_subdirectory(gc)
+add_subdirectory(jre)
 
 add_library(
         runtime
@@ -48,6 +49,7 @@ add_library(
 
 target_link_libraries(
         runtime
+        jre
         classloader
         engine
         object

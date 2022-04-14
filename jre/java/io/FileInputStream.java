@@ -203,11 +203,14 @@ class FileInputStream extends InputStream
      *             file is reached.
      * @exception  IOException  if an I/O error occurs.
      */
+    /* javsvm-changed: use read(byte[], int, int) */
     public int read() throws IOException {
-        return read0();
+//        return read0();
+        return readBytes(new byte[1], 0, 1);
     }
 
-    private native int read0() throws IOException;
+//    private native int read0() throws IOException;
+    /* javsvm-changed: end */
 
     /**
      * Reads a subarray as a sequence of bytes.
@@ -252,6 +255,12 @@ class FileInputStream extends InputStream
      * @exception  IOException  if an I/O error occurs.
      */
     public int read(byte b[], int off, int len) throws IOException {
+        /* javsvm-added: add array index check */
+        if (off < 0 || len + off > b.length) {
+            throw new ArrayIndexOutOfBoundsException("off: " + off + ", len: " + len);
+        }
+
+        /* javsvm-added: end */
         return readBytes(b, off, len);
     }
 
