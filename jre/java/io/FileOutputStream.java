@@ -270,14 +270,15 @@ class FileOutputStream extends OutputStream
         open0(name, append);
     }
 
-    /**
-     * Writes the specified byte to this file output stream.
-     *
-     * @param   b   the byte to be written.
-     * @param   append   {@code true} if the write operation first
-     *     advances the position to the end of file
-     */
-    private native void write(int b, boolean append) throws IOException;
+    /* javsvm-changed: use writeBytes(byte[], int, int) */
+//    /**
+//     * Writes the specified byte to this file output stream.
+//     *
+//     * @param   b   the byte to be written.
+//     * @param   append   {@code true} if the write operation first
+//     *     advances the position to the end of file
+//     */
+//    private native void write(int b, boolean append) throws IOException;
 
     /**
      * Writes the specified byte to this file output stream. Implements
@@ -287,8 +288,10 @@ class FileOutputStream extends OutputStream
      * @exception  IOException  if an I/O error occurs.
      */
     public void write(int b) throws IOException {
-        write(b, append);
+//        write(b, append);
+        writeBytes(new byte[] {b}, 0, 1);
     }
+    /* javsvm-changed: end */
 
     /**
      * Writes a sub array as a sequence of bytes.
@@ -323,6 +326,11 @@ class FileOutputStream extends OutputStream
      * @exception  IOException  if an I/O error occurs.
      */
     public void write(byte b[], int off, int len) throws IOException {
+        /* javsvm-added: add array index check */
+        if (off < 0 || len + off > b.length) {
+            throw new ArrayIndexOutOfBoundsException("off: " + off + ", len: " + len);
+        }
+        /* javsvm-added: end */
         writeBytes(b, off, len, append);
     }
 

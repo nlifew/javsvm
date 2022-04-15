@@ -14,5 +14,6 @@ add_library(
         native.cpp
         ./java/io/FileDescriptor.cpp
         ./java/io/FileInputStream.cpp
+        ./java/io/FileOutputStream.cpp
         ./java/lang/Object.cpp
 )

@@ -1,5 +1,5 @@
 
-#include "jni/jni_utils.h"
+
 #include "jni/jni_env.h"
 #include "java/io/FileInputStream.h"
 
@@ -12,24 +12,24 @@ struct FileDescriptor_t
     jfieldID fd = nullptr;
 };
 
-struct InputStreamReader_t
+struct FileInputStream_t
 {
     jfieldID fd = nullptr;
 };
 
 static FileDescriptor_t FileDescriptor;
-static InputStreamReader_t InputStreamReader;
+static FileInputStream_t FileInputStream;
 
 
 static int get_fd(JNIEnv *env, jobject self) noexcept
 {
-    jobject fd = jni::GetObjectField(env, self, InputStreamReader.fd);
+    jobject fd = jni::GetObjectField(env, self, FileInputStream.fd);
     return jni::GetIntField(env, fd, FileDescriptor.fd);
 }
 
 static void set_fd(JNIEnv *env, jobject self, int val) noexcept
 {
-    jobject fd = jni::GetObjectField(env, self, InputStreamReader.fd);
+    jobject fd = jni::GetObjectField(env, self, FileInputStream.fd);
     jni::SetIntField(env, fd, FileDescriptor.fd, val);
 }
 
@@ -110,7 +110,7 @@ Java_java_io_FileInputStream_initIDs
     jclass java_io_FileInputStream = klass; // jni::FindClass(env, "java/io/FileInputStream");
 
     FileDescriptor.fd = jni::GetFieldID(env, java_io_FileDescriptor, "fd", "I");
-    InputStreamReader.fd = jni::GetFieldID(env, java_io_FileInputStream, "fd", "Ljava/io/FileDescriptor;");
+    FileInputStream.fd = jni::GetFieldID(env, java_io_FileInputStream, "fd", "Ljava/io/FileDescriptor;");
 }
 
 /**
@@ -123,7 +123,7 @@ Java_java_io_FileInputStream_open0
     (JNIEnv *env, jobject self, jstring name)
 {
     const char *name_s = jni::GetStringUTFChars(env, name, nullptr);
-    if (jni::ExceptionCheck(env)) {
+    if (name_s == nullptr) {
         return;
     }
 
@@ -149,6 +149,7 @@ Java_java_io_FileInputStream_readBytes
         throw_ioe(IOException, env, "invalid fd %d\n", fd);
         return -1;
     }
+
     auto buff = (jbyte *) jni::GetPrimitiveArrayCritical(env, out, nullptr);
     auto ret = read(fd, buff + off, len);
     jni::ReleasePrimitiveArrayCritical(env, out, buff, JNI_COMMIT);
@@ -158,7 +159,7 @@ Java_java_io_FileInputStream_readBytes
         throw_ioe(IOException, env, "failed to read %d bytes from fd %d", len, fd);
         return -1;
     }
-    if (ret == 0) {
+    if (ret == 0 && len != 0) {
         // 表示已经到达文件末尾
         return -1;
     }
