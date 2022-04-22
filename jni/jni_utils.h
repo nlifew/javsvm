@@ -2,7 +2,7 @@
 #ifndef JAVSVM_JNI_UTILS_H
 #define JAVSVM_JNI_UTILS_H
 
-#include "jni.h"
+#include "jni_env.h"
 
 #include "../object/jclass.h"
 #include "../object/jobject.h"
@@ -285,6 +285,37 @@ struct safety_area_guard
     safety_area_guard(const safety_area_guard&) = delete;
     safety_area_guard& operator=(const safety_area_guard&) = delete;
     safety_area_guard(safety_area_guard &&) = delete;
+};
+
+
+struct scoped_string
+{
+private:
+    JNIEnv *m_env;
+    jstring m_string;
+    const char *m_utf8;
+public:
+    scoped_string(JNIEnv *env, jstring str) noexcept:
+        m_env(env),
+        m_string(str)
+    {
+        m_utf8 = jni::GetStringUTFChars(env, str, nullptr);
+        if (m_utf8 == nullptr) m_utf8 = "";
+    }
+
+    ~scoped_string()
+    {
+        jni::ReleaseStringUTFChars(m_env, m_string, m_utf8);
+    }
+
+    scoped_string(scoped_string&&) = delete;
+    scoped_string(const scoped_string&) = delete;
+    scoped_string& operator=(const scoped_string&) = delete;
+
+    explicit operator const char*() const noexcept { return m_utf8; }
+
+    [[nodiscard]]
+    const char* get() const noexcept { return m_utf8; }
 };
 
 #endif // JAVSVM_JNI_UTILS_H

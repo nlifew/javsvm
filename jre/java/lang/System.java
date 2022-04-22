@@ -1222,13 +1222,13 @@ public final class System {
         /* javsvm-removed: unused */
 //        // register shared secrets
 //        setJavaLangAccess();
-//
-//        // Subsystems that are invoked during initialization can invoke
-//        // sun.misc.VM.isBooted() in order to avoid doing things that should
-//        // wait until the application class loader has been set up.
-//        // IMPORTANT: Ensure that this remains the last initialization action!
-//        sun.misc.VM.booted();
         /* javsvm-removed: end */
+
+        // Subsystems that are invoked during initialization can invoke
+        // sun.misc.VM.isBooted() in order to avoid doing things that should
+        // wait until the application class loader has been set up.
+        // IMPORTANT: Ensure that this remains the last initialization action!
+        sun.misc.VM.booted();
     }
 
     /* javsvm-removed: unused */
