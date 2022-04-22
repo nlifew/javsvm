@@ -289,7 +289,7 @@ class FileOutputStream extends OutputStream
      */
     public void write(int b) throws IOException {
 //        write(b, append);
-        writeBytes(new byte[] {b}, 0, 1);
+        writeBytes(new byte[] { (byte) b}, 0, 1, append);
     }
     /* javsvm-changed: end */
 

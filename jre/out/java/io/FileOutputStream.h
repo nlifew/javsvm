@@ -40,15 +40,6 @@ Java_java_io_FileOutputStream_open0
 
 /**
  * class: java/io/FileOutputStream
- * method: write
- * sig: (IZ)V
- */
-JNIEXPORT void JNICALL
-Java_java_io_FileOutputStream_write
-    (JNIEnv *env, jobject self, jint, jboolean);
-
-/**
- * class: java/io/FileOutputStream
  * method: writeBytes
  * sig: ([BIIZ)V
  */
