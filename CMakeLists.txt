@@ -46,6 +46,10 @@ add_library(
 )
 
 
+find_library(
+        lib_iconv
+        iconv
+)
 
 target_link_libraries(
         runtime
@@ -60,6 +64,7 @@ target_link_libraries(
         dllloader
         concurrent
         utils
+        ${lib_iconv}
 )
 
 # 测试相关的

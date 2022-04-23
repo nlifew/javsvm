@@ -41,12 +41,16 @@ static bool bind_java_class()
 
 jref jstring::new_string(const char* str) noexcept
 {
-    auto wstr = strings::towstring(str);
-    return new_string(wstr.c_str(), wstr.length());
+    size_t len = 0;
+    auto wstr = strings::to_wstring(str, &len);
+    std::unique_ptr<const jchar, void(*)(const jchar *)> guard(
+            wstr, [](const jchar *ptr) { delete[] ptr; });
+
+    return new_string(wstr, (int) len);
 }
 
 
-jref jstring::new_string(const wchar_t * str, int len) noexcept
+jref jstring::new_string(const jchar *str, int len) noexcept
 {
     if (! bind_java_class()) {
         LOGE("java_lang_String hasn't been init\n");
@@ -83,12 +87,12 @@ int jstring::length(jref ref) const noexcept
 
 
 
-jref jstring::find(const char *str) const
-{
-    std::string s(str);
-    jref *ref = const_cast<jref*>(m_cache.get(s));
-    return ref == nullptr ? nullptr : *ref;
-}
+//jref jstring::find(const char *str) const
+//{
+//    std::string s(str);
+//    jref *ref = const_cast<jref*>(m_cache.get(s));
+//    return ref == nullptr ? nullptr : *ref;
+//}
 
 jref jstring::find_or_new(const char *str)
 {
@@ -102,21 +106,27 @@ jref jstring::find_or_new(const char *str)
 
 jref jstring::intern(jref str)
 {
+    const char *utf8 = jstring::utf8(str);
+    std::unique_ptr<const char, void(*)(const char *)> utf8_guard(
+            utf8, [](const char *ptr) { delete[] ptr; });
+
+    return m_cache.put_if_absent(utf8, [str]() -> jref {
+        return str;
+    });
+}
+
+const char *jstring::utf8(jref str) noexcept
+{
     if (! bind_java_class()) {
         LOGE("intern: java_lang_String hasn't been init\n");
         exit(1);
     }
+
     jref char_array = java_lang_String_value->get(str).l;
-    int char_array_len = m_jvm.array.get_array_length(char_array);
 
-    auto *buff = new jchar[char_array_len];
-    std::unique_ptr<jchar, void(*)(const jchar*)> buff_guard(
-            buff, [](const jchar *ptr) { delete[] ptr; });
+    int len, ele_size;
+    const jchar *utf16 = (jchar *) jarray::storage_of(
+            jheap::cast(char_array), &len, &ele_size);
 
-    m_jvm.array.get_char_array_region(char_array, 0, char_array_len, buff);
-
-    auto utf8 = strings::tostring((wchar_t *) buff);
-    return m_cache.put_if_absent(utf8, [str]() -> jref {
-        return str;
-    });
+    return strings::to_string(utf16, len);
 }

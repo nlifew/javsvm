@@ -16,5 +16,6 @@ add_library(
         java/io/FileInputStream.cpp
         java/io/FileOutputStream.cpp
         java/lang/Object.cpp
+        java/lang/String.cpp
         java/lang/System.cpp
 )

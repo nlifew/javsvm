@@ -29,10 +29,11 @@ private:
 public:
     jref new_string(const char *str) noexcept;
 
-    jref new_string(const wchar_t *str, int len) noexcept;
-
+    jref new_string(const jchar *str, int len) noexcept;
 
     int length(jref ref) const noexcept;
+
+    static const char *utf8(jref ref) noexcept;
 
     /**
      * 获取某个字符串内的数组引用
@@ -50,7 +51,7 @@ public:
     jstring(const jstring &) = delete;
     jstring& operator=(jstring const&) = delete;
 
-    jref find(const char *s) const;
+//    jref find(const char *s) const;
 
     jref find_or_new(const char *s);
 

@@ -12,7 +12,7 @@ jstring (JNICALL NewString)
     safety_area_guard guard;
 
     auto &string = javsvm::jvm::get().string;
-    return to_object<jstring>(string.new_string((wchar_t *) unicode, len));
+    return to_object<jstring>(string.new_string(unicode, len));
 }
 
 
@@ -66,41 +66,21 @@ jstring (JNICALL NewStringUTF)
 jsize (JNICALL GetStringUTFLength)
         (JNIEnv *env, jstring str)
 {
-    auto buff = GetStringCritical(env, str, nullptr);
-    if (buff == nullptr) {
-        return 0;
-    }
-
-    size_t len;
-    {
-        safety_area_guard guard;
-        char *utf = nullptr;
-        len = javsvm::strings::tostring((wchar_t *) buff, &utf);
-        delete[] utf;
-    }
-
-    ReleaseStringCritical(env, str, buff);
-    return (jsize) len;
+    auto utf8 = GetStringUTFChars(env, str, nullptr);
+    size_t size = strlen(utf8);
+    ReleaseStringUTFChars(env, str, utf8);
+    return (jsize) size;
 }
 
 
 const char *(JNICALL GetStringUTFChars)
-        (JNIEnv *env, jstring str, jboolean *isCopy) {
+        (JNIEnv *, jstring str, jboolean *isCopy)
+{
+    safety_area_guard guard;
+
     if (*isCopy) *isCopy = true;
 
-    auto buff = GetStringCritical(env, str, nullptr);
-    if (buff == nullptr) {
-        return nullptr;
-    }
-
-    char *utf = nullptr;
-    {
-        safety_area_guard guard;
-        javsvm::strings::tostring((wchar_t *) buff, &utf);
-    }
-
-    ReleaseStringCritical(env, str, buff);
-    return utf;
+    return javsvm::jstring::utf8(to_object(str));
 }
 
 void (JNICALL ReleaseStringUTFChars)
@@ -114,19 +94,27 @@ void (JNICALL GetStringRegion)
 }
 
 void (JNICALL GetStringUTFRegion)
-        (JNIEnv *env, jstring str, jsize start, jsize len, char *buf) {
+        (JNIEnv *, jstring str, jsize start, jsize len, char *buf) {
     buf[0] = '\0';
 
     if (len <= 0) {
         return;
     }
 
-    auto buff = GetStringCritical(env, str, nullptr);
-    if (buff != nullptr) {
-        // 认为传进来的参数已经包含了足够大的缓冲区，因此只需要写进去就可以
-        mbstowcs((wchar_t *) buff + start, buf, len * 4);
-        ReleaseStringCritical(env, str, buff);
+    safety_area_guard guard;
+
+    auto value = javsvm::jstring::value_of(to_object(str));
+
+    int array_len, ele_size;
+    auto mem = (jchar *) javsvm::jarray::storage_of(javsvm::jheap::cast(value), &array_len, &ele_size);
+
+    // 判断数组是否越界
+    if (start < 0 || start + len > array_len) {
+        javsvm::throw_exp("java/lang/IndexOutOfBoundsException", "");
+        return;
     }
+
+    javsvm::strings::to_string(buf, mem + start, len);
 }
 
 }
