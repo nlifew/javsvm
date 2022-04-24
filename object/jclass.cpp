@@ -184,7 +184,7 @@ jclass *jclass::of(jref obj) noexcept
         return nullptr;
     }
 
-    jfield *mNativePtr = java_lang_Class->get_field("mNativePtr", "Ljava/lang/Class;");
+    jfield *mNativePtr = java_lang_Class->get_field("mNativePtr", "J");
     if (mNativePtr == nullptr) {
         LOGE("javsvm::of: failed to find field: mNativePtr\n");
         exit(1);
