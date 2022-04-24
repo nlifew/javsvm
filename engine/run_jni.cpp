@@ -26,7 +26,7 @@ static void *find_entrance(jmethod *method)
         return ptr;
     }
     auto long_name = jni_long_name(method->clazz->name, method->name, method->sig);
-    LOGI("find_entrance: try to use short name '%s'\n", long_name.c_str());
+    LOGI("find_entrance: try to use long name '%s'\n", long_name.c_str());
 
     return loader.find_symbol(long_name.c_str());
 }

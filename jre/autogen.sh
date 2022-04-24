@@ -53,16 +53,18 @@ gen_h() {
   echo "constexpr java_native_method_t java_native_methods[] = {" >> $NativeListsCpp
 
   find out -type f -name "*.h" | while read -r i; do
-    class_name=${i%.h}
-    class_name="${class_name#out/}"
-
+#    class_name=${i%.h}
+#    class_name="${class_name#out/}"
+#
     test_javah -m list "${i%.h}".class | \
-    awk '{ print "    { \"" "'"$class_name"'" "\", \"" $1 "\", \"" $2 "\", (void*) " $3 " }," }' >> $NativeListsCpp
+    awk '{ print "    { \"" $3 "\", (void*) " $3 " }," }' >> $NativeListsCpp
+#    awk '{ print "    { \"" "'"$class_name"'" "\", \"" $1 "\", \"" $2 "\", (void*) " $3 " }," }' >> $NativeListsCpp
 
     echo '' >> $NativeListsCpp
   done
 
-  echo "    { nullptr, nullptr, nullptr, nullptr }, " >> $NativeListsCpp
+#  echo "    { nullptr, nullptr, nullptr, nullptr }, " >> $NativeListsCpp
+  echo "    { nullptr, nullptr }, " >> $NativeListsCpp
   echo '};' >> $NativeListsCpp
 }
 

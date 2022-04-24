@@ -23,6 +23,17 @@
 
 using namespace javsvm;
 
+
+dll_loader::dll_loader(jvm *vm) noexcept:
+    m_vm(*vm)
+{
+    // builtin jni functions
+    for (int i = 0; java_native_methods[i].jni_name != nullptr; ++i) {
+        auto &method = java_native_methods[i];
+        m_builtin[method.jni_name] = method.func;
+    }
+}
+
 static std::string trim(const char *name)
 {
     LOGI("trim: input string is '%s'\n", name);
@@ -229,6 +240,15 @@ static inline void* find_symbol0(void *native_ptr, const char *symbol)
 
 void *dll_loader::find_symbol(const char *symbol, void *native_ptr)
 {
+    // builtin jni methods
+    constexpr const char *PREFIX = "Java_java_";
+    if (strncmp(symbol, PREFIX, strlen(PREFIX)) == 0) {
+        const auto &it = m_builtin.find(symbol);
+        if (it != m_builtin.end()) {
+            return it->second;
+        }
+    }
+
     if (native_ptr != nullptr) {
         return ::find_symbol0(native_ptr, symbol);
     }
