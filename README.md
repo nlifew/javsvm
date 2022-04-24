@@ -50,14 +50,11 @@ macos arm64
 
 * gc: finalize 函数的执行，弱引用/虚引用/软引用和引用队列的交互;
 
-* 解释引擎: invokedynamic, multiarray, 除 0 异常等,
-    安全点的放置;
+* 解释引擎: invokedynamic, multiarray, 除 0 异常等;
 
 * jni 执行引擎: 由于 gc 的加入，现有的 jni 实现需要重构;
 
 * jre: openjdk 源码的适配;
-
-* 字符串池: 需要更改 map 值类型为 gc_root;
 
 * zip/jar: 还没加
 

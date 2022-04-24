@@ -10,15 +10,22 @@
 
 using namespace javsvm;
 
-#define to_str_(x) #x
-#define to_str(x) to_str_(x)
 #define VERSION "0.0.1"
 
 static void usage(const char *self) noexcept
 {
+#if platform_os_arch == platform_linux_x64
+    const char *os_arch = "linux_x64";
+#elif platform_os_arch == platform_windows_x64
+    const char *os_arch = "windows_x64";
+#elif platform_os_arch == platform_macos_arm64
+    const char *os_arch = "macos_arm64";
+#elif platform_os_arch == platform_macos_x64
+    const char *os_arch = "macos_x64";
+#endif
     printf("Just A Very Simple Virtual Machine !\n");
     printf("platform: %s, version: %s, build %s %s\n",
-           to_str(platform_os_arch), VERSION, __TIME__, __DATE__);
+           os_arch, VERSION, __TIME__, __DATE__);
 }
 
 
@@ -72,6 +79,7 @@ int main(int argc, const char *argv[])
     main_method->invoke_static(args);
 
     // 等待所有的非 daemon 线程结束
+    vm.detach();
     vm.wait_for();
 
     // 有两个和虚拟机退出有关的 API，分别是
