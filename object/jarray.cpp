@@ -66,6 +66,7 @@ jref jarray::new_object_array(jclass *klass, int length)
         LOGE("the length of array '%s' is negative: %d\n", klass->name, length);
         exit(1);
     }
+    // 将传进来的参数 klass 包裹成数组类型
     std::string name_s(klass->name);
 
     // 判断传进来的是不是基本类型，从而确定 ele_size
@@ -105,11 +106,11 @@ jref jarray::new_object_array(jclass *klass, int length)
         // todo: 从自定义类加载器中获取 class_loader 实例
     }
     if (array == nullptr) {
-        LOGE("failed to create array type of '%s', abort\n", klass->name);
+        LOGE("failed to create array type of '%s', abort\n", name_s.c_str());
         exit(1);
     }
 
-    jref ref = m_jvm.heap.alloc(klass, length * ele_size + 2 * (int) sizeof(jint));
+    jref ref = m_jvm.heap.alloc(array, length * ele_size + 2 * (int) sizeof(jint));
     jobject *obj = javsvm::jheap::cast(ref);
 
 //    obj->klass = klass;
