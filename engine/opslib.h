@@ -476,11 +476,12 @@ static inline void invoke_method(java_stack_frame &frame,
     jvalue val = Method().operator()(m, args);
 
 
-    switch (m->return_slot) {
-        case 0: break;
-        case 1: frame.push_param<jint>(val.i); break;
-        case 2: frame.push_param<jlong>(val.j); break;
-        default: LOGE("push_jvalue: unknown slot_num: %d\n", m->return_slot);
+    switch (m->return_type) {
+        case jmethod::none: break;
+        case jmethod::integer32: frame.push_param<jint>(val.i); break;
+        case jmethod::integer64: frame.push_param<jlong>(val.j); break;
+        case jmethod::reference: frame.push_param<jref>(val.l); break;
+        default: LOGE("push_jvalue: unknown slot_num: %d\n", m->return_type);
     }
 
     frame.pc += OpCount;
@@ -666,10 +667,11 @@ static inline void check_cast(java_stack_frame &frame,
     index |= code.code[frame.pc + 2];
     jclass *klass = get_class(index, pool);
 
-    jref obj = frame.pop_param<jref>();
+    jref obj = frame.top_param<jref>();
 
     if (! klass->is_instance(obj)) {
-        // todo: 抛出 class cast exception
+        throw_exp("java/lang/ClassCastException", klass->name);
+        return;
     }
     frame.pc += 3;
 }

@@ -38,11 +38,10 @@ static bool is_method_virtual(jclass_method *m, jclass_const_pool& pool)
 static void calculate_slot_num(jmethod *method, jmethod_area &allocator)
 {
     int& args_slot = method->args_slot;
-    int& return_slot = method->return_slot; 
     const char* &sig = method->sig;
+    auto &return_type = method->return_type;
 
     args_slot = 0;
-    return_slot = 0;
 
     std::vector<char> ref_table;
     ref_table.reserve(32);
@@ -83,24 +82,33 @@ static void calculate_slot_num(jmethod *method, jmethod_area &allocator)
                 break;
             default:
                 LOGE("unknown jmethod sig: '%s'\n", sig);
+                exit(1);
         }
     }
 
     switch (strchr(sig + 1, ')')[1]) {
+        case 'V':       /* void */
+            return_type = jmethod::none;
+            break;
         case 'Z':       /* boolean */
         case 'B':       /* byte */
         case 'C':       /* char */
         case 'S':       /* short */
         case 'I':       /* int */
         case 'F':       /* float */
+            return_type = jmethod::integer32;
+            break;
+        case 'J':       /* long */
+        case 'D':       /* double */
+            return_type = jmethod::integer64;
+            break;
         case 'L':       /* object */
         case '[':       /* array */
-            return_slot = 1;
+            return_type = javsvm::jmethod::reference;
             break;
-        case 'D':       /* double */
-        case 'J':       /* long */
-            return_slot = 2;
-            break;
+        default:
+            LOGE("unknown return type: %s\n", sig);
+            exit(1);
     }
 
     ref_table.push_back(0); // 终止字符串 ?

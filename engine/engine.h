@@ -14,7 +14,7 @@ class jargs
     const slot_t *m_orig;
 
 public:
-    explicit jargs(const slot_t *args) noexcept :
+    jargs(const slot_t *args) noexcept :
         m_args(args), m_orig(args)
     {
     }

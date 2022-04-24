@@ -69,9 +69,20 @@ struct jmethod
      * 函数参数和返回值要占用的变量槽数量
      */
     int args_slot = 0;
-    int return_slot = 0;
 
+    enum return_t {
+        none = 0,
+        integer32,
+        reference,
+        integer64,
+    };
 
+    return_t return_type;
+
+    /**
+     * 参数引用表，数组类型，数组长度为 args_slot
+     * 如果参数 args[i] 是引用类型，则 args_ref_table[i] != 0
+     */
     char *args_ref_table = nullptr;
 
     /**

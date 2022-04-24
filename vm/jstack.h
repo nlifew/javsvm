@@ -105,6 +105,12 @@ struct java_stack_frame: public jstack_frame
     slot_t *operand_stack_orig = nullptr;
 
 
+    template<typename T>
+    inline T top_param() noexcept
+    {
+        return *(T *)(operand_stack - slotof(T));
+    }
+
     template <typename T>
     inline T pop_param() noexcept
     {
