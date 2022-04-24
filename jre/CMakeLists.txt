@@ -10,7 +10,6 @@ include_directories(out)
 add_library(
         jre
         STATIC
-
         native.cpp
         java/io/FileDescriptor.cpp
         java/io/FileInputStream.cpp
@@ -18,4 +17,5 @@ add_library(
         java/lang/Object.cpp
         java/lang/String.cpp
         java/lang/System.cpp
+        sun/reflect/Reflection.cpp
 )
