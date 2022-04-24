@@ -124,7 +124,6 @@ void jvm::detach() noexcept
             m_cond.notify_one();
         }
     }
-    leave_safety_area();
 }
 
 void jvm::placeholder(pthread_t tid) noexcept

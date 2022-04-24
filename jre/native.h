@@ -3,12 +3,14 @@
 #define JAVA_NATIVE_H
 
 #include <cstddef>
+#include <type_traits>
 
 struct java_native_method_t
 {
-    const char *class_name;
-    const char *name;
-    const char *sig;
+//    const char *class_name;
+//    const char *name;
+//    const char *sig;
+    const char *jni_name;
     void *func;
 };
 

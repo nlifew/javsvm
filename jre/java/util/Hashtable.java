@@ -169,6 +169,21 @@ public class Hashtable<K,V>
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
     private static final long serialVersionUID = 1421746759512286392L;
 
+    /* javsvm-added: avoid referring to java.lang.Math */
+    private static float min(float a, float b) {
+        return a < b ? a : b;
+    }
+    private static int min(int a, int b) {
+        return a < b ? a : b;
+    }
+    private static float max(float a, float b) {
+        return a > b ? a : b;
+    }
+    private static int max(int a, int b) {
+        return a > b ? a : b;
+    }
+    /* javsvm-added: end */
+
     /**
      * Constructs a new, empty hashtable with the specified initial
      * capacity and the specified load factor.
@@ -189,7 +204,11 @@ public class Hashtable<K,V>
             initialCapacity = 1;
         this.loadFactor = loadFactor;
         table = new Entry<?,?>[initialCapacity];
-        threshold = (int)Math.min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+
+        /* javsvm-changed: avoiding referring to java.lang.Math */
+//        threshold = (int)Math.min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+        threshold = (int)min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+        /* javsvm-changed: end */
     }
 
     /**
@@ -222,7 +241,10 @@ public class Hashtable<K,V>
      * @since   1.2
      */
     public Hashtable(Map<? extends K, ? extends V> t) {
-        this(Math.max(2*t.size(), 11), 0.75f);
+        /* javsvm-changed: avoiding referring to java.lang.Math */
+//        this(Math.max(2*t.size(), 11), 0.75f);
+        this(max(2*t.size(), 11), 0.75f);
+        /* javsvm-changed: end */
         putAll(t);
     }
 
@@ -402,7 +424,10 @@ public class Hashtable<K,V>
         Entry<?,?>[] newMap = new Entry<?,?>[newCapacity];
 
         modCount++;
-        threshold = (int)Math.min(newCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+        /* javsvm-changed: avoiding referring to java.lang.Math */
+//        threshold = (int)Math.min(newCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+        threshold = (int)min(newCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+        /* javsvm-changed: end */
         table = newMap;
 
         for (int i = oldCapacity ; i-- > 0 ;) {
@@ -1183,7 +1208,10 @@ public class Hashtable<K,V>
 
         // Clamp original length to be more than elements / loadFactor
         // (this is the invariant enforced with auto-growth)
-        origlength = Math.max(origlength, (int)(elements / loadFactor) + 1);
+        /* javsvm-changed: avoiding referring to java.lang.Math */
+//        origlength = Math.max(origlength, (int)(elements / loadFactor) + 1);
+        origlength = max(origlength, (int)(elements / loadFactor) + 1);
+        /* javsvm-changed: end */
 
         // Compute new length with a bit of room 5% + 3 to grow but
         // no larger than the clamped original length.  Make the length
@@ -1192,7 +1220,10 @@ public class Hashtable<K,V>
         int length = (int)((elements + elements / 20) / loadFactor) + 3;
         if (length > elements && (length & 1) == 0)
             length--;
-        length = Math.min(length, origlength);
+        /* javsvm-changed: avoiding referring to java.lang.Math */
+//        length = Math.min(length, origlength);
+        length = min(length, origlength);
+        /* javsvm-changed: end */
 
         if (length < 0) { // overflow
             length = origlength;
@@ -1202,7 +1233,10 @@ public class Hashtable<K,V>
         // what we're actually creating.
         SharedSecrets.getJavaOISAccess().checkArray(s, Map.Entry[].class, length);
         table = new Entry<?,?>[length];
-        threshold = (int)Math.min(length * loadFactor, MAX_ARRAY_SIZE + 1);
+        /* javsvm-changed: avoiding referring to java.lang.Math */
+//        threshold = (int)Math.min(length * loadFactor, MAX_ARRAY_SIZE + 1);
+        threshold = (int)min(length * loadFactor, MAX_ARRAY_SIZE + 1);
+        /* javsvm-changed: end */
         count = 0;
 
         // Read the number of elements and then all the key/value objects

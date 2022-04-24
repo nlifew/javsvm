@@ -117,7 +117,6 @@ size_t strings::to_string(char *dst, const jchar *src, size_t len) noexcept
 
     iconv(handle.utf16_utf8, &in_buf, &in_len, &out_buf, &out_len);
 
-    size_t len = buf_len - out_len;
-    dst[len] = '\0';
-    return len;
+    dst[buf_len - out_len] = '\0';
+    return buf_len - out_len;
 }
