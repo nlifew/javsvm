@@ -73,6 +73,11 @@ private:
     void copy_super_vtable(jclass *klass);
 
     /**
+     * 拷贝形成接口函数表
+     */
+    void copy_super_itable(jclass *klass) noexcept;
+
+    /**
      * 创建字段表
      */
     void gen_field_table(jclass *klass, jclass_file *pFile);
@@ -124,6 +129,11 @@ public:
      * @return 未找到则返回 nullptr，不会触发加载动作
      */
 //    jclass *find_class(const char *name) noexcept;
+
+    /**
+     * 检查是否是基本类型
+     */
+     static bool is_primitive_type(const char *name) noexcept;
 };
 
 } // namespace javsvm

@@ -174,6 +174,7 @@ static jvalue lock_and_run(jmethod *method, jref ref, jargs &args)
 //    }
 
     jvalue value;
+    args.reset();
 
     // 如果被 native 关键字修饰，跳转到 jni 引擎
     if ((access_flag & jclass_method::ACC_NATIVE) != 0) {
@@ -211,7 +212,7 @@ jvalue jmethod::invoke_special(jref ref, jargs &args)
     auto object = jheap::cast(ref);
 
     // 检查是否是空指针对象
-    if (object == nullptr) {
+    if (UNLIKELY(object == nullptr)) {
         LOGE("java.lang.NullPointerException\n");
         exit(1);
     }
@@ -225,13 +226,13 @@ jvalue jmethod::invoke_virtual(jref ref, jargs &args) const
     auto object = jheap::cast(ref);
 
     // 检查是否是空指针对象
-    if (object == nullptr) {
+    if (UNLIKELY(object == nullptr)) {
         LOGE("java.lang.NullPointerException\n");
         exit(1);
     }
 
     // 获取函数的真正实现
-    assert(index_in_table >= 0 && index_in_table <= object->klass->vtable_size);
+    assert(index_in_table >= 0 && index_in_table < object->klass->vtable_size);
     auto _this = object->klass->vtable[index_in_table];
     assert(jmethod::compare_to(this, _this) == 0);
 
@@ -245,7 +246,7 @@ jvalue jmethod::invoke_interface(jref ref, jargs &args)
     auto object = jheap::cast(ref);
 
     // 检查是否是空指针对象
-    if (object == nullptr) {
+    if (UNLIKELY(object == nullptr)) {
         LOGE("java.lang.NullPointerException\n");
         exit(1);
     }

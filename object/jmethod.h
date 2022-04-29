@@ -77,7 +77,7 @@ struct jmethod
         integer64,
     };
 
-    return_t return_type;
+    return_t return_type = none;
 
     /**
      * 参数引用表，数组类型，数组长度为 args_slot

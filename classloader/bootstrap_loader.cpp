@@ -15,6 +15,7 @@
 #include <memory>
 #include <unistd.h>
 #include <set>
+#include <map>
 
 
 #ifndef _MAX_PATH
@@ -201,8 +202,7 @@ jclass_file* bootstrap_loader::open_jar_file(const char *jar, const char *name)
 
 
 
-
-static bool is_primitive_type(const std::string &name) noexcept
+bool bootstrap_loader::is_primitive_type(const char *name) noexcept
 {
     static std::set<std::string> key_set = {
             "boolean", "byte", "char", "short",
@@ -211,10 +211,12 @@ static bool is_primitive_type(const std::string &name) noexcept
     return key_set.find(name) != key_set.end();
 }
 
-
 jclass* bootstrap_loader::load_class(const char *name) noexcept
 {
     LOGI("load class '%s'...\n", name);
+    if (strcmp(name, "sun/nio/cs/StandardCharsets$Aliases") == 0) {
+        LOGI("deubg");
+    }
 
 //    // 规范 java 类名
 //    std::string name_s = std::move(trim(name));
@@ -334,6 +336,7 @@ jclass* bootstrap_loader::prepare_class(jclass_file *cls)
     // init_const_pool(klass, cls, mem);
     gen_method_table(klass, cls);
     copy_super_vtable(klass);
+    copy_super_itable(klass);
     gen_field_table(klass, cls);
     layout_static_fields(klass);
     layout_direct_fields(klass);
@@ -396,101 +399,28 @@ void bootstrap_loader::gen_method_table(jclass *klass, jclass_file *cls)
 
 
 
+struct method_comparator
+{
+    bool operator()(const jmethod *m1, const jmethod *m2) const noexcept {
+        return jmethod::compare_to(m1, m2) < 0;
+    }
+};
+
 /**
- * 创建虚函数表和接口函数表
+ * 创建虚函数表
+ * 虚函数表的生成比较简单，就是先拷贝一份父类的虚函数表，然后遍历当前类的函数表，寻找虚函数。
+ * 如果虚函数在父虚函数表中出现过，说明是重载函数，在表中替换掉父类的；反之则添加到虚函数表的最后面。
+ * 需要注意的是，虚函数表是无序的，只是为了 invoke-virtual 时随机访问能相当快。无序也就意味着不能使用
+ * 二分查找的方式加快搜索速度。
  */
 void bootstrap_loader::copy_super_vtable(jclass *klass)
 {
-#define IS_ABSTRACT(x) (((x) & jclass_method::ACC_ABSTRACT) != 0)
-    struct Comparator
-    {
-        bool operator()(const jmethod *m1, const jmethod *m2) const noexcept {
-            return jmethod::compare_to(m1, m2) < 0;
-        }
-    };
-
+    // 接口函数不需要创建虚函数表
     if ((klass->access_flag & jclass_file::ACC_INTERFACE) != 0) {
-        /**
-         * 如果这个类是个接口，事实上我们没有必要为其创建虚函数表和接口函数表
-         * 因为在合法的字节码中，来自接口的函数一定是通过 invoke-interface 方式调用的，
-         * 这种方式会在其 *实现类（一定是非抽象类）* 中查询接口函数表，*接口类* 中的虚函数表和接口函数表
-         * 实际上都没有用到。但我们还是选择性地为其创建了接口函数表，仅仅是为了加载非抽象类时能更快一些。
-         *
-         * 需要注意的是，如果子接口和父接口中含有相同的函数，按照以下逻辑逻辑：
-         * 1. 如果子接口和父接口的函数都是抽象的（非 default 接口），子类覆盖父类的
-         * 2. 如果子接口和父接口的函数都不是抽象的（default 接口），子类覆盖父类的
-         * 3. default 接口函数覆盖非 default 接口函数
-         */
-        std::set<jmethod*, Comparator> itable;
-        // 遍历所有的父接口
-        for (int i = 0, z = klass->interface_num; i < z; i ++) {
-            auto *interface = klass->interfaces[i];
-            for (int j = 0, y = interface->itable_size; j < y; j ++) {
-                auto *method = interface->itable[j];
-                auto old = itable.find(method);
-                if (old == itable.end() || IS_ABSTRACT((*old)->access_flag)) {
-                    itable.insert(method);
-                }
-                else if (!IS_ABSTRACT(method->access_flag)) {
-                    /**
-                     * 坏了，进入这个分支就说明从父接口处找到了两个一毛一样的 default 函数
-                     * 比如下面的示例代码:
-                     * interface A { default void run() { System.out.println("A->run"); } }
-                     * interface B extends A { default void run() { System.out.println("B->run"); } }
-                     * interface C extends A, B {}
-                     * 在加载接口 C 时，会在 A 的接口函数表和 B 的接口函数表中找到两个一模一样的 run() 函数。
-                     * 此时我们要做些额外工作，决定哪个函数要被替换掉。
-                     * 在上面的例子中，来自 B 接口的 B->run()V 将会替换掉 A->run()V，因为 B 相比于 A 在继承链
-                     * 更前面的位置。事实上我们可以推断出，对于这两个函数 runA 和 runB，它们所属的类 class A 和 class B，
-                     * 一定有着非此即彼的继承关系——要么 A 继承自 B，要么 B 继承自 A，没有其它可能(javac 会拒绝编译)。
-                     */
-                    if ((*old)->clazz->is_assign_from(method->clazz)) { // [1].
-                        itable.insert(method);
-                        /**
-                         * [1]. 注意是 method->clazz 而不是 interface. 比如再添加一个类
-                         * interface D implements A, C { }
-                         * 在加载 class C 时，先经过一次判决，留在 class C 的接口函数表中的 run 是 B->run()V.
-                         * 加载 class D 时还要经过一次判决，此时应该判断 B 和 A 的继承关系，而不是 C 和 A 的.
-                         */
-                    }
-                    else {
-                        // 断言二者之间一定存在继承关系.
-                        assert(method->clazz->is_assign_from((*old)->clazz));
-                    }
-                }
-            }
-        }
-        // 遍历自己的函数表，寻找虚函数
-        for (int i = 0, z = klass->method_table_size; i < z; i ++) {
-            auto *method = klass->method_tables + i;
-            if (!method->is_virtual) continue;
-
-            auto old = itable.find(method);
-            if (old == itable.end() || IS_ABSTRACT((*old)->access_flag) || ! IS_ABSTRACT(method->access_flag)) {
-                itable.insert(method);
-            }
-        }
-        // 更新 itable
-        int i = 0;
-        klass->itable_size = itable.size();
-        klass->itable = m_allocator.calloc_type<jmethod*>(itable.size());
-        for (const auto &it : itable) {
-            klass->itable[i ++] = it;
-        }
         return;
     }
-    /*
-     * 对于非接口类，需要先后处理虚函数表 vtable 和接口函数表 itable
-     * 虚函数表的生成比较简单，就是先拷贝一份父类的虚函数表，然后遍历当前类的函数表，寻找虚函数。
-     * 如果虚函数在父虚函数表中出现过，说明是重载函数，在表中替换掉父类的；反之则添加到虚函数表的最后面。
-     * 需要注意的是，虚函数表是无序的，只是为了 invoke-virtual 时随机访问能相当快。无序也就意味着不能使用
-     * 二分查找的方式加快搜索速度。
-     * 至于接口函数表，基本和接口类相同，只是最后多了一步: 遍历虚函数表，将接口函数表中的相同函数替换掉。
-     * 比如类 ArrayList 继承自 Object，含有 hashCode() 的实现，接口 List 也包含了 hashCode(),
-     * 此时肯定是要用前者替换掉后者的。
-     */
 
-    std::set<jmethod*, Comparator> super_vtable;
+    std::set<jmethod*, method_comparator> super_vtable;
     std::vector<jmethod*> vtable;
 
     // 先将父类的虚函数表放进 set 中，方便快速索引
@@ -505,11 +435,14 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
         }
     }
 
+    // 一点小小的优化: 如果当前类里没有虚函数，直接继承自父类的虚函数表
+    bool has_virtual_method = false;
+
     // 遍历函数表，寻找虚函数
     for (int i = 0, z = klass->method_table_size; i < z; i ++) {
         auto *method = klass->method_tables + i;
         if (!method->is_virtual) continue;
-
+        has_virtual_method = true;
         auto old = super_vtable.find(method);
         if (old == super_vtable.end()) {
             method->index_in_table = vtable.size();
@@ -522,54 +455,194 @@ void bootstrap_loader::copy_super_vtable(jclass *klass)
         }
     }
     // 更新 vtable
-    {
-        int z = (int) vtable.size();
+    if (! has_virtual_method) {
+        assert(super_class != nullptr);
+        klass->vtable_size = super_class->vtable_size;
+        klass->vtable = super_class->vtable;
+    }
+    else {
+        size_t z = vtable.size();
         klass->vtable_size = z;
         klass->vtable = m_allocator.calloc_type<jmethod*>(z);
         memcpy(klass->vtable, &vtable[0], sizeof(jmethod*) * z);
     }
+}
 
-    // 处理 itable
-    std::set<jmethod*, Comparator> itable;
 
-    // 遍历所有的父接口, 和上面的逻辑一样
-    for (int i = 0, z = klass->interface_num; i < z; i ++) {
+/**
+ * 创建接口函数表
+ *
+ * 如果这个类是个接口，事实上我们没有必要为其创建虚函数表和接口函数表
+ * 因为在合法的字节码中，来自接口的函数一定是通过 invoke-interface 方式调用的，
+ * 这种方式会在其 *实现类（一定是非抽象类）* 中查询接口函数表，*接口类* 中的虚函数表和接口函数表
+ * 实际上都没有用到。但我们还是选择性地为其创建了接口函数表，仅仅是为了加载非抽象类时能更快一些。
+ *
+ * 需要注意的是，如果子接口和父接口中含有相同的函数，按照以下逻辑逻辑：
+ * 1. 如果子接口和父接口的函数都是抽象的（非 default 接口），子类覆盖父类的
+ * 2. 如果子接口和父接口的函数都不是抽象的（default 接口），子类覆盖父类的
+ * 3. default 接口函数覆盖非 default 接口函数
+ *
+ * 对于非接口类，相比接口类更加复杂，此时不仅要继承自父类的接口函数表，还要将自己的虚函数
+ * 替换掉父接口函数表的相同项（毕竟实现变了函数指针就要变），最后再引入自己的接口表。
+ */
+void bootstrap_loader::copy_super_itable(jclass *klass) noexcept
+{
+#define IS_ABSTRACT(x) (((x) & jclass_method::ACC_ABSTRACT) != 0)
+#define IS_INTERFACE(x) (((x) & jclass_file::ACC_INTERFACE) != 0)
+
+    // 我们并不使用 std::set，而是 std::map, 原因是 std::set
+    // 插入重复元素时，新的 value 不会替换掉老的 value。但我们又确实依赖这个机制
+    // 更新接口函数表
+    std::map<jmethod*, jmethod*, method_comparator> itable;
+
+    if (IS_INTERFACE(klass->access_flag)) {
+        // 遍历所有的父接口
+        for (int i = 0, z = klass->interface_num; i < z; i ++) {
+            auto *interface = klass->interfaces[i];
+            for (int j = 0, y = interface->itable_size; j < y; j ++) {
+                auto *method = interface->itable[j];
+
+                const auto &it = itable.find(method);
+                auto *old = it->second;
+
+                if (it == itable.end() || IS_ABSTRACT(old->access_flag)) {
+                    itable[method] = method;
+                }
+                else if (!IS_ABSTRACT(method->access_flag)) {
+                    /**
+                     * 坏了，进入这个分支就说明从父接口处找到了两个一毛一样的 default 函数
+                     * 比如下面的示例代码:
+                     * interface A { default void run() { System.out.println("A->run"); } }
+                     * interface B extends A { default void run() { System.out.println("B->run"); } }
+                     * interface C extends A, B {}
+                     * 在加载接口 C 时，会在 A 的接口函数表和 B 的接口函数表中找到两个一模一样的 run() 函数。
+                     * 此时我们要做些额外工作，决定哪个函数要被替换掉。
+                     * 在上面的例子中，来自 B 接口的 B->run()V 将会替换掉 A->run()V，因为 B 相比于 A 在继承链
+                     * 更前面的位置。事实上我们可以推断出，对于这两个函数 runA 和 runB，它们所属的类 class A 和 class B，
+                     * 一定有着非此即彼的继承关系——要么 A 继承自 B，要么 B 继承自 A，没有其它可能(javac 会拒绝编译)。
+                     */
+                    if (old->clazz->is_assign_from(method->clazz)) { // [1].
+                        itable[method] = method;
+                        /**
+                         * [1]. 注意是 method->clazz 而不是 interface. 比如再添加一个类
+                         * interface D implements A, C { }
+                         * 在加载 class C 时，先经过一次判决，留在 class C 的接口函数表中的 run 是 B->run()V.
+                         * 加载 class D 时还要经过一次判决，此时应该判断 B 和 A 的继承关系，而不是 C 和 A 的.
+                         */
+                    }
+                    else {
+                        // 断言二者之间一定存在继承关系.
+                        assert(method->clazz->is_assign_from(old->clazz));
+                    }
+                }
+            }
+        }
+        // 遍历自己的函数表，寻找虚函数
+        for (int i = 0, z = klass->method_table_size; i < z; i ++) {
+            auto *method = klass->method_tables + i;
+            if (!method->is_virtual) continue;
+
+            const auto &it = itable.find(method);
+            auto *old = it->second;
+            if (it == itable.end() || IS_ABSTRACT(old->access_flag) || ! IS_ABSTRACT(method->access_flag)) {
+                itable[method] = method;
+            }
+        }
+
+        // 更新 itable
+        {
+            int i = 0;
+            klass->itable_size = itable.size();
+            klass->itable = m_allocator.calloc_type<jmethod*>(itable.size());
+            for (const auto &it : itable) {
+                klass->itable[i ++] = it.second;
+            }
+        }
+        return;
+    }
+
+    // 先继承父类的接口函数表
+    jclass *super_class = klass->super_class;
+    if (UNLIKELY(super_class == nullptr)) {
+        // java/lang/Object 类不实现任何接口
+        return;
+    }
+
+    for (int i = 0, z = super_class->itable_size; i < z; ++i) {
+        auto m = super_class->itable[i];
+        itable[m] = m;
+    }
+
+    bool itable_changed = false;
+
+    // 遍历所有接口，将新增接口函数添加到 itable 中
+    for (int i = 0, z = klass->interface_num; i < z; ++i) {
         auto *interface = klass->interfaces[i];
-        for (int j = 0, y = interface->itable_size; j < y; j ++) {
+        for (int j = 0, y = interface->itable_size; j < y; ++j) {
             auto *method = interface->itable[j];
-            auto old = itable.find(method);
-            if (old == itable.end() || IS_ABSTRACT((*old)->access_flag)) {
-                itable.insert(method);
+
+            const auto &it = itable.find(method);
+            auto *old_method = it->second;
+
+            // 如果是新增的函数，直接插入进去
+            if (it == itable.end()) {
+                itable_changed = true;
+                itable[method] = method;
+                continue;
             }
-            else if (!IS_ABSTRACT(method->access_flag)) {
-                if ((*old)->clazz->is_assign_from(method->clazz)) {
-                    itable.insert(method);
-                }
-                else {
-                    // 断言二者之间一定存在继承关系.
-                    assert(method->clazz->is_assign_from((*old)->clazz));
-                }
+            // 如果老函数来源于非接口类，不管该接口是不是 default 函数，都不执行插入操作
+            if (!IS_INTERFACE(old_method->clazz->access_flag)) {
+                continue;
             }
-        }
-    }
-    // 遍历虚函数表，替换接口函数表中的同类项
-    for (const auto &it : vtable) {
-        if (itable.find(it) != itable.end()) {
-            itable.insert(it);
+            // 现在可以确定，老函数也是个接口函数。接下来需要比较是否是 default 函数
+            // 如果老函数是抽象的，直接替换掉
+            if (IS_ABSTRACT(old_method->access_flag)) {
+                itable_changed = true;
+                itable[method] = method;
+                continue;
+            }
+            // 执行到这里说明老函数是 default 函数。如果我们不是 default 函数，不替换
+            if (IS_ABSTRACT(method->access_flag)) {
+                continue;
+            }
+            // 两个函数都是 default 函数，和上面的一样
+            if (old_method->clazz->is_assign_from(method->clazz)) {
+                itable_changed = true;
+                itable[method] = method;
+                continue;
+            }
+            // 断言二者之间一定存在继承关系.
+            assert(method->clazz->is_assign_from(old_method->clazz));
         }
     }
 
-    // 更新 itable
-    {
-        int i = 0, z = (int) itable.size();
-        klass->itable_size = z;
-        klass->itable = m_allocator.calloc_type<jmethod*>(z);
-        for (const auto &it : itable) {
-            klass->itable[i ++] = it;
+    // 遍历自己的虚函数，替换掉父接口函数表的同类项
+    for (int i = 0, z = klass->method_table_size; i < z; ++i) {
+        auto *m = klass->method_tables + i;
+        if (! m->is_virtual) continue;
+        const auto &it = itable.find(m);
+        if (it != itable.end()) {
+            itable_changed = true;
+            itable[m] = m;
         }
     }
+    // 更新 itable
+    if (! itable_changed) {
+        klass->itable_size = super_class->itable_size;
+        klass->itable = super_class->itable;
+    }
+    else {
+        int i = 0;
+        klass->itable_size = itable.size();
+        klass->itable = m_allocator.calloc_type<jmethod*>(itable.size());
+        for (const auto &it : itable) {
+            klass->itable[i ++] = it.second;
+        }
+    }
+#undef IS_INTERFACE
 #undef IS_ABSTRACT
 }
+
 
 /**
  * 遍历所有字段，建立自己的字段表，并按照名字排序以加快符号搜索速度
@@ -854,36 +927,25 @@ jref bootstrap_loader::new_class_object(jclass *klass)
 
 
 
-struct class_holder
+struct
 {
     jclass *java_lang_Object = nullptr;
     jclass *java_lang_Cloneable = nullptr;
     jclass *java_io_Serializable = nullptr;
+    jmethod *java_lang_Object_clone = nullptr;
 
-#define _CHECK_NULL(x)  \
-    if (x == nullptr) { \
-        LOGE("field '%s' of class_holder is null\n", #x); \
-        exit(1);        \
-    }
-
-    explicit class_holder(bootstrap_loader &loader) noexcept
+    void ensure_classes_loaded(bootstrap_loader *loader) noexcept
     {
-        java_lang_Object = loader.load_class("java/lang/Object");
-        java_lang_Cloneable = loader.load_class("java/lang/Cloneable");
-        java_io_Serializable = loader.load_class("java/io/Serializable");
+        if (java_lang_Object != nullptr) {
+            return;
+        }
 
-        _CHECK_NULL(java_lang_Object)
-        _CHECK_NULL(java_lang_Cloneable)
-        _CHECK_NULL(java_io_Serializable)
+        java_lang_Object = loader->load_class("java/lang/Object");
+        java_lang_Cloneable = loader->load_class("java/lang/Cloneable");
+        java_io_Serializable = loader->load_class("java/io/Serializable");
+        java_lang_Object_clone = java_lang_Object->get_method("clone", "()Ljava/lang/Object;");
     }
-#undef _CHECK_NULL
-};
-
-static class_holder &get_class_holder(bootstrap_loader *loader) {
-    static class_holder instance(*loader);
-    return instance;
-}
-
+} class_holder;
 
 jclass* bootstrap_loader::create_primitive_type(const std::string &type) noexcept
 {
@@ -939,10 +1001,6 @@ jclass *bootstrap_loader::load_array_type(const std::string &name)
             component_type = load_class(sub.c_str());
             break;
         }
-        default: {
-            LOGE("unknown array type: %s\n", type);
-            exit(1);
-        }
     }
 #undef FIND_OR_CREATE_PRIMITIVE_TYPE
 
@@ -952,7 +1010,7 @@ jclass *bootstrap_loader::load_array_type(const std::string &name)
     }
     LOGI("the component type of array '%s' is '%s'\n", type, component_type->name);
 
-    auto &holder = get_class_holder(this);
+    class_holder.ensure_classes_loaded(this);
 
     // 从最内层开始遍历，逐渐生成每个数组类
     for (int i = (int) index - 1; i >= 0; --i) {
@@ -964,24 +1022,28 @@ jclass *bootstrap_loader::load_array_type(const std::string &name)
         }
         LOGI("[%d/%lu]: create type '%s' of array '%s'\n", i + 1, index, type + i, type);
         auto *klass = create_primitive_type(type + i);
-        klass->super_class = holder.java_lang_Object;
+        klass->super_class = class_holder.java_lang_Object;
         klass->component_type = component_type;
-        klass->clinit = jclass::INIT_DONE;
 
         // 数组类型要实现 java.io.Serializable 和 java.lang.Cloneable 接口
         // 但不需要真正创建 jmethod
         klass->interface_num = 2;
         klass->interfaces = m_allocator.calloc_type<jclass*>(2);
-        klass->interfaces[0] = holder.java_io_Serializable;
-        klass->interfaces[1] = holder.java_lang_Cloneable;
+        klass->interfaces[0] = class_holder.java_io_Serializable;
+        klass->interfaces[1] = class_holder.java_lang_Cloneable;
+
+        // 虚函数表
+        klass->vtable_size = class_holder.java_lang_Object->vtable_size;
+        klass->vtable = class_holder.java_lang_Object->vtable;
 
         // 创建继承树
         klass->parent_tree_size = 3;
         klass->parent_tree = m_allocator.calloc_type<jclass*>(3);
-        klass->parent_tree[0] = holder.java_lang_Object;
-        klass->parent_tree[1] = holder.java_io_Serializable;
-        klass->parent_tree[2] = holder.java_lang_Cloneable;
+        klass->parent_tree[0] = class_holder.java_lang_Object;
+        klass->parent_tree[1] = class_holder.java_io_Serializable;
+        klass->parent_tree[2] = class_holder.java_lang_Cloneable;
 
+//        new_class_object(klass);
         m_classes[type + i] = klass;
         component_type = klass;
     }
