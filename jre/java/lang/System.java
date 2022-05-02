@@ -64,11 +64,6 @@ public final class System {
 //    }
     /* javsvm-removed: end */
 
-    /* javsvm-added: invoke initializeSystemClass() when clinit */
-    static {
-        initializeSystemClass();
-    }
-    /* javsvm-added: end */
 
     /** Don't let anyone instantiate this class */
     private System() {
@@ -1149,6 +1144,12 @@ public final class System {
     }
 
 
+    /* javsvm-added: invoke initializeSystemClass() when clinit */
+    static {
+        initializeSystemClass();
+    }
+    /* javsvm-added: end */
+
     /**
      * Initialize the system class.  Called after thread initialization.
      */
@@ -1193,13 +1194,18 @@ public final class System {
         FileInputStream fdIn = new FileInputStream(FileDescriptor.in);
         FileOutputStream fdOut = new FileOutputStream(FileDescriptor.out);
         FileOutputStream fdErr = new FileOutputStream(FileDescriptor.err);
-        setIn0(new BufferedInputStream(fdIn));
+
+        /* javsvm-changed: remove BufferedInputStream, AtomicReferenceUpdater has NOT been implementated yet. */
+//        setIn0(new BufferedInputStream(fdIn));
+        // todo: 
+        /* javsvm-changed: end */
+        setIn0(fdIn);
         setOut0(newPrintStream(fdOut, props.getProperty("sun.stdout.encoding")));
         setErr0(newPrintStream(fdErr, props.getProperty("sun.stderr.encoding")));
 
-        ClassLoader.initLibraryPaths();
-
         /* javsvm-removed: unused */
+//         ClassLoader.initLibraryPaths();
+//
 //        // Load the zip library now in order to keep java.util.zip.ZipFile
 //        // from trying to use itself to load this library later.
 //        loadLibrary("zip");
@@ -1212,12 +1218,12 @@ public final class System {
 //        // for Windows where the process-wide error mode is set before the java.io
 //        // classes are used.
 //        sun.misc.VM.initializeOSEnvironment();
+//
+//        // The main thread is not added to its thread group in the same
+//        // way as other threads; we must do it ourselves here.
+//        Thread current = Thread.currentThread();
+//        current.getThreadGroup().add(current);
         /* javsvm-removed: end */
-
-        // The main thread is not added to its thread group in the same
-        // way as other threads; we must do it ourselves here.
-        Thread current = Thread.currentThread();
-        current.getThreadGroup().add(current);
 
         /* javsvm-removed: unused */
 //        // register shared secrets
