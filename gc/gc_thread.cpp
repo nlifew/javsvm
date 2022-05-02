@@ -358,7 +358,7 @@ static void lookup_gc_root(std::list<jref> &v, const T &t) noexcept
                 // 操作数栈
                 auto operand_stack = f->operand_stack;
                 auto operand_ref_stack = f->operand_ref_stack;
-                for (int i = 0, z = code->max_stack; i < z; ++i) {
+                for (int i = 0, z = (int) (f->operand_stack - f->operand_stack_orig); i < z; ++i) {
                     if (operand_ref_stack[i]) {
                         t(* (jref *) &operand_stack[i]);
                     }
