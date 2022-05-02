@@ -5,7 +5,6 @@
 #include "jheap.h"
 #include "../utils/log.h"
 #include "../object/jobject.h"
-#include "../object/jclass.h"
 #include "../engine/engine.h"
 #include "../class/jclass_file.h"
 

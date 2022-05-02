@@ -103,7 +103,7 @@ public:
     }
 
     static inline jobject *cast(jref ref) noexcept {
-        return (jobject *) (((uint64_t) ref) & ~R_MSK);
+        return reinterpret_cast<jobject*>((~R_MSK) & (uint64_t) ref);
     }
 
     static constexpr uint64_t R_MSK =   3;
