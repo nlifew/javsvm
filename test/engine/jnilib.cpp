@@ -2,8 +2,16 @@
 #include "engine/jnilib.h"
 #include "utils/log.h"
 
-using namespace javsvm;
+struct jclass
+{
+    const char *name;
+};
 
+struct jmethod
+{
+    const char *name;
+    const char *sig;
+};
 
 int main()
 {
@@ -11,12 +19,10 @@ int main()
             .name = "jdk/utils/test/Test__",
     };
     jmethod native_func = {
-            .clazz = &klass,
             .name = "native_func",
             .sig = "(Ljava/lang/String;ILjava/lang/Object;[F测试;)V",
     };
-    jmethod native_func2 = {
-            .clazz = &klass,
+   jmethod native_func2 = {
             .name = "native_func",
             .sig = "(Ljava/lang/String;Ljava/lang/Object;[F测试;)V",
     };

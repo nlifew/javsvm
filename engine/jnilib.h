@@ -1,7 +1,5 @@
 
 
-#include "../object/jmethod.h"
-#include "../object/jclass.h"
 #include <string>
 #include <cstdarg>
 #include <memory>
