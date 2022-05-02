@@ -1,6 +1,5 @@
 
 #include "jni/jni_utils.h"
-#include "jni/jni_env.h"
 #include "vm/jvm.h"
 #include "engine/engine.h"
 
@@ -16,7 +15,7 @@ Java_java_lang_Object_clone
             .load_class("java/lang/Cloneable");
 
     if (java_lang_Cloneable == nullptr) {
-        javsvm::throw_err("java/lang/RuntimeException",
+        javsvm::throw_exp("java/lang/RuntimeException",
                           "failed to load Ljava/lang/Cloneable;, abort\n");
         return nullptr;
     }
@@ -29,7 +28,7 @@ Java_java_lang_Object_clone
         msg += object->klass->name;
         msg += "' is NOT a instance of Cloneable, abort\n";
 
-        javsvm::throw_err("java/lang/CloneNotSupportedException",
+        javsvm::throw_exp("java/lang/CloneNotSupportedException",
                           msg.c_str());
         return nullptr;
     }
@@ -49,34 +48,54 @@ Java_java_lang_Object_clone
 
 extern "C" JNIEXPORT jclass JNICALL
 Java_java_lang_Object_getClass
-    (JNIEnv *env, jobject self)
+    (JNIEnv *, jobject self)
 {
-    return jni::GetObjectClass(env, self);
+    safety_area_guard guard;
+    auto object = javsvm::jheap::cast(to_object(self));
+    return to_object<jclass>(object->klass->object.get());
 }
 
 
 extern "C" JNIEXPORT void JNICALL
 Java_java_lang_Object_notify
-    (JNIEnv *env, jobject self)
+    (JNIEnv *, jobject self)
 {
-
+    safety_area_guard guard;
+    auto object = javsvm::jheap::cast(to_object(self));
+    auto ok = object->notify_one();
+    if (ok != 0) {
+        javsvm::throw_exp("java/lang/IllegalMonitorStateException",
+                          " Does this thread have the monitor of this object ?");
+    }
 }
 
 
 
 extern "C" JNIEXPORT void JNICALL
 Java_java_lang_Object_notifyAll
-    (JNIEnv *env, jobject self)
+    (JNIEnv *, jobject self)
 {
-
+    safety_area_guard guard;
+    auto object = javsvm::jheap::cast(to_object(self));
+    auto ok = object->notify_all();
+    if (ok != 0) {
+        javsvm::throw_exp("java/lang/IllegalMonitorStateException",
+                          " Does this thread have the monitor of this object ?");
+    }
 }
 
 
 extern "C" JNIEXPORT void JNICALL
 Java_java_lang_Object_wait
-    (JNIEnv *env, jobject self, jlong)
+    (JNIEnv *, jobject self, jlong timeout)
 {
-
+    safety_area_guard guard;
+    auto object = javsvm::jheap::cast(to_object(self));
+    auto ok = object->wait(timeout);
+    if (ok != 0) {
+        javsvm::throw_exp("java/lang/IllegalMonitorStateException",
+                          " Does this thread have the monitor of this object ?");
+    }
 }
 
 
