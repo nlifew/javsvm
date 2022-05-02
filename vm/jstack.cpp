@@ -16,7 +16,7 @@ void* jstack::malloc_bytes(int bytes)
     bytes = align<16>(bytes);
     if (m_offset + bytes > m_capacity) {
         // 别问，问就是 stack over flow
-        PLOGE("stack over flow [%d]/[%d] bytes\n", m_offset + bytes, m_capacity);
+        PLOGE("stack over flow [%lu]/[%zu] bytes\n", m_offset + bytes, m_capacity);
         exit(1);
     }
 
@@ -32,8 +32,11 @@ void* jstack::malloc_bytes(int bytes)
 //}
 
 
-jstack::jstack(int capacity) noexcept
+jstack::jstack(size_t capacity) noexcept
 {
+    if (capacity <= 0) {
+        capacity = DEFAULT_STACK_SIZE;
+    }
     m_capacity = capacity;
     m_buff = new char[capacity];
 }

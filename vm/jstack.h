@@ -273,13 +273,13 @@ class jstack
 {
 private:
     friend class jni_stack_frame;
-    static const int DEFAULT_STACK_SIZE = 64 * 1024;  /* aka 64k */
+    static const size_t DEFAULT_STACK_SIZE = 64 * 1024;  /* aka 64k */
     
 private:
     jstack_frame *m_top = nullptr;
 
-    int m_offset = 0;
-    int m_capacity = 0;
+    size_t m_offset = 0;
+    size_t m_capacity = 0;
     char* m_buff = nullptr;
 
     void *malloc_bytes(int bytes);
@@ -309,7 +309,7 @@ private:
     }
 
 public:
-    explicit jstack(int capacity = DEFAULT_STACK_SIZE) noexcept;
+    explicit jstack(size_t capacity) noexcept;
 
     
     jstack(const jstack &) = delete;
