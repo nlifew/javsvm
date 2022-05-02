@@ -59,7 +59,7 @@ int main(int argc, const char *argv[])
         return 1;
     }
 
-    auto main_method = Main->get_static_method("main", "[Ljava/lang/Class;");
+    auto main_method = Main->get_static_method("main", "([Ljava/lang/String;)V");
     if (main_method == nullptr) {
         fprintf(stderr, "is this class '%s' has main(String[]) ?\n", argv[1]);
         return 1;
