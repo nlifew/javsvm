@@ -66,17 +66,26 @@ int main(int argc, const char *argv[])
     }
 
     // 解析需要传递到 java 层的参数
-    int n = argc - 2;
-    jargs args(new slot_t[n - 2] {});
-    std::unique_ptr<const slot_t, void(*)(const slot_t*)> args_guard(
-            args.begin(), [](const slot_t *ptr) { delete[] ptr; });
+    auto java_lang_String = vm.bootstrap_loader.load_class("java/lang/String");
+    jref args = vm.array.new_object_array(java_lang_String, argc - 2);
+    {
+        jref *temp = new jref[argc - 2];
+        std::unique_ptr<jref, void(*)(const jref*)> guard(
+                temp, [](const jref *ptr) { delete[] ptr; });
 
-    for (int i = 2; i < argc; ++i) {
-        args.next<jref>() = vm.string.new_string(argv[i]);
+        for (int i = 2; i < argc; ++i) {
+            temp[i - 2] = vm.string.new_string(argv[i]);
+        }
+        vm.array.set_array_region(args, 0, argc - 2, temp);
     }
 
     // 执行 main 函数
-    main_method->invoke_static(args);
+    {
+        slot_t slots[1];
+        jargs wrap = slots;
+        wrap.next<jref>() = args;
+        main_method->invoke_static(wrap);
+    }
 
     // 等待所有的非 daemon 线程结束
     vm.detach();
