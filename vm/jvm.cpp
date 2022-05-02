@@ -58,6 +58,7 @@ jenv& jvm::env() const noexcept
 jvm::attach_info jvm::DEFAULT_ATTACH_INFO = {
         .is_daemon = false,
         .vm = nullptr,
+        .stack_size = 0,
 };
 
 template <typename Cmp, typename T>
@@ -82,24 +83,19 @@ jenv& jvm::attach(attach_info *attach_info) noexcept
         LOGE("you can call jvm::attach() only once on one thread\n");
         exit(1);
     }
-    auto *env = new (local_env.buff) jenv(this);
+    auto *env = new (local_env.buff) jenv(this, attach_info->stack_size);
     local_env.attach_info = *attach_info;
     local_env.inited = this;
 
     std::unique_lock lck(m_mutex);
-    m_threads.insert(env);
+
+    m_threads[env->tid] = env;
 
     if (! attach_info->is_daemon) {
         m_active_threads_count ++;
     }
     if (! m_placeholder_threads.empty()) {
-        struct Comparator {
-            bool operator()(pthread_t p, pthread_t q) const noexcept
-            {
-                return pthread_equal(p, q);
-            }
-        };
-        fast_erase<Comparator>(m_placeholder_threads, pthread_self());
+        fast_erase<pthread_equals>(m_placeholder_threads, env->tid);
     }
     return *env;
 }
@@ -112,11 +108,14 @@ void jvm::detach() noexcept
         exit(1);
     }
 
-    ((jenv *) local_env.buff)->~jenv();
+    jenv *env = (jenv *) local_env.buff;
+    pthread_t tid = env->tid;
+
+    env->~jenv();
     local_env.inited = nullptr;
 
     std::unique_lock lck(m_mutex);
-    m_threads.erase((jenv *) local_env.buff);
+    m_threads.erase(tid);
 
     if (! local_env.attach_info.is_daemon) {
         m_active_threads_count --;
@@ -129,7 +128,11 @@ void jvm::detach() noexcept
 void jvm::placeholder(pthread_t tid) noexcept
 {
     std::lock_guard lck(m_mutex);
-    m_placeholder_threads.push_back(tid);
+
+    const auto &it = m_threads.find(tid);
+    if (it == m_threads.end()) {
+        m_placeholder_threads.push_back(tid);
+    }
 }
 
 void jvm::wait_for() noexcept
@@ -147,7 +150,7 @@ int jvm::all_threads(std::vector<jenv *> *out) noexcept
     if (out != nullptr) {
         out->reserve(out->size() + m_threads.size());
         for (const auto &it : m_threads) {
-            out->push_back(it);
+            out->push_back(it.second);
         }
     }
     return (int) m_threads.size();

@@ -13,9 +13,9 @@
 
 #include <mutex>
 #include <condition_variable>
-#include <unordered_set>
-#include <pthread.h>
+#include <unordered_map>
 #include <vector>
+#include <pthread.h>
 
 
 namespace javsvm
@@ -34,8 +34,14 @@ private:
      */
     volatile int m_active_threads_count = 0;
 
-    std::unordered_set<jenv*> m_threads;
+    struct pthread_equals {
+        bool operator()(const pthread_t &p, const pthread_t &q) const noexcept
+        {
+            return pthread_equal(p, q);
+        }
+    };
 
+    std::unordered_map<pthread_t, jenv*, std::hash<pthread_t>, pthread_equals> m_threads;
     std::vector<pthread_t> m_placeholder_threads;
 public:
     /**
@@ -93,6 +99,7 @@ public:
     {
         bool is_daemon;
         class jvm *vm;
+        size_t stack_size;
     };
 
     static attach_info DEFAULT_ATTACH_INFO;
@@ -178,13 +185,6 @@ public:
       * @return 一共有多少线程数
       */
      int all_threads(std::vector<jenv*> *out) noexcept;
-
-    /**
-     * 获取附加到该虚拟机实例上的所有线程数
-     * NOTE: 此函数非线程安全，可用于快速判断
-     */
-     [[nodiscard]]
-     int threads_count() const noexcept { return (int) m_threads.size(); }
 };
 
 } // namespace javsvm
