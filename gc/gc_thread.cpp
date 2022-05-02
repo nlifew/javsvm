@@ -495,9 +495,7 @@ void gc_thread::compact() noexcept
 
     // 修改散落在各处的对象引用，klass 指针脱染色
     lookup_gc_root(m_finalize_queue, [&] (jref &ref) {
-        if (ref != nullptr) {
-            trace_and_restore(mapping, ref);
-        }
+        trace_and_restore(mapping, ref);
     });
 
     // finalize 队列
@@ -520,6 +518,10 @@ void gc_thread::compact() noexcept
 #pragma ide diagnostic ignored "misc-no-recursion"
 void gc_thread::trace_and_restore(jobject **mapping, jref &ref) noexcept
 {
+    if (ref == nullptr) {
+        return;
+    }
+
     auto ref_type = jheap::R_MSK & (uint64_t) ref;
     auto old_object = (jobject *) ((~jheap::R_MSK) & ((uint64_t) ref));
 
