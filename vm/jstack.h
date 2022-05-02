@@ -123,9 +123,7 @@ struct java_stack_frame: public jstack_frame
     template <typename T>
     inline void push_param(const T &t) noexcept
     {
-#ifndef NDEBUG
         *operand_stack = 0;
-#endif
         *(T *) (operand_stack) = t;
         operand_stack += slotof(T);
         *operand_ref_stack ++ = std::is_same<T, jref>::value ? 1 : 0;
