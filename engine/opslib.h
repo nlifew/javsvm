@@ -438,10 +438,15 @@ struct special_method
 template <typename T>
 static inline jmethod* get_method(int index, jclass_const_pool &pool)
 {
-    auto *method_ref = pool.cast<jclass_const_method_ref>(index);
+    // 如果调用普通的函数，pool.child_at(index - 1) 是 jclass_const_method_ref 类型，
+    // 对于接口，却是个 jclass_const_interface_ref 类型。鉴于二者内存上等价，
+    // 我们一律强转为 jclass_const_method_ref
+    auto *method_ref = reinterpret_cast<jclass_const_method_ref*>(pool.child_at(index - 1));
+    // pool.cast<jclass_const_method_ref>(index);
+
     auto m = (jmethod*) method_ref->extra;
 
-    if (m == nullptr) {
+    if (UNLIKELY(m == nullptr)) {
         // 先获取到这个类的引用
         jclass *clazz = get_class(method_ref->class_index, pool);
 
@@ -669,7 +674,10 @@ static inline void check_cast(java_stack_frame &frame,
 
     jref obj = frame.top_param<jref>();
 
-    if (! klass->is_instance(obj)) {
+    if (jheap::cast(obj) == nullptr) {
+        // 'If objectref is null, then the operand stack is unchanged.'
+    }
+    else if (! klass->is_instance(obj)) {
         throw_exp("java/lang/ClassCastException", klass->name);
         return;
     }
