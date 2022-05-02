@@ -124,6 +124,11 @@ const char *jstring::utf8(jref str) noexcept
 
     jref char_array = java_lang_String_value->get(str).l;
 
+    if (jheap::cast(char_array) == nullptr) {
+        javsvm::throw_exp("java/lang/NullPointerException", "");
+        return nullptr;
+    }
+
     int len, ele_size;
     const jchar *utf16 = (jchar *) jarray::storage_of(
             jheap::cast(char_array), &len, &ele_size);
