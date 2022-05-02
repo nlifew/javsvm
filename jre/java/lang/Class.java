@@ -25,17 +25,7 @@
 
 package java.lang;
 
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.GenericDeclaration;
-import java.lang.reflect.Member;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.*;
 import java.io.InputStream;
 import java.io.ObjectStreamField;
 import java.util.Map;
@@ -45,7 +35,7 @@ import sun.reflect.CallerSensitive;
 import sun.reflect.Reflection;
 import sun.security.util.SecurityConstants;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Proxy;
+
 import sun.reflect.misc.ReflectUtil;
 
 /**
@@ -384,20 +374,25 @@ public final class Class<T> implements java.io.Serializable,
             checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), false);
         }
 
-        // NOTE: the following code may not be strictly correct under
-        // the current Java memory model.
-
-        // Constructor lookup
-        if (cachedConstructor == null) {
-            if (this == Class.class) {
-                throw new IllegalAccessException(
+        /* javsvm-changed: create new object but not rely on Constructor */
+        if (this == Class.class) {
+            throw new IllegalAccessException(
                     "Can not call newInstance() on the Class for java.lang.Class"
-                );
-            }
-            try {
-                /* javsvm-changed: */
-                final Constructor<T> c = getConstructor();
+            );
+        }
+        return (T) newInstance0();
 
+//        // NOTE: the following code may not be strictly correct under
+//        // the current Java memory model.
+//
+//        // Constructor lookup
+//        if (cachedConstructor == null) {
+//            if (this == Class.class) {
+//                throw new IllegalAccessException(
+//                    "Can not call newInstance() on the Class for java.lang.Class"
+//                );
+//            }
+//            try {
 //                Class<?>[] empty = {};
 //                final Constructor<T> c = getConstructor0(empty, Member.DECLARED);
 //                // Disable accessibility checks on the constructor
@@ -411,36 +406,39 @@ public final class Class<T> implements java.io.Serializable,
 //                                return null;
 //                            }
 //                        });
-
-                /* javsvm-changed: end */
-                cachedConstructor = c;
-            } catch (NoSuchMethodException e) {
-                throw (InstantiationException)
-                    new InstantiationException(getName()).initCause(e);
-            }
-        }
-        Constructor<T> tmpConstructor = cachedConstructor;
-        // Security check (same as in java.lang.reflect.Constructor)
-        int modifiers = tmpConstructor.getModifiers();
-        if (!Reflection.quickCheckMemberAccess(this, modifiers)) {
-            Class<?> caller = Reflection.getCallerClass();
-            if (newInstanceCallerCache != caller) {
-                Reflection.ensureMemberAccess(caller, this, null, modifiers);
-                newInstanceCallerCache = caller;
-            }
-        }
-        // Run constructor
-        try {
-            return tmpConstructor.newInstance((Object[])null);
-        } catch (InvocationTargetException e) {
-            Unsafe.getUnsafe().throwException(e.getTargetException());
-            // Not reached
-            return null;
-        }
+//                cachedConstructor = c;
+//            } catch (NoSuchMethodException e) {
+//                throw (InstantiationException)
+//                    new InstantiationException(getName()).initCause(e);
+//            }
+//        }
+//        Constructor<T> tmpConstructor = cachedConstructor;
+//        // Security check (same as in java.lang.reflect.Constructor)
+//        int modifiers = tmpConstructor.getModifiers();
+//        if (!Reflection.quickCheckMemberAccess(this, modifiers)) {
+//            Class<?> caller = Reflection.getCallerClass();
+//            if (newInstanceCallerCache != caller) {
+//                Reflection.ensureMemberAccess(caller, this, null, modifiers);
+//                newInstanceCallerCache = caller;
+//            }
+//        }
+//        // Run constructor
+//        try {
+//            return tmpConstructor.newInstance((Object[])null);
+//        } catch (InvocationTargetException e) {
+//            Unsafe.getUnsafe().throwException(e.getTargetException());
+//            // Not reached
+//            return null;
+//        }
+        /* javsvm-changed: end */
     }
-    private volatile transient Constructor<T> cachedConstructor;
-    private volatile transient Class<?>       newInstanceCallerCache;
 
+    private native Object newInstance0();
+
+    /* javsvm-removed: unused */
+//    private volatile transient Constructor<T> cachedConstructor;
+//    private volatile transient Class<?>       newInstanceCallerCache;
+    /* javsvm-removed: end */
 
     /**
      * Determines if the specified {@code Object} is assignment-compatible
