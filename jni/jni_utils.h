@@ -52,6 +52,10 @@ inline jdouble take_from(const javsvm::jvalue &v) { return v.d; }
 template <typename T = jobject>
 static T to_object(javsvm::jref obj) noexcept
 {
+    if (obj == nullptr) {
+        return nullptr;
+    }
+
     auto &env = javsvm::jvm::get().env();
     auto frame = (javsvm::jni_stack_frame *) env.stack.top();
     assert(frame != nullptr);
@@ -317,5 +321,14 @@ public:
     [[nodiscard]]
     const char* get() const noexcept { return m_utf8; }
 };
+
+
+#define NullPointerException "java/lang/NullPointerException"
+#define IndexOutOfBoundsException "java/lang/IndexOutOfBoundsException"
+#define UnsupportedOperationException "java/lang/UnsupportedOperationException"
+#define IllegalArgumentException "java/lang/IllegalArgumentException"
+#define InterruptedException "java/lang/InterruptedException"
+#define ClassNotFoundException "java/lang/ClassNotFoundException"
+#define InstantiationException "java/lang/InstantiationException"
 
 #endif // JAVSVM_JNI_UTILS_H
