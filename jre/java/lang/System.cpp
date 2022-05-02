@@ -1,6 +1,5 @@
 
 #include "jni/jni_utils.h"
-#include "jni/jni_env.h"
 #include "java/lang/System.h"
 #include "object/jfield.h"
 
@@ -116,9 +115,12 @@ Java_java_lang_System_identityHashCode
  */
 extern "C" JNIEXPORT jstring JNICALL
 Java_java_lang_System_mapLibraryName
-    (JNIEnv *env, jclass, jstring name)
+    (JNIEnv *, jclass, jstring name)
 {
-    scoped_string name_s(env, name);
+    safety_area_guard guard;
+    auto name_s = javsvm::jstring::utf8(to_object(name));
+    std::unique_ptr<const char, void(*)(const char *)> name_guard(
+            name_s, [](const char *ptr) { delete[] ptr; });
 
     std::string s;
 #if platform_os_arch == platform_windows_x64
@@ -126,14 +128,15 @@ Java_java_lang_System_mapLibraryName
     s += ".dll";
 #elif platform_os_arch == platform_macos_x64 || platform_os_arch == platform_macos_arm64
     s += "lib";
-    s += name_s.get();
+    s += name_s;
     s += ".dylib";
 #elif platform_os_arch == platform_linux_x64
     s += "lib";
     s += name_s.get();
     s += ".so";
 #endif
-    return jni::NewStringUTF(env, s.c_str());
+    auto str = javsvm::jvm::get().string.new_string(name_s);
+    return to_object<jstring>(str);
 }
 
 
@@ -152,8 +155,6 @@ Java_java_lang_System_setIn0
 
     javsvm::jvalue val { .l = to_object(is), };
     in->set_static(val);
-
-    // todo: 我们要同步到 stdin 吗 ?
 }
 
 
@@ -172,8 +173,6 @@ Java_java_lang_System_setOut0
 
     javsvm::jvalue val { .l = to_object(ps), };
     out->set_static(val);
-
-    // todo: 我们要同步到 stdout 吗 ?
 }
 
 
@@ -192,8 +191,6 @@ Java_java_lang_System_setErr0
 
     javsvm::jvalue val { .l = to_object(ps), };
     err->set_static(val);
-
-    // todo: 我们要同步到 stderr 吗 ?
 }
 
 
@@ -210,7 +207,6 @@ public:
         m_this(self)
     {
         auto klass = jni::GetObjectClass(env, self);
-
         _setProperty = jni::GetMethodID(env, klass,"setProperty",
                                         "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;");
         assert(_setProperty != nullptr);
@@ -249,6 +245,7 @@ Java_java_lang_System_initProperties
     props.setProperty("path.separator", path_split);
     props.setProperty("file.separator", file_split);
     props.setProperty("line.separator", line_split);
+    props.setProperty("file.encoding", "UTF-8");
 
     return prop;
 }
