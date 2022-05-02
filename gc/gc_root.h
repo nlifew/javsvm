@@ -14,7 +14,7 @@ namespace javsvm
 struct gc_ref_base
 {
 protected:
-    jref m_ptr = nullptr;
+    volatile jref m_ptr = nullptr;
 public:
     explicit gc_ref_base(jref ref) noexcept:
         m_ptr(ref)
@@ -30,6 +30,8 @@ public:
     bool operator==(jref ref) const noexcept { return m_ptr == ref; }
 
     bool operator!=(jref ref) const noexcept { return m_ptr != ref; }
+
+    jref operator*() const noexcept { return m_ptr; }
 
     explicit operator bool() const noexcept { return m_ptr != nullptr; }
 
@@ -139,7 +141,7 @@ struct gc_root: public gc_ref_base
         ref_pool.remove(this);
     }
 
-    jref &original() noexcept { return m_ptr; /* return *this; */ }
+    jref &original() noexcept { return const_cast<jref&>(m_ptr); /* return *this; */ }
 
     [[nodiscard]]
     bool owner() const noexcept override { return true; }
