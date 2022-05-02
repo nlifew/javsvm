@@ -78,7 +78,7 @@ bool gc_thread::is_the_world_stopped() const noexcept
     }
 
     int blocked = m_blocked_threads_count;
-    int total = jvm::get().threads_count();
+    int total = jvm::get().all_threads(nullptr);
 
     assert(blocked <= total);
     return blocked == total;

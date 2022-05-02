@@ -13,20 +13,22 @@ class jvm;
 class jenv
 {
 private:
-    explicit jenv(jvm *vm) noexcept;
+    explicit jenv(jvm *vm, size_t stack_size) noexcept;
 
     friend class jvm;
-
-    /**
-     * 绑定的 java 层 Thread 对象
-     */
-    gc_root thread = nullptr;
 
 public:
     jvm& jvm;
 
     const int thread_id;
     jstack stack;
+
+    pthread_t tid;
+
+    /**
+     * 绑定的 java.lang.Thread 对象
+     */
+     jref thread;
 
     ~jenv() = default;
     jenv(const jenv &) = delete;

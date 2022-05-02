@@ -45,6 +45,7 @@ jint (JNICALL AttachCurrentThreadAsDaemon)(JavaVM *, void **penv, void *) {
     javsvm::jvm::attach_info at = {
             .is_daemon = true,
             .vm = nullptr,
+            .stack_size = 0,
     };
 
     auto &env = jvm.attach(&at);

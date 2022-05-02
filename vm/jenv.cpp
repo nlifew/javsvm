@@ -3,16 +3,20 @@
 //
 
 #include "jenv.h"
-#include "../jni/jni.h"
 #include <atomic>
+#include <pthread.h>
 
 using namespace javsvm;
 
 static std::atomic<int> thread_id_factory(0);
 
 
-jenv::jenv(javsvm::jvm *vm) noexcept:
+
+jenv::jenv(javsvm::jvm *vm, size_t stack_size) noexcept:
     jvm(*vm),
-    thread_id(thread_id_factory.fetch_add(1))
+    thread_id(thread_id_factory.fetch_add(1)),
+    tid(pthread_self()),
+    thread(nullptr),
+    stack(stack_size)
 {
 }
