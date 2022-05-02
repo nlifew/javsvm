@@ -118,20 +118,25 @@ void javsvm::throw_throwable(jref ref) noexcept
 
 jref javsvm::check_exception() noexcept
 {
-    // 栈回溯
     const auto &stack = jvm::get().env().stack;
+    auto frame = stack.top();
 
-    for (jstack_frame *frame = stack.top(); frame; frame = frame->next) {
-
-        // 如果是 native 栈，可以快速返回
-        if ((frame->method->access_flag & jclass_method::ACC_NATIVE) != 0) {
-            return frame->exp;
-        }
-
-        if (frame->exp != nullptr) {
-            return frame->exp;
-        }
+    if (frame == nullptr) {
+        return nullptr;
     }
+    // 对于 native 函数，只要返回暂存的 exp 即可
+    if ((frame->method->access_flag & jclass_method::ACC_NATIVE) != 0) {
+        return frame->exp;
+    }
+    // 执行到这里说明是个 java 栈。先检查 pc 有没有被修改过，没有修改过则说明没有异常
+    if (frame->pc < frame->method->entrance.code_func->code_length) {
+        return nullptr;
+    }
+    // 回溯，直到找到异常
+    for (jstack_frame *f = frame; f; f = f->next) {
+        if (f->exp != nullptr) return f->exp;
+    }
+    assert(0);
     return nullptr;
 }
 
