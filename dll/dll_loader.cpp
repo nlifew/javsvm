@@ -241,8 +241,10 @@ static inline void* find_symbol0(void *native_ptr, const char *symbol)
 void *dll_loader::find_symbol(const char *symbol, void *native_ptr)
 {
     // builtin jni methods
-    constexpr const char *PREFIX = "Java_java_";
-    if (strncmp(symbol, PREFIX, strlen(PREFIX)) == 0) {
+    constexpr const char *JAVA_PREFIX = "Java_java_";
+    constexpr const char *SUN_PREFIX = "Java_sun_";
+    if (strncmp(symbol, JAVA_PREFIX, strlen(JAVA_PREFIX)) == 0
+        || strncmp(symbol, SUN_PREFIX, strlen(SUN_PREFIX)) == 0) {
         const auto &it = m_builtin.find(symbol);
         if (it != m_builtin.end()) {
             return it->second;
