@@ -19,14 +19,14 @@ static void *find_entrance(jmethod *method)
     auto &loader = jvm::get().dll_loader;
 
     auto short_name = jni_short_name(method->clazz->name, method->name);
-    LOGI("find_entrance: try to use short name '%s'\n", short_name.c_str());
+    LOGD("find_entrance: try to use short name '%s'\n", short_name.c_str());
 
     auto ptr = loader.find_symbol(short_name.c_str());
     if (ptr != nullptr) {
         return ptr;
     }
     auto long_name = jni_long_name(method->clazz->name, method->name, method->sig);
-    LOGI("find_entrance: try to use long name '%s'\n", long_name.c_str());
+    LOGD("find_entrance: try to use long name '%s'\n", long_name.c_str());
 
     return loader.find_symbol(long_name.c_str());
 }
@@ -89,7 +89,7 @@ public:
         int padding = 0;
         if (! align8) {
             padding = align<sizeof(T)>(m_stack_size) - m_stack_size;
-            LOGI("push_integer: m_stack_index = %d, sizeof(T) = %lu, padding = %d\n",
+            LOGD("push_integer: m_stack_index = %d, sizeof(T) = %lu, padding = %d\n",
                  m_stack_size, sizeof(T), padding);
         }
 

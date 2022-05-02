@@ -64,7 +64,7 @@ jclass *bootstrap_loader::find_class(const char *name) noexcept
 
         auto it = m_classes.find(name_s);
         if (it != m_classes.end()) {
-            LOGI("class '%s' found in cache, return\n", name);
+            LOGD("class '%s' found in cache, return\n", name);
             return it->second;
         }
     }
@@ -81,7 +81,7 @@ static jclass_file* open_class_file(const char *dir, const char *name)
     s.append(dir).append("/").append(name).append(".class");
 
     if (access(s.c_str(), R_OK) != 0) {
-        LOGI("failed to open class file '%s'\n", s.c_str());
+        LOGD("failed to open class file '%s'\n", s.c_str());
         return nullptr;
     }
 
@@ -213,9 +213,9 @@ bool bootstrap_loader::is_primitive_type(const char *name) noexcept
 
 jclass* bootstrap_loader::load_class(const char *name) noexcept
 {
-    LOGI("load class '%s'...\n", name);
+    LOGD("load class '%s'...\n", name);
     if (strcmp(name, "sun/nio/cs/StandardCharsets$Aliases") == 0) {
-        LOGI("deubg");
+        LOGD("deubg");
     }
 
 //    // 规范 java 类名
@@ -227,7 +227,7 @@ jclass* bootstrap_loader::load_class(const char *name) noexcept
 
         auto it = m_classes.find(name_s);
         if (it != m_classes.end()) {
-            LOGI("class '%s' found in cache, return\n", name);
+            LOGD("class '%s' found in cache, return\n", name);
             return it->second;
         }
     }
@@ -236,7 +236,7 @@ jclass* bootstrap_loader::load_class(const char *name) noexcept
     {
         auto it = m_classes.find(name_s);
         if (it != m_classes.end()) {
-            LOGI("class '%s' found when double-check, return\n", name);
+            LOGD("class '%s' found when double-check, return\n", name);
             return it->second;
         }
     }
@@ -255,17 +255,17 @@ jclass* bootstrap_loader::load_class(const char *name) noexcept
     // 先寻找相应的 .class 文件，如果没找到，或者 .class 文件解析失败，返回 nullptr
     jclass_file *cls = find_class_file(name_s.c_str());
     if (cls == nullptr || (klass = prepare_class(cls)) == nullptr) {
-        LOGI("can't find class '%s'\n", name_s.c_str());
+        LOGD("can't find class '%s'\n", name_s.c_str());
         return nullptr;
     }
 
-    LOGI("class '%s' load success, store to map\n", name_s.c_str());
+    LOGD("class '%s' load success, store to map\n", name_s.c_str());
     m_classes[name] = klass;
 
     // 准备创建对应的 java 层对象
     new_class_object(klass);
 
-    LOGI("class '%s' load finish\n", name_s.c_str());
+    LOGD("class '%s' load finish\n", name_s.c_str());
     return klass;
 }
 
@@ -701,7 +701,7 @@ void bootstrap_loader::layout_static_fields(jclass *klass)
 
     // 8 字节对齐
     // size = ((size - 1) | 7) + 1;
-    klass->data = (char*) m_allocator.malloc_bytes(size);
+    klass->data = m_allocator.calloc_type<char>(size);
     memset(klass->data, 0, size);
 }
 
@@ -877,7 +877,7 @@ jref bootstrap_loader::new_class_object(jclass *klass)
      */
     if (m_has_full_object_class) { // [1]
         // 不用检查空指针，因为 java/lang/Object 初始化时会检查
-        LOGI("java/lang/Object is inited, new instance directly\n");
+        LOGD("java/lang/Object is inited, new instance directly\n");
         jref ref = java_lang_Class->new_instance(java_lang_Class_init, (jlong) klass);
         klass->object = ref;
         return ref;
@@ -887,7 +887,7 @@ jref bootstrap_loader::new_class_object(jclass *klass)
      */
     if (strcmp(klass->name, "java/lang/Object") != 0) { // [2]
         // 同样不需要检查空指针
-        LOGI("java/lang/Object is doing init, just place in queue\n");
+        LOGD("java/lang/Object is doing init, just place in queue\n");
         ((std::vector<jclass*> *) m_uninitialized_class_queue)->push_back(klass);
         return nullptr;
     }
@@ -895,7 +895,7 @@ jref bootstrap_loader::new_class_object(jclass *klass)
     // 先尝试加载下 java/lang/Class 类。在 Class 类加载的过程中，先尝试加载 java/lang/Object，命中缓存，直接返回；
     // 接下来就是 Class 实现的那些接口，比如 Type。Type 类去加载 Object 类，也是直接返回，然后尝试为 Type 类建立 java 层的 Class
     // 对象，命中分支 [2]，返回；最后是为 Class 类建立 java 层对象，同样命中 [2]，然后 Class 类返回。
-    LOGI("I'm java/lang/Object, init ...\n");
+    LOGD("I'm java/lang/Object, init ...\n");
 
     std::vector<jclass*> uninitialized_class_queue;
     uninitialized_class_queue.push_back(klass);
@@ -949,7 +949,7 @@ struct
 
 jclass* bootstrap_loader::create_primitive_type(const std::string &type) noexcept
 {
-    LOGI("create primitive type '%s'\n", type.c_str());
+    LOGD("create primitive type '%s'\n", type.c_str());
 
     char *name = m_allocator.calloc_type<char>(type.size() + 1);
     memcpy(name, type.c_str(), type.size() + 1);
@@ -963,14 +963,14 @@ jclass* bootstrap_loader::create_primitive_type(const std::string &type) noexcep
     m_classes[type] = klass;
 
     // 不为基本数据类型添加构造函数和类构造函数
-    LOGI("primitive type '%s' created\n", type.c_str());
+    LOGD("primitive type '%s' created\n", type.c_str());
     return klass;
 }
 
 jclass *bootstrap_loader::load_array_type(const std::string &name)
 {
     const char *type = name.c_str();
-    LOGI("loading array type '%s'\n", type);
+    LOGD("loading array type '%s'\n", type);
 
     // 数组要包裹的类型
     jclass *component_type = nullptr;
@@ -1008,7 +1008,7 @@ jclass *bootstrap_loader::load_array_type(const std::string &name)
         LOGE("failed to create component_type '%s' of array '%s'\n", type + index, type);
         exit(1);
     }
-    LOGI("the component type of array '%s' is '%s'\n", type, component_type->name);
+    LOGD("the component type of array '%s' is '%s'\n", type, component_type->name);
 
     class_holder.ensure_classes_loaded(this);
 
@@ -1017,10 +1017,10 @@ jclass *bootstrap_loader::load_array_type(const std::string &name)
         // 检查缓存，如果发现该数组类已经被加载过，忽略掉
         auto it = m_classes.find(type + i);
         if (it != m_classes.end()) {
-            LOGI("[%d/%lu]: type '%s' of array '%s' found in cache, continue\n", i + 1, index, type + i, type);
+            LOGD("[%d/%lu]: type '%s' of array '%s' found in cache, continue\n", i + 1, index, type + i, type);
             continue;
         }
-        LOGI("[%d/%lu]: create type '%s' of array '%s'\n", i + 1, index, type + i, type);
+        LOGD("[%d/%lu]: create type '%s' of array '%s'\n", i + 1, index, type + i, type);
         auto *klass = create_primitive_type(type + i);
         klass->super_class = class_holder.java_lang_Object;
         klass->component_type = component_type;
@@ -1047,7 +1047,7 @@ jclass *bootstrap_loader::load_array_type(const std::string &name)
         m_classes[type + i] = klass;
         component_type = klass;
     }
-    LOGI("load array type '%s' finish, result is '%s'\n", name.c_str(), component_type->name);
+    LOGD("load array type '%s' finish, result is '%s'\n", name.c_str(), component_type->name);
     return component_type;
 }
 
