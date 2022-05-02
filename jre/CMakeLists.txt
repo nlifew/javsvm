@@ -15,7 +15,10 @@ add_library(
         java/io/FileInputStream.cpp
         java/io/FileOutputStream.cpp
         java/lang/Object.cpp
+        java/lang/Class.cpp
         java/lang/String.cpp
         java/lang/System.cpp
+        java/lang/Float.cpp
+        java/lang/Thread.cpp
         sun/reflect/Reflection.cpp
 )
