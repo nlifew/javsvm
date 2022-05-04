@@ -78,6 +78,11 @@ lookup_exp_table(u4 pc, jref ref, jmethod *method)
 
 void javsvm::throw_throwable(jref ref) noexcept
 {
+    // 如果已经有异常了，不再处理
+    if (check_exception()) {
+        return;
+    }
+
     auto ptr = jheap::cast(ref);
     if (ptr == nullptr) {
         throw_exp("java/lang/NullPointerException", "throw_throwable");
