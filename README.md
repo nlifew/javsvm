@@ -7,14 +7,20 @@
 
 macos arm64
 目前打算支持 macos_arm64, macos_x64, linux_x64, windows_x64，
-但由于依赖汇编，目前只只吃了 macos_arm64。
+但由于依赖汇编，目前只支持了 macos_arm64。
 
 ### 编译环境 
 
-IDE 开发环境是 CLion，导入项目后执行任务 main 即可编译。
-运行时需要显式指定环境变量 CLASSPATH。
-
-NOTE: 这个 CLASSPATH 和传统 jre 的 CLASSPATH 不一样。
+IDE 开发环境是 CLion，导入项目后执行任务 main 即可编译。如果没有 CLion，则需要安装 CMake，
+然后按照下面的命令行编译。
+```shell
+git clone https://github.com/nlifew/javsvm.git
+cd javsvm
+mkdir cmake-build-release && cd cmake-build-release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
+```
+NOTE: 运行时需要显式指定环境变量 CLASSPATH。这个 CLASSPATH 和传统 jre 的 CLASSPATH 不一样。
 javsvm 相比 openjdk 的 jre 做了相当多的处理，因此要将 CLASSPATH
 指定为 `项目目录/jre/out`
 
