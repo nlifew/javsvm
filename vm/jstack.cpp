@@ -1,10 +1,13 @@
 
 
 #include <new>
+#include <cassert>
+
 #include "jstack.h"
 #include "jheap.h"
 #include "../object/jobject.h"
 #include "../object/jmethod.h"
+#include "../utils/arrays.h"
 
 using namespace javsvm;
 
@@ -132,4 +135,64 @@ int jni_stack_frame::reserve(int capacity) noexcept
     local_ref_table_capacity = capacity;
     stack->m_offset += need;
     return 0;
+}
+
+
+
+std::vector<stack_trace> jstack::dump() const noexcept
+{
+    std::vector<stack_trace> v;
+    for (auto f = m_top; f; f = f->next) {
+        stack_trace st = {
+                .source = "",
+                .klass = f->method->clazz->name,
+                .method = f->method->name,
+                .line_number = 0,
+                .pc = (int) f->pc,
+        };
+        {
+            auto class_file = f->method->clazz->class_file;
+            for (int i = 0, z = class_file->attribute_count; i < z; ++i) {
+                auto attr = class_file->attributes[i]->cast<jclass_attr_source_file>();
+                if (attr != nullptr) {
+                    auto index = attr->source_file_index;
+                    auto &constant_pool = class_file->constant_pool;
+                    st.source = (char *) constant_pool.cast<jclass_const_utf8>(index)->bytes;
+                    break;
+                }
+            }
+        }
+
+        if ((f->method->access_flag & jclass_method::ACC_NATIVE) == 0) {
+            jclass_attr_line_number *ln = nullptr;
+            auto code = f->method->entrance.code_func;
+            for (int i = 0, z = code->attribute_count; i < z; ++i) {
+                ln = code->attributes[i]->cast<jclass_attr_line_number>();
+                if (ln != nullptr) {
+                    break;
+                }
+            }
+            if (ln != nullptr) {
+                // 使用二分查找加速效率
+                // NOTE: javsvm 中的 pc 是 u4 类型，但 lineNumber 和 Exception 中的 pc
+                // 都是 u2 类型. 对于 javac，当 pc 超过 65536 时会拒绝编译
+                // 我们这里直接强转
+                u2 key = st.pc & 0xFFFF;
+                int index = arrays::bsearch(&key,
+                                            ln->line_number_table,
+                                            ln->line_number_table_length,
+                                            sizeof(jclass_attr_line_number::line_number_info),
+                                            [](const void *p, const void *q) -> int {
+                    auto pc = *(u2 *) p;
+                    auto &lni = *(jclass_attr_line_number::line_number_info *) q;
+                    return pc - lni.start_pc;
+                });
+                if (index < 0) index = - index - 2;
+                assert(index >= 0 && index < ln->line_number_table_length);
+                st.line_number = ln->line_number_table[index].line_number;
+            }
+        }
+        v.push_back(st);
+    }
+    return v;
 }

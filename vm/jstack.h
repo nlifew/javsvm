@@ -5,7 +5,7 @@
 
 #include "../utils/global.h"
 
-#include <type_traits>
+#include <vector>
 
 namespace javsvm
 {
@@ -263,8 +263,16 @@ struct jni_stack_frame: public jstack_frame
 };
 
 
+struct jclass;
 
-
+struct stack_trace
+{
+    const char *source = "";
+    const char *klass = "";
+    const char *method = "";
+    int line_number = 0;
+    int pc = 0;
+};
 
 
 class jstack
@@ -326,6 +334,8 @@ public:
 
     jstack_frame& push(jmethod *m) noexcept;
 
+    [[nodiscard]]
+    std::vector<stack_trace> dump() const noexcept;
 };
 }
 
